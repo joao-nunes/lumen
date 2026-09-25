@@ -1,0 +1,204 @@
+# ============================================================
+
+# Python
+
+# ============================================================
+
+**pycache**/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+
+.venv/
+venv/
+env/
+ENV/
+
+# Python packaging
+
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+MANIFEST
+
+# Test / coverage
+
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.pyre/
+.ruff_cache/
+
+# ============================================================
+
+# Environment & Secrets
+
+# ============================================================
+
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+secrets/
+credentials/
+
+# ============================================================
+
+# IDEs / Editors
+
+# ============================================================
+
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# ============================================================
+
+# Logs
+
+# ============================================================
+
+*.log
+logs/
+
+# ============================================================
+
+# Local application data
+
+# ============================================================
+
+# User-generated / personal data
+
+data/
+data/raw/
+data/processed/
+user_data/
+personal_data/
+local_data/
+
+# Local databases
+
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================================
+
+# AI / ML artifacts
+
+# ============================================================
+
+models/
+checkpoints/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+
+# Embeddings / vector stores
+
+vectorstore/
+vectorstores/
+embeddings/
+*.faiss
+*.index
+
+# ============================================================
+
+# Jupyter
+
+# ============================================================
+
+.ipynb_checkpoints/
+
+# ============================================================
+
+# Experiment outputs
+
+# ============================================================
+
+experiments/
+runs/
+outputs/
+results/
+
+# ============================================================
+
+# Temporary files
+
+# ============================================================
+
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ============================================================
+
+# OS
+
+# ============================================================
+
+.DS_Store
+Thumbs.db
+
+# ============================================================
+
+# Docker
+
+# ============================================================
+
+.docker/
+docker-data/
+
+# ============================================================
+
+# Node / frontend (if applicable)
+
+# ============================================================
+
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Build outputs
+
+dist/
+build/
+
+# ============================================================
+
+# Project-specific
+
+# ============================================================
+
+# Local configuration
+
+config.local.*
+settings.local.*
+
+# Local development databases / caches
+
+.cache/
+.cache/
+
+# Generated documentation
+
+docs/_build/
+
