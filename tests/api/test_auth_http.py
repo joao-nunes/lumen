@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Annotated
 
-import httpx
+import httpx2
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select
@@ -26,11 +26,11 @@ NEW_PASSWORD = "purple elephant dancing slowly"
 NewClient = Callable[[], TestClient]
 
 
-def register(client: TestClient, email: str = EMAIL, password: str = PASSWORD) -> httpx.Response:
+def register(client: TestClient, email: str = EMAIL, password: str = PASSWORD) -> httpx2.Response:
     return client.post("/api/auth/register", json={"email": email, "password": password})
 
 
-def login(client: TestClient, email: str = EMAIL, password: str = PASSWORD) -> httpx.Response:
+def login(client: TestClient, email: str = EMAIL, password: str = PASSWORD) -> httpx2.Response:
     return client.post("/api/auth/login", json={"email": email, "password": password})
 
 
@@ -38,18 +38,18 @@ def csrf(client: TestClient) -> dict[str, str]:
     return {"X-CSRF-Token": client.cookies.get(CSRF) or ""}
 
 
-def error_code(response: httpx.Response) -> tuple[int, str]:
+def error_code(response: httpx2.Response) -> tuple[int, str]:
     return response.status_code, response.json()["error"]["code"]
 
 
-def set_cookies(response: httpx.Response) -> dict[str, str]:
-    """Raw Set-Cookie headers by cookie name, to check attributes."""
-    return {h.split("=", 1)[0]: h for h in response.headers.get_list("set-cookie")}
+def set_cookies(response: httpx2.Response) -> dict[str, str]:
+    """Raw Set-Cookie headers by cookie name, lowercased: attributes are case-insensitive."""
+    return {h.split("=", 1)[0]: h.lower() for h in response.headers.get_list("set-cookie")}
 
 
 def cleared(header: str) -> bool:
     # Deletion must keep Secure and Path=/, or browsers ignore it for __Host- cookies.
-    return all(part in header for part in ("Max-Age=0", "Secure", "Path=/"))
+    return all(part in header for part in ("max-age=0", "secure", "path=/"))
 
 
 def registered_user(new_client: NewClient) -> uuid.UUID:
@@ -82,12 +82,12 @@ def test_ac3_login_sets_hardened_cookies_and_identifies_the_user(new_client: New
     assert response.status_code == 204
     cookies = set_cookies(response)
     session, csrf_cookie = cookies[SESSION], cookies[CSRF]
-    for attribute in ("HttpOnly", "Secure", "SameSite=Strict", "Path=/", "Max-Age=604800"):
+    for attribute in ("httponly", "secure", "samesite=strict", "path=/", "max-age=604800"):
         assert attribute in session
-    for attribute in ("Secure", "SameSite=Strict", "Path=/"):
+    for attribute in ("secure", "samesite=strict", "path=/"):
         assert attribute in csrf_cookie
-    assert "HttpOnly" not in csrf_cookie  # the frontend must read it
-    assert "Domain" not in session + csrf_cookie
+    assert "httponly" not in csrf_cookie  # the frontend must read it
+    assert "domain" not in session + csrf_cookie
     assert client.get("/api/auth/me").json() == {"user_id": str(user_id), "email": EMAIL}
 
 
