@@ -10,6 +10,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -18,7 +19,7 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from lumen.db.models import Base
@@ -83,3 +84,23 @@ class AuthSession(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class LoginAttempt(Base):
+    """One login attempt, for rate limiting (spec 001 §2.5).
+
+    Keyed by the email as typed, whether or not an account exists, so a
+    lockout reveals nothing about which emails are registered. No IP
+    addresses are stored.
+    """
+
+    __tablename__ = "login_attempts"
+    __table_args__ = (
+        Index("ix_login_attempts_email_attempted_at", "email", "attempted_at"),
+        {"schema": AUTH_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(CITEXT)
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    succeeded: Mapped[bool] = mapped_column(Boolean)

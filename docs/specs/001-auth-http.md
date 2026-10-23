@@ -53,7 +53,7 @@ Expose authentication over HTTP so the future React frontend can register, log i
 - **A successful login resets the count:** only failures after the last success count.
 - **Failed attempts are recorded even though the request fails,** in their own transaction.
 - **Known trade-off:** anyone can lock an email out for 15 minutes. That's acceptable for a local personal app.
-- `purge_expired` also deletes attempts older than the window.
+- Purging old attempts is deferred to the scheduler milestone (see §5).
 
 ### 2.6 Errors
 Errors use one JSON shape: `{"error": {"code": "<code>", "message": "<human text>"}}`.
@@ -112,3 +112,14 @@ Each criterion becomes an HTTP-level test (FastAPI `TestClient` against the real
 | Q3 | Lockout thresholds | **5 failures in 15 minutes** |
 | Q4 | Dev origins | **Yes:** `http://localhost:5173` plus the API's own origin |
 | Q5 | Should `/me` return the email? | **Yes** |
+
+## 5. Added during implementation (for review)
+
+These came up while implementing and weren't covered above. They're recorded here rather than left as silent defaults in code.
+
+| # | Addition | Reason |
+|---|---|---|
+| I1 | Request bodies cap `password` fields at 1,024 characters and `email` at 320. | Argon2 must hash whatever arrives; without a cap, megabyte-sized "passwords" would let one request burn CPU. The password policy still caps real passwords at 256. |
+| I2 | A malformed body (missing or wrongly typed fields) gives `422 invalid_request`. | Completes the §2.6 error table, so every failure uses the same JSON shape. |
+| I3 | `Retry-After` is rounded **up** to whole seconds, with a minimum of 1. | The header takes whole seconds. Rounding down would invite a retry just before the lockout ends. |
+| I4 | Purging old login attempts is **deferred** to the scheduler milestone, instead of being added to `purge_expired` now. | A purge that deleted too much would end lockouts early. It deserves its own tested implementation when the scheduler exists. |
