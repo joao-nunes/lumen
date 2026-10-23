@@ -18,8 +18,8 @@ from lumen.domain.checkin import Checkin
 from lumen.domain.observation import Observation
 
 
-def create_user(session: Session) -> uuid.UUID:
-    user = models.User()
+def create_user(session: Session, email: str) -> uuid.UUID:
+    user = models.User(email=email)
     session.add(user)
     session.flush()
     return user.id

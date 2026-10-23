@@ -5,6 +5,7 @@ Usage:
 """
 
 import argparse
+import uuid
 from datetime import date, timedelta
 
 from lumen.db.repository import create_user, save_checkin
@@ -31,11 +32,13 @@ def main() -> None:
 
     session_factory = make_session_factory(make_engine())
     with session_factory.begin() as session:
-        user_id = create_user(session)
+        # Synthetic users get addresses on the reserved .invalid TLD (RFC 2606).
+        email = f"{args.persona}-{uuid.uuid4().hex[:8]}@example.invalid"
+        user_id = create_user(session, email)
         for checkin in checkins:
             save_checkin(session, user_id, checkin)
 
-    print(f"Created user {user_id} with {len(checkins)} check-ins ({start} to {end}).")
+    print(f"Created user {user_id} <{email}> with {len(checkins)} check-ins ({start} to {end}).")
 
 
 if __name__ == "__main__":

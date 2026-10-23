@@ -479,6 +479,8 @@ Responsible for:
 * Authorization: every request is scoped to the authenticated user.
 * Per-user data isolation, enforced in the database (PostgreSQL Row-Level Security) as well as the application layer.
 
+Auth tables live in a separate `auth` Postgres schema, so the application role can be denied direct access to them and given only narrowly scoped functions. Defaults: login by email (case-insensitive), 12-hour idle and 7-day absolute session timeouts, sessions deleted on logout.
+
 The auth module must have its own security-focused test suite.
 
 LLMs should not authenticate users.
@@ -586,8 +588,9 @@ Example (mood, wording to be refined):
 
 ```text
 PostgreSQL
-├── users
-├── auth_sessions
+├── users                    (id, email citext unique)
+├── auth.password_credentials (user, argon2id PHC string)
+├── auth.sessions             (sha256(token), user, created/last_seen/expires)
 ├── checkins                 (user, timestamp, mode, source_text_ref)
 ├── checkin_scores           (checkin, dimension, value)
 ├── tags / checkin_tags
