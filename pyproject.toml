@@ -35,12 +35,11 @@ ignore = []
 "tests/**" = ["S101", "S105", "S106"]  # asserts and deliberate fake passwords
 "migrations/**" = ["N999"]
 
-[tool.mypy]
-python_version = "3.12"
-strict = true
-plugins = ["pydantic.mypy"]
-packages = ["lumen"]
-mypy_path = "src"
+[tool.ty.environment]
+python-version = "3.12"
+
+[tool.ty.src]
+include = ["src", "tests", "migrations"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -51,12 +50,12 @@ markers = [
 
 [dependency-groups]
 dev = [
-    "mypy>=2.4.0",
     "pre-commit>=4.7.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
     "ruff>=0.17.2",
     "scipy-stubs>=1.18.1.1",
+    "ty==0.0.91",
 ]
 
 [tool.coverage.run]

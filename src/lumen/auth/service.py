@@ -10,7 +10,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import ColumnElement, delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -58,6 +58,17 @@ def normalize_email(email: str) -> str:
     if not sep or not local or not domain or "@" in domain or len(email) > MAX_EMAIL_LENGTH:
         raise InvalidEmailError("Invalid email address")
     return email
+
+
+def _delete_sessions(db: Session, condition: ColumnElement[bool]) -> int:
+    """Delete matching sessions and return how many were removed.
+
+    RETURNING gives a typed row count, unlike Result.rowcount, which is only
+    present on the DML-specific CursorResult.
+    """
+    return len(
+        db.scalars(delete(AuthSession).where(condition).returning(AuthSession.token_hash)).all()
+    )
 
 
 def _require_aware(now: datetime) -> None:
@@ -173,21 +184,18 @@ class AuthService:
         return self._issue(db, user_id, now)
 
     def revoke_all_sessions(self, db: Session, user_id: uuid.UUID) -> int:
-        result = db.execute(delete(AuthSession).where(AuthSession.user_id == user_id))
-        return int(result.rowcount)  # type: ignore[attr-defined]
+        return _delete_sessions(db, AuthSession.user_id == user_id)
 
     def purge_expired(self, db: Session, now: datetime) -> int:
         """Delete sessions past either timeout. Intended for a scheduled job."""
         _require_aware(now)
-        result = db.execute(
-            delete(AuthSession).where(
-                or_(
-                    AuthSession.expires_at <= now,
-                    AuthSession.last_seen_at <= now - self.policy.idle_timeout,
-                )
-            )
+        return _delete_sessions(
+            db,
+            or_(
+                AuthSession.expires_at <= now,
+                AuthSession.last_seen_at <= now - self.policy.idle_timeout,
+            ),
         )
-        return int(result.rowcount)  # type: ignore[attr-defined]
 
     def _issue(self, db: Session, user_id: uuid.UUID, now: datetime) -> IssuedSession:
         token = new_token()

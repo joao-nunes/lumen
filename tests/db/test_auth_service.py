@@ -2,6 +2,7 @@
 
 import statistics
 import time
+import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -33,7 +34,7 @@ def auth(passwords: Passwords) -> AuthService:
 
 
 @pytest.fixture
-def user_id(auth: AuthService, session: Session) -> object:
+def user_id(auth: AuthService, session: Session) -> uuid.UUID:
     return auth.register(session, EMAIL, PASSWORD)
 
 
@@ -71,7 +72,7 @@ def test_register_rejects_weak_password_or_invalid_email_without_creating_a_user
 
 
 def test_every_login_issues_a_new_session_and_email_case_is_ignored(
-    auth: AuthService, session: Session, user_id: object
+    auth: AuthService, session: Session, user_id: uuid.UUID
 ) -> None:
     first = auth.login(session, "  JOAO@Example.COM ", PASSWORD, T0)
     second = auth.login(session, EMAIL, PASSWORD, T0)
@@ -88,7 +89,7 @@ def test_every_login_issues_a_new_session_and_email_case_is_ignored(
     [(EMAIL, "wrong password entirely"), ("nobody@example.com", PASSWORD), ("bad", PASSWORD)],
 )
 def test_failed_logins_give_the_same_generic_error_and_no_session(
-    auth: AuthService, session: Session, user_id: object, email: str, password: str
+    auth: AuthService, session: Session, user_id: uuid.UUID, email: str, password: str
 ) -> None:
     with pytest.raises(InvalidCredentialsError, match=r"^Invalid email or password$"):
         auth.login(session, email, password, T0)
@@ -143,7 +144,7 @@ def test_login_upgrades_outdated_hash_without_marking_a_password_change(
 
 
 def test_idle_timeout_expires_and_deletes_unused_sessions(
-    auth: AuthService, session: Session, user_id: object
+    auth: AuthService, session: Session, user_id: uuid.UUID
 ) -> None:
     token = auth.login(session, EMAIL, PASSWORD, T0).token
     assert auth.resolve(session, token, T0 + timedelta(hours=11, minutes=59)) == user_id
@@ -154,7 +155,7 @@ def test_idle_timeout_expires_and_deletes_unused_sessions(
 
 
 def test_absolute_timeout_applies_even_to_active_sessions(
-    auth: AuthService, session: Session, user_id: object
+    auth: AuthService, session: Session, user_id: uuid.UUID
 ) -> None:
     token = auth.login(session, EMAIL, PASSWORD, T0).token
     t = T0
@@ -165,7 +166,7 @@ def test_absolute_timeout_applies_even_to_active_sessions(
 
 
 def test_last_seen_is_only_written_after_the_touch_interval(
-    auth: AuthService, session: Session, user_id: object
+    auth: AuthService, session: Session, user_id: uuid.UUID
 ) -> None:
     token = auth.login(session, EMAIL, PASSWORD, T0).token
     stored = session.get(AuthSession, hash_token(token))
@@ -177,7 +178,7 @@ def test_last_seen_is_only_written_after_the_touch_interval(
 
 
 def test_purge_removes_idle_and_absolute_expired_sessions_only(
-    auth: AuthService, session: Session, user_id: object
+    auth: AuthService, session: Session, user_id: uuid.UUID
 ) -> None:
     idle = auth.login(session, EMAIL, PASSWORD, T0).token
     active = auth.login(session, EMAIL, PASSWORD, T0).token
@@ -199,7 +200,7 @@ def test_purge_removes_idle_and_absolute_expired_sessions_only(
 
 
 def test_logout_ends_only_that_session(
-    auth: AuthService, session: Session, user_id: object
+    auth: AuthService, session: Session, user_id: uuid.UUID
 ) -> None:
     laptop = auth.login(session, EMAIL, PASSWORD, T0).token
     desktop = auth.login(session, EMAIL, PASSWORD, T0).token
@@ -211,11 +212,11 @@ def test_logout_ends_only_that_session(
 
 
 def test_change_password_ends_all_sessions_and_issues_a_new_one(
-    auth: AuthService, session: Session, user_id: object
+    auth: AuthService, session: Session, user_id: uuid.UUID
 ) -> None:
     old_sessions = [auth.login(session, EMAIL, PASSWORD, T0).token for _ in range(2)]
     later = T0 + timedelta(hours=1)
-    issued = auth.change_password(session, user_id, PASSWORD, NEW_PASSWORD, later)  # type: ignore[arg-type]
+    issued = auth.change_password(session, user_id, PASSWORD, NEW_PASSWORD, later)
 
     assert [auth.resolve(session, t, later) for t in old_sessions] == [None, None]
     assert auth.resolve(session, issued.token, later) == user_id
@@ -237,12 +238,12 @@ def test_change_password_ends_all_sessions_and_issues_a_new_one(
 def test_rejected_password_change_revokes_nothing(
     auth: AuthService,
     session: Session,
-    user_id: object,
+    user_id: uuid.UUID,
     current: str,
     new: str,
     error: type[Exception],
 ) -> None:
     token = auth.login(session, EMAIL, PASSWORD, T0).token
     with pytest.raises(error):
-        auth.change_password(session, user_id, current, new, T0)  # type: ignore[arg-type]
+        auth.change_password(session, user_id, current, new, T0)
     assert auth.resolve(session, token, T0) == user_id
