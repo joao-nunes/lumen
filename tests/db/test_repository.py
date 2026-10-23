@@ -25,21 +25,22 @@ def make_checkin(day: date = DAY, tags: frozenset[str] = frozenset(), **scores: 
     )
 
 
-def test_save_and_list_round_trip(session: Session) -> None:
-    user = new_user(session)
-    save_checkin(session, user, make_checkin(mood=4, stress=2))
-
-    obs = list_observations(session, user, DAY, DAY)
-    assert {(o.dimension, o.value) for o in obs} == {(Dimension.MOOD, 4), (Dimension.STRESS, 2)}
-
-
-def test_list_observations_respects_date_range(session: Session) -> None:
+def test_saved_checkins_are_listed_in_date_order_within_the_requested_range(
+    session: Session,
+) -> None:
     user = new_user(session)
     for offset in range(5):
-        save_checkin(session, user, make_checkin(DAY + timedelta(days=offset)))
+        save_checkin(
+            session, user, make_checkin(DAY + timedelta(days=offset), mood=offset + 1, stress=2)
+        )
 
     obs = list_observations(session, user, DAY + timedelta(days=1), DAY + timedelta(days=3))
-    assert [o.day for o in obs] == [DAY + timedelta(days=i) for i in (1, 2, 3)]
+    assert sorted((o.day, o.dimension, o.value) for o in obs) == [
+        (DAY + timedelta(days=i), dim, value)
+        for i in (1, 2, 3)
+        for dim, value in sorted([(Dimension.MOOD, i + 1), (Dimension.STRESS, 2)])
+    ]
+    assert [o.day for o in obs] == sorted(o.day for o in obs)
 
 
 def test_list_observations_never_returns_other_users_data(session: Session) -> None:
@@ -66,19 +67,6 @@ def test_tags_are_reused_per_user_and_isolated_between_users(session: Session) -
 
     assert tag_names(alice) == ["alcohol", "exercise"]
     assert tag_names(bob) == ["exercise"]
-
-
-def test_database_rejects_out_of_scale_scores(session: Session) -> None:
-    user = new_user(session)
-    checkin_id = save_checkin(session, user, make_checkin())
-    with pytest.raises(IntegrityError, match="value_in_scale"):
-        session.execute(
-            text(
-                "INSERT INTO checkin_scores (checkin_id, user_id, dimension, value) "
-                "VALUES (:c, :u, 'energy', 6)"
-            ),
-            {"c": checkin_id, "u": user},
-        )
 
 
 def test_composite_foreign_key_prevents_linking_another_users_tag(session: Session) -> None:

@@ -39,5 +39,16 @@ def test_dimensions_without_data_are_reported_as_unknown() -> None:
     summaries = summarize_all(daily(Dimension.STRESS, np.full(56, 3.0)), END)
     assert set(summaries) == set(Dimension)
     mood = summaries[Dimension.MOOD]
-    assert mood.change_outlook is mood.trend_outlook is Outlook.UNKNOWN
-    assert mood.change_coverage.days_with_data == 0
+    assert (
+        mood.change.direction,
+        mood.trend.direction,
+        mood.change_outlook,
+        mood.trend_outlook,
+        mood.change_coverage.days_with_data,
+    ) == (
+        Direction.INSUFFICIENT_DATA,
+        Direction.INSUFFICIENT_DATA,
+        Outlook.UNKNOWN,
+        Outlook.UNKNOWN,
+        0,
+    )

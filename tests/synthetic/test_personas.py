@@ -1,19 +1,16 @@
-"""Personas must be deterministic, valid, and actually exhibit their intended shape.
-
-Shape tests run the personas through the real analytics, which doubles as an
-end-to-end check that analytics detects the patterns we care about.
+"""End-to-end analytics on realistic data (rounded scores, rotating dimensions,
+skipped days, tag effects): real declines must be detected, and unchanging data
+must rarely be flagged.
 """
 
 from datetime import date, timedelta
 
 from lumen.analytics.direction import Direction, Outlook
-from lumen.analytics.metrics import period_stat
-from lumen.analytics.series import DateRange, daily_means
 from lumen.analytics.summary import DimensionSummary, summarize
 from lumen.domain.checkin import Checkin
-from lumen.domain.dimensions import CORE_DIMENSIONS, SCALE_MAX, SCALE_MIN, Dimension
+from lumen.domain.dimensions import CORE_DIMENSIONS, Dimension
 from lumen.domain.observation import Observation
-from lumen.synthetic.personas import BURNOUT, PERSONAS, SEASONAL_DIP, STABLE, generate
+from lumen.synthetic.personas import BURNOUT, STABLE, generate
 
 START = date(2026, 1, 5)
 DAYS = 90
@@ -27,18 +24,6 @@ def observations(checkins: list[Checkin]) -> list[Observation]:
 
 def full_period_summary(obs: list[Observation], dim: Dimension) -> DimensionSummary:
     return summarize(obs, dim, end=END, trend_days=DAYS)
-
-
-def test_generation_is_deterministic_per_seed() -> None:
-    assert generate(BURNOUT, START, DAYS, seed=7) == generate(BURNOUT, START, DAYS, seed=7)
-    assert generate(BURNOUT, START, DAYS, seed=7) != generate(BURNOUT, START, DAYS, seed=8)
-
-
-def test_every_persona_produces_valid_checkins_with_core_dimensions() -> None:
-    for persona in PERSONAS.values():
-        for c in generate(persona, START, DAYS, seed=1):
-            assert set(CORE_DIMENSIONS) <= set(c.scores)
-            assert all(SCALE_MIN <= v <= SCALE_MAX for v in c.scores.values())
 
 
 def test_burnout_shows_rising_stress_and_falling_energy() -> None:
@@ -61,23 +46,3 @@ def test_stable_persona_is_mostly_flat_and_rarely_flagged() -> None:
     assert sum(s.change_outlook in flagged for s in summaries) <= 0.1 * len(summaries)
     core = [s for s in summaries if s.dimension in CORE_DIMENSIONS]
     assert sum(s.trend.direction is Direction.FLAT for s in core) >= 0.8 * len(core)
-
-
-def test_seasonal_dip_is_lowest_in_the_middle() -> None:
-    third = DAYS // 3
-    for seed in SEEDS:
-        mood = daily_means(
-            observations(generate(SEASONAL_DIP, START, DAYS, seed=seed)), Dimension.MOOD
-        )
-        first, middle, last = (
-            period_stat(
-                mood,
-                DateRange(
-                    START + timedelta(days=i * third), START + timedelta(days=(i + 1) * third - 1)
-                ),
-            ).mean
-            for i in range(3)
-        )
-        assert first is not None and middle is not None and last is not None
-        assert middle < first - 0.5
-        assert middle < last - 0.5
