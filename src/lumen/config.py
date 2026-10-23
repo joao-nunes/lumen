@@ -1,6 +1,7 @@
 from datetime import timedelta
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,6 +23,11 @@ class Settings(BaseSettings):
     session_idle_timeout: timedelta = timedelta(hours=12)
     session_absolute_timeout: timedelta = timedelta(days=7)
     session_touch_interval: timedelta = timedelta(minutes=5)
+
+    # HTTP layer (spec 001). SECRET_KEY has no default: the app refuses to start without it.
+    secret_key: SecretStr | None = None
+    allowed_origins: list[str] = ["http://localhost:5173"]
+    cookie_secure: bool = True
 
 
 @lru_cache
