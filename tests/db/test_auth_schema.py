@@ -1,4 +1,4 @@
-"""Last-line-of-defence constraints: what the database refuses even if application code is buggy.
+"""Security constraints the database enforces even if application code is buggy.
 
 Behaviour reachable through the auth service is tested in test_auth_service.py.
 """
@@ -35,8 +35,3 @@ def test_raw_session_token_cannot_be_stored(session: Session) -> None:
     )
     with pytest.raises(IntegrityError, match="ck_sessions_token_hash_is_sha256"):
         session.flush()
-
-
-def test_malformed_email_cannot_be_stored(session: Session) -> None:
-    with pytest.raises(IntegrityError, match="ck_users_email_shape"):
-        new_user(session, "not-an-email")

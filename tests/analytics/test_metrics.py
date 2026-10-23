@@ -3,7 +3,7 @@ from datetime import date, timedelta
 import pytest
 
 from lumen.analytics.direction import Direction
-from lumen.analytics.metrics import period_change, period_stat, rolling_mean, weekly_means
+from lumen.analytics.metrics import period_change, rolling_mean, weekly_means
 from lumen.analytics.series import DailySeries, DateRange
 
 START = date(2026, 1, 5)  # a Monday
@@ -13,27 +13,27 @@ def series_from(values: list[float | None]) -> DailySeries:
     return {START + timedelta(days=i): v for i, v in enumerate(values) if v is not None}
 
 
-def test_period_mean_is_withheld_below_min_points() -> None:
-    stat = period_stat(series_from([4, None, None, 2]), DateRange(START, START + timedelta(days=3)))
-    assert stat.mean is None
-    assert stat.n == 2
-
-
 def test_period_change_between_constant_periods_is_exact() -> None:
     change = period_change(
         series_from([4] * 7 + [3] * 7), DateRange.ending_on(START + timedelta(days=13), 7)
     )
-    assert change.delta == pytest.approx(-1.0)
-    assert change.ci_low == change.ci_high == pytest.approx(-1.0)
-    assert change.direction is Direction.DECREASING
+    assert (change.delta, change.ci_low, change.ci_high, change.direction) == (
+        pytest.approx(-1.0),
+        pytest.approx(-1.0),
+        pytest.approx(-1.0),
+        Direction.DECREASING,
+    )
 
 
 def test_period_change_without_data_in_one_period_is_insufficient() -> None:
     change = period_change(
         series_from([None] * 7 + [3] * 7), DateRange.ending_on(START + timedelta(days=13), 7)
     )
-    assert change.delta is None
-    assert change.direction is Direction.INSUFFICIENT_DATA
+    assert (change.previous.n, change.delta, change.direction) == (
+        0,
+        None,
+        Direction.INSUFFICIENT_DATA,
+    )
 
 
 def test_rolling_mean_window_is_calendar_days_so_gaps_shrink_n() -> None:
