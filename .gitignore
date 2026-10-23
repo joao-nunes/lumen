@@ -34,7 +34,6 @@ htmlcov/
 .tox/
 .nox/
 .mypy_cache/
-.ty_cache/
 .pyre/
 .ruff_cache/
 

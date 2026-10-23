@@ -17,7 +17,7 @@ uv run alembic upgrade head
 
 uv run pytest                       # unit + integration tests (integration skips if DB is down)
 uv run pytest -m "not integration"  # unit tests only
-uv run ruff check . && uv run ruff format --check . && uv run ty check
+uv run ruff check . && uv run ruff format --check . && uv run mypy
 
 # Seed the dev database with a synthetic persona (burnout | stable | seasonal_dip)
 uv run python -m lumen.synthetic.seed burnout --seed 42
@@ -27,7 +27,7 @@ uv run python -m lumen.synthetic.seed burnout --seed 42
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `master`:
 
-- **Lint, format, types:** all pre-commit hooks (ruff, ty, gitleaks, uv lock check, actionlint, file hygiene).
+- **Lint, format, types:** all pre-commit hooks (ruff, mypy, gitleaks, uv lock check, actionlint, file hygiene).
 - **Tests (PostgreSQL):**
   - applies migrations to a fresh pgvector database
   - runs `alembic check` to fail on models that changed without a migration

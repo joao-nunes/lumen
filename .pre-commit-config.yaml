@@ -36,13 +36,13 @@ repos:
       - id: ruff-format
         types_or: [python, pyi]
 
-  # ty runs from the project environment so it sees the real dependencies
-  # (SQLAlchemy, pydantic, scipy-stubs) and the version pinned in uv.lock.
+  # mypy runs from the project environment so it sees the real dependencies
+  # (SQLAlchemy, pydantic plugin, scipy-stubs) rather than an isolated copy.
   - repo: local
     hooks:
-      - id: ty
-        name: ty
-        entry: uv run ty check
+      - id: mypy
+        name: mypy
+        entry: uv run mypy
         language: system
         types: [python]
         pass_filenames: false
