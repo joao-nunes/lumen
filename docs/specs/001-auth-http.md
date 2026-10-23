@@ -1,6 +1,6 @@
 # Spec 001: Auth HTTP layer
 
-**Status:** Approved (decisions in §4)
+**Status:** Approved (decisions in §4, implementation additions in §5)
 **Milestone:** 1, closes it
 **Builds on:** `AuthService` (`lumen.auth.service`), database roles and RLS (`lumen.db.scope`)
 
@@ -113,9 +113,9 @@ Each criterion becomes an HTTP-level test (FastAPI `TestClient` against the real
 | Q4 | Dev origins | **Yes:** `http://localhost:5173` plus the API's own origin |
 | Q5 | Should `/me` return the email? | **Yes** |
 
-## 5. Added during implementation (for review)
+## 5. Added during implementation (approved)
 
-These came up while implementing and weren't covered above. They're recorded here rather than left as silent defaults in code.
+These came up while implementing and weren't covered above. They're recorded here rather than left as silent defaults in code. The owner approved them with PR #11.
 
 | # | Addition | Reason |
 |---|---|---|
