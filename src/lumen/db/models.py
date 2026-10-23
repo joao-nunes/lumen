@@ -24,7 +24,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from lumen.domain.checkin import CheckinMode
@@ -50,11 +50,19 @@ def _enum(enum_cls: type[Dimension] | type[CheckinMode], name: str) -> Enum:
 
 
 class User(Base):
-    """Minimal user identity. Credentials and sessions are added by the auth module."""
+    """User identity. Credentials and sessions live in the `auth` schema (lumen.auth.models)."""
 
     __tablename__ = "users"
+    __table_args__ = (
+        # Shape check only; real validation happens in the application layer.
+        CheckConstraint("email LIKE '%_@_%'", name="email_shape"),
+        CheckConstraint("char_length(email) <= 254", name="email_length"),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    # citext: case-insensitive comparisons, so uniqueness and lookups can't be
+    # defeated by capitalisation.
+    email: Mapped[str] = mapped_column(CITEXT, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

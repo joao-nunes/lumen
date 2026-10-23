@@ -7,10 +7,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from lumen.db import models
-from lumen.db.repository import create_user, list_observations, save_checkin
+from lumen.db.repository import list_observations, save_checkin
 from lumen.domain.checkin import Checkin
 from lumen.domain.dimensions import Dimension
 from lumen.synthetic.personas import BURNOUT, generate
+from tests.db.factories import new_user
 
 DAY = date(2026, 10, 23)
 
@@ -25,7 +26,7 @@ def make_checkin(day: date = DAY, tags: frozenset[str] = frozenset(), **scores: 
 
 
 def test_save_and_list_round_trip(session: Session) -> None:
-    user = create_user(session)
+    user = new_user(session)
     save_checkin(session, user, make_checkin(mood=4, stress=2))
 
     obs = list_observations(session, user, DAY, DAY)
@@ -33,7 +34,7 @@ def test_save_and_list_round_trip(session: Session) -> None:
 
 
 def test_list_observations_respects_date_range(session: Session) -> None:
-    user = create_user(session)
+    user = new_user(session)
     for offset in range(5):
         save_checkin(session, user, make_checkin(DAY + timedelta(days=offset)))
 
@@ -42,7 +43,7 @@ def test_list_observations_respects_date_range(session: Session) -> None:
 
 
 def test_list_observations_never_returns_other_users_data(session: Session) -> None:
-    alice, bob = create_user(session), create_user(session)
+    alice, bob = new_user(session), new_user(session)
     save_checkin(session, alice, make_checkin(mood=5))
     save_checkin(session, bob, make_checkin(mood=1))
 
@@ -51,7 +52,7 @@ def test_list_observations_never_returns_other_users_data(session: Session) -> N
 
 
 def test_tags_are_reused_per_user_and_isolated_between_users(session: Session) -> None:
-    alice, bob = create_user(session), create_user(session)
+    alice, bob = new_user(session), new_user(session)
     save_checkin(session, alice, make_checkin(tags=frozenset({"exercise"})))
     save_checkin(session, alice, make_checkin(tags=frozenset({"exercise", "alcohol"})))
     save_checkin(session, bob, make_checkin(tags=frozenset({"exercise"})))
@@ -68,7 +69,7 @@ def test_tags_are_reused_per_user_and_isolated_between_users(session: Session) -
 
 
 def test_database_rejects_out_of_scale_scores(session: Session) -> None:
-    user = create_user(session)
+    user = new_user(session)
     checkin_id = save_checkin(session, user, make_checkin())
     with pytest.raises(IntegrityError, match="value_in_scale"):
         session.execute(
@@ -81,7 +82,7 @@ def test_database_rejects_out_of_scale_scores(session: Session) -> None:
 
 
 def test_composite_foreign_key_prevents_linking_another_users_tag(session: Session) -> None:
-    alice, bob = create_user(session), create_user(session)
+    alice, bob = new_user(session), new_user(session)
     alice_checkin = save_checkin(session, alice, make_checkin())
     save_checkin(session, bob, make_checkin(tags=frozenset({"exercise"})))
     bob_tag = session.scalar(select(models.Tag.id).where(models.Tag.user_id == bob))
@@ -94,7 +95,7 @@ def test_composite_foreign_key_prevents_linking_another_users_tag(session: Sessi
 
 
 def test_deleting_a_user_cascades_to_their_data(session: Session) -> None:
-    user = create_user(session)
+    user = new_user(session)
     save_checkin(session, user, make_checkin(tags=frozenset({"exercise"}), mood=3, energy=3))
     session.execute(text("DELETE FROM users WHERE id = :u"), {"u": user})
 
@@ -106,7 +107,7 @@ def test_deleting_a_user_cascades_to_their_data(session: Session) -> None:
 
 
 def test_persona_seeding_round_trips(session: Session) -> None:
-    user = create_user(session)
+    user = new_user(session)
     checkins = generate(BURNOUT, DAY, days=30, seed=3)
     for c in checkins:
         save_checkin(session, user, c)
