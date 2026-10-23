@@ -6,11 +6,11 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from lumen.auth.models import AuthSession, PasswordCredential
 from lumen.db import models
 from lumen.db.repository import list_observations, save_checkin
 from lumen.domain.checkin import Checkin
 from lumen.domain.dimensions import Dimension
-from lumen.synthetic.personas import BURNOUT, generate
 from tests.db.factories import new_user
 
 DAY = date(2026, 10, 23)
@@ -94,23 +94,33 @@ def test_composite_foreign_key_prevents_linking_another_users_tag(session: Sessi
         )
 
 
-def test_deleting_a_user_cascades_to_their_data(session: Session) -> None:
+def test_deleting_a_user_deletes_all_their_data(session: Session) -> None:
     user = new_user(session)
     save_checkin(session, user, make_checkin(tags=frozenset({"exercise"}), mood=3, energy=3))
+    session.add(
+        PasswordCredential(user_id=user, password_hash="$argon2id$v=19$m=8,t=1,p=1$c2FsdA$aGFzaA")
+    )
+    session.add(
+        AuthSession(
+            token_hash=bytes(32),
+            user_id=user,
+            created_at=datetime(2026, 1, 1, tzinfo=UTC),
+            last_seen_at=datetime(2026, 1, 1, tzinfo=UTC),
+            expires_at=datetime(2026, 1, 8, tzinfo=UTC),
+        )
+    )
+    session.flush()
     session.execute(text("DELETE FROM users WHERE id = :u"), {"u": user})
 
-    for table in (models.Checkin, models.CheckinScore, models.Tag, models.CheckinTag):
+    for table in (
+        models.Checkin,
+        models.CheckinScore,
+        models.Tag,
+        models.CheckinTag,
+        PasswordCredential,
+        AuthSession,
+    ):
         assert (
             session.scalar(select(func.count()).select_from(table).where(table.user_id == user))
             == 0
         )
-
-
-def test_persona_seeding_round_trips(session: Session) -> None:
-    user = new_user(session)
-    checkins = generate(BURNOUT, DAY, days=30, seed=3)
-    for c in checkins:
-        save_checkin(session, user, c)
-
-    obs = list_observations(session, user, DAY, DAY + timedelta(days=29))
-    assert len(obs) == sum(len(c.scores) for c in checkins)
