@@ -4,7 +4,7 @@
 
 # ============================================================
 
-**pycache**/
+__pycache__/
 *.py[cod]
 *$py.class
 *.so
@@ -49,8 +49,8 @@ htmlcov/
 
 *.pem
 *.key
-secrets/
-credentials/
+/secrets/
+/credentials/
 
 # ============================================================
 
@@ -71,7 +71,7 @@ credentials/
 # ============================================================
 
 *.log
-logs/
+/logs/
 
 # ============================================================
 
@@ -81,12 +81,12 @@ logs/
 
 # User-generated / personal data
 
-data/
-data/raw/
-data/processed/
-user_data/
-personal_data/
-local_data/
+/data/
+/data/raw/
+/data/processed/
+/user_data/
+/personal_data/
+/local_data/
 
 # Local databases
 
@@ -100,9 +100,9 @@ local_data/
 
 # ============================================================
 
-models/
-checkpoints/
-weights/
+/models/
+/checkpoints/
+/weights/
 *.pt
 *.pth
 *.ckpt
@@ -111,9 +111,9 @@ weights/
 
 # Embeddings / vector stores
 
-vectorstore/
-vectorstores/
-embeddings/
+/vectorstore/
+/vectorstores/
+/embeddings/
 *.faiss
 *.index
 
@@ -131,10 +131,10 @@ embeddings/
 
 # ============================================================
 
-experiments/
-runs/
-outputs/
-results/
+/experiments/
+/runs/
+/outputs/
+/results/
 
 # ============================================================
 
@@ -142,8 +142,8 @@ results/
 
 # ============================================================
 
-tmp/
-temp/
+/tmp/
+/temp/
 *.tmp
 *.bak
 
