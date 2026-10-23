@@ -51,7 +51,9 @@ jobs:
           --health-timeout 3s
           --health-retries 15
     env:
-      DATABASE_URL: postgresql+psycopg://lumen:lumen@localhost:5432/lumen
+      DATABASE_URL: postgresql+psycopg://lumen_app:lumen_app@localhost:5432/lumen
+      AUTH_DATABASE_URL: postgresql+psycopg://lumen_auth:lumen_auth@localhost:5432/lumen
+      ADMIN_DATABASE_URL: postgresql+psycopg://lumen:lumen@localhost:5432/lumen
       TEST_DATABASE_URL: postgresql+psycopg://lumen:lumen@localhost:5432/lumen_test
       LUMEN_REQUIRE_DB: "1"
     steps:
@@ -62,8 +64,10 @@ jobs:
           enable-cache: true
       - name: Install dependencies
         run: uv sync --locked
-      - name: Create test database
-        run: psql "postgresql://lumen:lumen@localhost:5432/lumen" -c "CREATE DATABASE lumen_test"
+      - name: Create test database and runtime roles
+        run: |
+          psql "postgresql://lumen:lumen@localhost:5432/lumen" -c "CREATE DATABASE lumen_test"
+          psql "postgresql://lumen:lumen@localhost:5432/lumen" -f docker/postgres/init/02-app-roles.sql
       - name: Apply migrations
         run: uv run alembic upgrade head
       - name: Check models and migrations are in sync

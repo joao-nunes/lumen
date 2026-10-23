@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 from lumen.auth.models import AuthSession, PasswordCredential
 from lumen.db import models
 from lumen.db.repository import list_observations, save_checkin
+from lumen.db.scope import scope_to_user
 from lumen.domain.checkin import Checkin
 from lumen.domain.dimensions import Dimension
 from tests.db.factories import new_user
+from tests.db.roles import APP, act_as, act_as_owner
 
 DAY = date(2026, 10, 23)
 
@@ -29,6 +31,7 @@ def test_saved_checkins_are_listed_in_date_order_within_the_requested_range(
     session: Session,
 ) -> None:
     user = new_user(session)
+    act_as(session, APP, user)
     for offset in range(5):
         save_checkin(
             session, user, make_checkin(DAY + timedelta(days=offset), mood=offset + 1, stress=2)
@@ -43,7 +46,9 @@ def test_saved_checkins_are_listed_in_date_order_within_the_requested_range(
     assert [o.day for o in obs] == sorted(o.day for o in obs)
 
 
-def test_list_observations_never_returns_other_users_data(session: Session) -> None:
+def test_list_observations_filters_by_user_even_without_rls(session: Session) -> None:
+    # Runs as the owner, which bypasses RLS, to check the repository's own
+    # filter: the second line of defence if a policy were ever misconfigured.
     alice, bob = new_user(session), new_user(session)
     save_checkin(session, alice, make_checkin(mood=5))
     save_checkin(session, bob, make_checkin(mood=1))
@@ -54,9 +59,12 @@ def test_list_observations_never_returns_other_users_data(session: Session) -> N
 
 def test_tags_are_reused_per_user_and_isolated_between_users(session: Session) -> None:
     alice, bob = new_user(session), new_user(session)
+    act_as(session, APP, alice)
     save_checkin(session, alice, make_checkin(tags=frozenset({"exercise"})))
     save_checkin(session, alice, make_checkin(tags=frozenset({"exercise", "alcohol"})))
+    scope_to_user(session, bob)
     save_checkin(session, bob, make_checkin(tags=frozenset({"exercise"})))
+    act_as_owner(session)
 
     def tag_names(user: uuid.UUID) -> list[str]:
         return list(

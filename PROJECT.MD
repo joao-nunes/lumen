@@ -479,7 +479,15 @@ Responsible for:
 * Authorization: every request is scoped to the authenticated user.
 * Per-user data isolation, enforced in the database (PostgreSQL Row-Level Security) as well as the application layer.
 
-Auth tables live in a separate `auth` Postgres schema, so the application role can be denied direct access to them and given only narrowly scoped functions. Defaults: login by email (case-insensitive), 12-hour idle and 7-day absolute session timeouts, sessions deleted on logout.
+Auth tables live in a separate `auth` Postgres schema. Each component connects with its own database role (least privilege):
+
+| Role | Used by | Access |
+|---|---|---|
+| `lumen` (owner) | migrations, dev tooling | everything (superuser; bypasses RLS) |
+| `lumen_auth` | `AuthService` | `users` (read, create) and `auth.*` |
+| `lumen_app` | everything else | user-data tables through row-level security; no access to `auth.*` |
+
+Row-level security (RLS) policies on every user-owned table restrict `lumen_app` to the current user's rows, for reads (`USING`) and writes (`WITH CHECK`). The current user is set per transaction with `set_config('lumen.user_id', …, is_local => true)` (`lumen.db.scope`), so it cannot leak to another request through a pooled connection. Repositories keep their own `user_id` filters as a second line of defence. RLS protects against application bugs (a forgotten filter), not a fully compromised application process, which is what declares the current user. A test fails if a table with a `user_id` column lacks RLS. Defaults: login by email (case-insensitive), 12-hour idle and 7-day absolute session timeouts, sessions deleted on logout.
 
 Password policy follows NIST SP 800-63B rev. 4: at least 15 characters, at most 256, no composition rules, NFKC-normalized Unicode, and no context words (app name, email local part). Hashing uses Argon2id with the RFC 9106 low-memory profile, upgraded transparently on login when parameters change. Login failures return one generic error, and unknown emails still spend a full hash verification so timing doesn't reveal which accounts exist. Every login issues a new session; changing the password revokes all sessions.
 

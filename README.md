@@ -12,7 +12,9 @@ Requirements: [uv](https://docs.astral.sh/uv/), Docker.
 cp .env.example .env
 uv sync
 uv run pre-commit install           # lint, format, type-check, and secret-scan on every commit
-docker compose up -d --wait db      # PostgreSQL 16 + pgvector (creates `lumen` and `lumen_test`)
+docker compose up -d --wait db      # PostgreSQL 16 + pgvector (creates databases and runtime roles)
+# Volumes created before the runtime roles existed need this once:
+#   docker compose exec -T db psql -U lumen -d lumen < docker/postgres/init/02-app-roles.sql
 uv run alembic upgrade head
 
 uv run pytest                       # unit + integration tests (integration skips if DB is down)

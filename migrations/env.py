@@ -14,7 +14,8 @@ if config.config_file_name is not None:
 
 # An explicit URL (e.g. set by the test suite) takes precedence over settings.
 if not config.get_main_option("sqlalchemy.url"):
-    config.set_main_option("sqlalchemy.url", get_settings().database_url)
+    # Migrations run as the owner; runtime roles can't (and shouldn't) alter the schema.
+    config.set_main_option("sqlalchemy.url", get_settings().admin_database_url)
 
 target_metadata = Base.metadata
 
