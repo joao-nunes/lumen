@@ -481,6 +481,8 @@ Responsible for:
 
 Auth tables live in a separate `auth` Postgres schema, so the application role can be denied direct access to them and given only narrowly scoped functions. Defaults: login by email (case-insensitive), 12-hour idle and 7-day absolute session timeouts, sessions deleted on logout.
 
+Password policy follows NIST SP 800-63B rev. 4: at least 15 characters, at most 256, no composition rules, NFKC-normalized Unicode, and no context words (app name, email local part). Hashing uses Argon2id with the RFC 9106 low-memory profile, upgraded transparently on login when parameters change. Login failures return one generic error, and unknown emails still spend a full hash verification so timing doesn't reveal which accounts exist. Every login issues a new session; changing the password revokes all sessions.
+
 The auth module must have its own security-focused test suite.
 
 LLMs should not authenticate users.
