@@ -47,7 +47,7 @@ Expose authentication over HTTP so the future React frontend can register, log i
 
 ### 2.5 Login rate limiting
 - **Storage:** a new table, `auth.login_attempts (email citext, attempted_at timestamptz, succeeded bool)`. No IP addresses are stored, consistent with the privacy principle.
-- **Rule:** after **3 failed attempts for an email within 15 minutes**, further logins for that email are rejected with `429` and `Retry-After` until the oldest of those failures is 15 minutes old (Q3).
+- **Rule:** after **5 failed attempts for an email within 15 minutes**, further logins for that email are rejected with `429` and `Retry-After` until the oldest of those failures is 15 minutes old (Q3).
 - **Unknown emails** are counted the same way, so a `429` doesn't reveal whether an account exists.
 - **During a lockout, even the correct password is rejected.** That's what makes guessing pointless.
 - **A successful login resets the count:** only failures after the last success count.
@@ -96,9 +96,9 @@ Each criterion becomes an HTTP-level test (FastAPI `TestClient` against the real
 - **AC-11:** `POST /login` with a form-encoded body gives `415`.
 
 **Rate limiting**
-- **AC-12:** 3 wrong passwords within 15 minutes, then the *correct* password, gives `429` with `Retry-After`. At the 15-minute mark the correct password gives `204`.
+- **AC-12:** 5 wrong passwords within 15 minutes, then the *correct* password, gives `429` with `Retry-After`. At the 15-minute mark the correct password gives `204`.
 - **AC-13:** The same sequence for an email that doesn't exist also ends in `429`.
-- **AC-14:** 2 failures, then a success, then 2 more failures doesn't trigger a lockout, because the success resets the count.
+- **AC-14:** 4 failures, then a success, then 4 more failures doesn't trigger a lockout, because the success resets the count.
 
 **User data and RLS**
 - **AC-15:** A request with a valid session reaches data endpoints with a database session scoped to that user. A test endpoint that lists check-ins with **no filter** returns only that user's rows.
@@ -109,6 +109,6 @@ Each criterion becomes an HTTP-level test (FastAPI `TestClient` against the real
 |---|---|---|
 | Q1 | Should registering also log you in? | **Yes** |
 | Q2 | `Secure` cookies on `http://localhost` (Safari may refuse them) | **Not an issue:** the owner uses Chrome, so keep `Secure` and the `__Host-` prefix |
-| Q3 | Lockout thresholds | **3 failures in 15 minutes** (stricter than the proposed 5) |
+| Q3 | Lockout thresholds | **5 failures in 15 minutes** |
 | Q4 | Dev origins | **Yes:** `http://localhost:5173` plus the API's own origin |
 | Q5 | Should `/me` return the email? | **Yes** |
