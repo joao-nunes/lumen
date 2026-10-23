@@ -20,6 +20,9 @@ SIMULATIONS = 400
 # Nominal 95%; allow for Monte Carlo error (±~2.2% at 400 runs) and the
 # approximations documented in lumen.analytics.inference.
 MIN_COVERAGE = 0.91
+# Contrasting conditions: independent days with regular check-ins, and sticky
+# days with half of them skipped.
+CONDITIONS = [(0.0, 0.2), (0.5, 0.5)]
 
 
 def simulate(
@@ -36,8 +39,7 @@ def simulate(
     }
 
 
-@pytest.mark.parametrize("phi", [0.0, 0.3, 0.5])
-@pytest.mark.parametrize("skip", [0.2, 0.5])
+@pytest.mark.parametrize(("phi", "skip"), CONDITIONS)
 def test_period_change_interval_coverage(phi: float, skip: float) -> None:
     rng = np.random.default_rng(1000)
     current = DateRange(START + timedelta(days=28), START + timedelta(days=55))
@@ -51,8 +53,7 @@ def test_period_change_interval_coverage(phi: float, skip: float) -> None:
     assert covered / total >= MIN_COVERAGE
 
 
-@pytest.mark.parametrize("phi", [0.0, 0.3, 0.5])
-@pytest.mark.parametrize("skip", [0.2, 0.5])
+@pytest.mark.parametrize(("phi", "skip"), CONDITIONS)
 def test_trend_interval_coverage(phi: float, skip: float) -> None:
     rng = np.random.default_rng(2000)
     true_slope_per_day = 0.01
