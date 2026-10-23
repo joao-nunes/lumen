@@ -20,11 +20,18 @@ from lumen.auth.service import (
 )
 from lumen.auth.tokens import hash_token
 from lumen.db.models import User
+from tests.db.roles import AUTH, act_as
 
 T0 = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)
 EMAIL = "joao@example.com"
 PASSWORD = "correct horse battery staple"
 NEW_PASSWORD = "purple elephant dancing slowly"
+
+
+@pytest.fixture(autouse=True)
+def as_auth_role(session: Session) -> None:
+    """Run every test with the auth service's production privileges."""
+    act_as(session, AUTH)
 
 
 @pytest.fixture

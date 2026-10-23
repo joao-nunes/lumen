@@ -8,6 +8,7 @@ import argparse
 import uuid
 from datetime import date, timedelta
 
+from lumen.config import get_settings
 from lumen.db.repository import create_user, save_checkin
 from lumen.db.session import make_engine, make_session_factory
 from lumen.synthetic.personas import PERSONAS, generate
@@ -30,7 +31,8 @@ def main() -> None:
     start = end - timedelta(days=args.days - 1)
     checkins = generate(PERSONAS[args.persona], start, args.days, args.seed)
 
-    session_factory = make_session_factory(make_engine())
+    # Dev tooling: runs as the owner, which bypasses row-level security.
+    session_factory = make_session_factory(make_engine(get_settings().admin_database_url))
     with session_factory.begin() as session:
         # Synthetic users get addresses on the reserved .invalid TLD (RFC 2606).
         email = f"{args.persona}-{uuid.uuid4().hex[:8]}@example.invalid"
