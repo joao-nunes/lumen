@@ -59,10 +59,24 @@ def test_burnout_shows_rising_stress_and_falling_energy(seed: int) -> None:
 
 
 @pytest.mark.parametrize("seed", SEEDS)
-def test_stable_persona_has_flat_core_trends(seed: int) -> None:
+def test_stable_persona_never_shows_a_false_trend(seed: int) -> None:
+    # Chance alone will occasionally make an interval exclude zero, so the
+    # guarantee is "never reported as a trend", not "always FLAT".
     obs = observations(generate(STABLE, START, DAYS, seed=seed))
-    for dim in CORE_DIMENSIONS:
-        assert summarize(obs, dim, PERIOD).trend.direction is TrendDirection.FLAT
+    for dim in Dimension:
+        summary = summarize(obs, dim, PERIOD)
+        assert summary.outlook not in (Outlook.IMPROVING, Outlook.WORSENING)
+
+
+def test_stable_persona_is_mostly_confidently_flat() -> None:
+    directions = [
+        summarize(
+            observations(generate(STABLE, START, DAYS, seed=seed)), dim, PERIOD
+        ).trend.direction
+        for seed in SEEDS
+        for dim in CORE_DIMENSIONS
+    ]
+    assert directions.count(TrendDirection.FLAT) >= 0.8 * len(directions)
 
 
 @pytest.mark.parametrize("seed", SEEDS)

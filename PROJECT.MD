@@ -649,7 +649,26 @@ $$
 
 ### Trend
 
-Estimate the slope of the metric over time.
+Ordinary least-squares slope of daily values against day number (only days with data), reported per week with a 95% confidence interval.
+
+Because wellbeing is autocorrelated, the interval uses an effective sample size (Santer et al., 2000):
+
+$$
+n_{eff} = n \, \frac{1 - r_1}{1 + r_1}
+$$
+
+where $r_1$ is the lag-1 autocorrelation of the residuals (clamped at 0).
+
+Classification, with a practical threshold of 0.1 points/week:
+
+| Direction           | Rule                                                        |
+| ------------------- | ----------------------------------------------------------- |
+| Increasing/decreasing | CI excludes 0 **and** \|slope\| ≥ threshold               |
+| Flat                | CI lies entirely within ±threshold                          |
+| Unclear             | Otherwise: the data cannot separate a trend from noise      |
+| Insufficient data   | Fewer than 7 points, or $n_{eff} < 4$                       |
+
+Direction is combined with each dimension's polarity to give an outlook (improving / worsening / stable / unknown).
 
 ### Experiment effect
 
@@ -1094,7 +1113,8 @@ Once this pipeline is reliable, the privacy layer and conversational agents can 
 * Anchor wording for each dimension.
 * Rotation schedule for non-core dimensions.
 * Which validated questionnaires to support beyond WHO-5.
-* Exact trend and experiment methodology.
+* Uncertainty for period change (Δ), and experiment methodology.
+* Default analysis windows (trends over short windows are usually unclear).
 * Hosted LLM provider/model.
 * Local model choice (extraction, redaction, safety classification) and embedding model.
 * Frontend tooling details (build tool, component library, charting library).
