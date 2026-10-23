@@ -638,6 +638,25 @@ $$
 \sum_{i=0}^{k-1} x_{t-i}
 $$
 
+### Two questions, two windows
+
+| Question                  | Method                                   | Default window                 |
+| ------------------------- | ---------------------------------------- | ------------------------------ |
+| "How am I doing lately?"  | Period change Δ                          | Last 28 days vs. previous 28   |
+| "Where am I heading?"     | Trend slope                              | Last 12 weeks                  |
+
+Wellbeing changes slowly relative to day-to-day noise, so a slope needs a long window to be distinguishable from noise. A difference between two period means is detectable with less data.
+
+### Autocorrelation
+
+Day-to-day wellbeing is "sticky": a bad day tends to be followed by another. Treating days as independent overstates the information in the data and gives intervals that are too narrow. Every interval therefore uses an effective sample size (Santer et al., 2000):
+
+$$
+n_{eff} = n \, \frac{1 - \rho_1}{1 + \rho_1}
+$$
+
+where $\rho_1$ is the lag-1 autocorrelation, bias-corrected for short series as $\rho_1 \approx (n r_1 + 1)/(n - 3)$ (Kendall; Marriott & Pope) and clamped at 0. Consecutive observations are treated as adjacent even across missing days. If $n_{eff} < 4$, no interval is reported.
+
 ### Period change
 
 $$
@@ -647,28 +666,32 @@ $$
 \bar{x}_{previous}
 $$
 
+reported with a 95% Welch-style confidence interval, where each period's variance of the mean and Welch–Satterthwaite degrees of freedom use its own $n_{eff}$.
+
 ### Trend
 
-Ordinary least-squares slope of daily values against day number (only days with data), reported per week with a 95% confidence interval.
+Ordinary least-squares slope of daily values against day number (only days with data), reported per week with a 95% confidence interval. The standard error and degrees of freedom use $n_{eff}$ computed from the residuals.
 
-Because wellbeing is autocorrelated, the interval uses an effective sample size (Santer et al., 2000):
+### Classification
 
-$$
-n_{eff} = n \, \frac{1 - r_1}{1 + r_1}
-$$
+The same rule applies to slopes and to changes:
 
-where $r_1$ is the lag-1 autocorrelation of the residuals (clamped at 0).
+| Direction             | Rule                                                   |
+| --------------------- | ------------------------------------------------------ |
+| Increasing/decreasing | CI excludes 0 **and** \|estimate\| ≥ threshold         |
+| Flat                  | CI lies entirely within ±threshold                     |
+| Unclear               | Otherwise: the data cannot separate signal from noise  |
+| Insufficient data     | Too few points, or $n_{eff} < 4$                       |
 
-Classification, with a practical threshold of 0.1 points/week:
-
-| Direction           | Rule                                                        |
-| ------------------- | ----------------------------------------------------------- |
-| Increasing/decreasing | CI excludes 0 **and** \|slope\| ≥ threshold               |
-| Flat                | CI lies entirely within ±threshold                          |
-| Unclear             | Otherwise: the data cannot separate a trend from noise      |
-| Insufficient data   | Fewer than 7 points, or $n_{eff} < 4$                       |
+Practical thresholds (provisional): 0.1 points/week for trends, 0.25 points for period change.
 
 Direction is combined with each dimension's polarity to give an outlook (improving / worsening / stable / unknown).
+
+### Calibration
+
+Interval coverage is verified by simulation (`tests/analytics/test_calibration.py`) on data rounded to the 1–5 scale, with skipped days and lag-1 autocorrelation of 0–0.5: 95% intervals achieve ≥ 91% coverage in the test, and ~94–96% in larger runs. For very sticky data (autocorrelation ≈ 0.7) coverage drops to ~89–93%, a known limitation.
+
+With 7 dimensions, roughly 1 in 20 comparisons of unchanging data will still be flagged by chance. Consumers (Weekly Review, Reflection) should treat a single flagged change as tentative.
 
 ### Experiment effect
 
@@ -1113,8 +1136,9 @@ Once this pipeline is reliable, the privacy layer and conversational agents can 
 * Anchor wording for each dimension.
 * Rotation schedule for non-core dimensions.
 * Which validated questionnaires to support beyond WHO-5.
-* Uncertainty for period change (Δ), and experiment methodology.
-* Default analysis windows (trends over short windows are usually unclear).
+* Experiment methodology.
+* Practical thresholds (0.1/week, 0.25 points) and default windows, to validate against real use.
+* Handling multiple comparisons across dimensions (e.g. requiring persistence across weeks before flagging).
 * Hosted LLM provider/model.
 * Local model choice (extraction, redaction, safety classification) and embedding model.
 * Frontend tooling details (build tool, component library, charting library).

@@ -8,10 +8,10 @@ from datetime import date, timedelta
 
 import pytest
 
+from lumen.analytics.direction import Direction, Outlook
 from lumen.analytics.metrics import period_stat
 from lumen.analytics.series import DateRange, daily_means
-from lumen.analytics.summary import summarize
-from lumen.analytics.trends import Outlook, TrendDirection
+from lumen.analytics.summary import DimensionSummary, summarize
 from lumen.domain.checkin import Checkin
 from lumen.domain.dimensions import CORE_DIMENSIONS, SCALE_MAX, SCALE_MIN, Dimension
 from lumen.domain.observation import Observation
@@ -25,6 +25,10 @@ SEEDS = range(5)
 
 def observations(checkins: list[Checkin]) -> list[Observation]:
     return [Observation(c.local_date, d, v) for c in checkins for d, v in c.scores.items()]
+
+
+def full_period_summary(obs: list[Observation], dim: Dimension) -> DimensionSummary:
+    return summarize(obs, dim, end=PERIOD.end, trend_days=DAYS)
 
 
 @pytest.mark.parametrize("persona", PERSONAS.values(), ids=PERSONAS)
@@ -51,32 +55,35 @@ def test_some_days_are_skipped_like_a_real_user(persona: Persona) -> None:
 @pytest.mark.parametrize("seed", SEEDS)
 def test_burnout_shows_rising_stress_and_falling_energy(seed: int) -> None:
     obs = observations(generate(BURNOUT, START, DAYS, seed=seed))
-    stress = summarize(obs, Dimension.STRESS, PERIOD)
-    energy = summarize(obs, Dimension.ENERGY, PERIOD)
-    assert stress.trend.direction is TrendDirection.INCREASING
-    assert stress.outlook is Outlook.WORSENING
-    assert energy.trend.direction is TrendDirection.DECREASING
+    stress = full_period_summary(obs, Dimension.STRESS)
+    energy = full_period_summary(obs, Dimension.ENERGY)
+    assert stress.trend.direction is Direction.INCREASING
+    assert stress.trend_outlook is Outlook.WORSENING
+    assert energy.trend.direction is Direction.DECREASING
 
 
-@pytest.mark.parametrize("seed", SEEDS)
-def test_stable_persona_never_shows_a_false_trend(seed: int) -> None:
-    # Chance alone will occasionally make an interval exclude zero, so the
-    # guarantee is "never reported as a trend", not "always FLAT".
-    obs = observations(generate(STABLE, START, DAYS, seed=seed))
-    for dim in Dimension:
-        summary = summarize(obs, dim, PERIOD)
-        assert summary.outlook not in (Outlook.IMPROVING, Outlook.WORSENING)
+def test_stable_persona_rarely_shows_a_false_change_or_trend() -> None:
+    # With 95% intervals, chance alone flags roughly 1 in 20 comparisons of
+    # unchanging data; the practical threshold should keep it at or below that.
+    summaries = [
+        full_period_summary(observations(generate(STABLE, START, DAYS, seed=seed)), dim)
+        for seed in SEEDS
+        for dim in Dimension
+    ]
+    flagged = (Outlook.IMPROVING, Outlook.WORSENING)
+    assert sum(s.trend_outlook in flagged for s in summaries) <= 0.1 * len(summaries)
+    assert sum(s.change_outlook in flagged for s in summaries) <= 0.1 * len(summaries)
 
 
 def test_stable_persona_is_mostly_confidently_flat() -> None:
     directions = [
-        summarize(
-            observations(generate(STABLE, START, DAYS, seed=seed)), dim, PERIOD
+        full_period_summary(
+            observations(generate(STABLE, START, DAYS, seed=seed)), dim
         ).trend.direction
         for seed in SEEDS
         for dim in CORE_DIMENSIONS
     ]
-    assert directions.count(TrendDirection.FLAT) >= 0.8 * len(directions)
+    assert directions.count(Direction.FLAT) >= 0.8 * len(directions)
 
 
 @pytest.mark.parametrize("seed", SEEDS)

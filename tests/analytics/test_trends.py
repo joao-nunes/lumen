@@ -3,17 +3,9 @@ from datetime import date, timedelta
 import numpy as np
 import pytest
 
+from lumen.analytics.direction import Direction
 from lumen.analytics.series import DailySeries, DateRange
-from lumen.analytics.trends import (
-    Outlook,
-    TrendDirection,
-    effective_sample_size,
-    lag1_autocorrelation,
-    ols_slope,
-    outlook,
-    trend,
-)
-from lumen.domain.dimensions import Polarity
+from lumen.analytics.trends import ols_slope, trend
 
 START = date(2026, 1, 1)
 
@@ -46,23 +38,9 @@ def test_ols_slope_rejects_degenerate_input(xs: list[float], ys: list[float]) ->
         ols_slope(xs, ys)
 
 
-def test_lag1_autocorrelation() -> None:
-    assert lag1_autocorrelation([1, -1, 1, -1, 1, -1]) < -0.8
-    assert lag1_autocorrelation([1, 2, 3, 4, 5, 6]) > 0.4
-    assert lag1_autocorrelation([3, 3, 3]) == 0.0
-    assert lag1_autocorrelation([3]) == 0.0
-
-
-def test_effective_sample_size_shrinks_with_positive_autocorrelation_only() -> None:
-    assert effective_sample_size(30, 0.0) == pytest.approx(30)
-    assert effective_sample_size(30, 0.5) == pytest.approx(10)
-    # Negative autocorrelation is clamped, never inflating n.
-    assert effective_sample_size(30, -0.5) == pytest.approx(30)
-
-
 def test_perfect_line_has_zero_width_interval() -> None:
     result = trend(series_from([1 + 0.1 * i for i in range(28)]), period(28))
-    assert result.direction is TrendDirection.INCREASING
+    assert result.direction is Direction.INCREASING
     assert result.slope_per_week == pytest.approx(0.7)
     assert result.ci_low_per_week == pytest.approx(0.7)
     assert result.ci_high_per_week == pytest.approx(0.7)
@@ -80,7 +58,7 @@ def test_noisy_decline_is_detected_and_interval_contains_true_slope() -> None:
     true_slope_per_week = -1.5 / (days - 1) * 7
     values = np.linspace(4.0, 2.5, days) + ar1_noise(days, sd=0.3, phi=0.3, seed=1)
     result = trend(series_from(values), period(days))
-    assert result.direction is TrendDirection.DECREASING
+    assert result.direction is Direction.DECREASING
     assert result.ci_low_per_week is not None and result.ci_high_per_week is not None
     assert result.ci_low_per_week < true_slope_per_week < result.ci_high_per_week
 
@@ -90,13 +68,13 @@ def test_few_noisy_points_are_unclear_not_a_trend() -> None:
     rng = np.random.default_rng(4)
     series = {START + timedelta(days=3 * i): float(3 + rng.normal(0, 0.7)) for i in range(9)}
     result = trend(series, period(28))
-    assert result.direction is TrendDirection.UNCLEAR
+    assert result.direction is Direction.UNCLEAR
 
 
 def test_long_stable_series_is_confidently_flat() -> None:
     values = 3.5 + ar1_noise(90, sd=0.5, phi=0.3, seed=2)
     result = trend(series_from(values), period(90))
-    assert result.direction is TrendDirection.FLAT
+    assert result.direction is Direction.FLAT
     assert result.ci_low_per_week is not None and result.ci_high_per_week is not None
     assert -0.1 < result.ci_low_per_week < result.ci_high_per_week < 0.1
 
@@ -104,7 +82,7 @@ def test_long_stable_series_is_confidently_flat() -> None:
 def test_real_but_negligible_change_is_flat() -> None:
     # Exact line of 0.05/week: statistically certain, practically irrelevant.
     result = trend(series_from([3 + 0.05 / 7 * i for i in range(28)]), period(28))
-    assert result.direction is TrendDirection.FLAT
+    assert result.direction is Direction.FLAT
 
 
 def test_autocorrelation_widens_the_interval() -> None:
@@ -117,7 +95,7 @@ def test_autocorrelation_widens_the_interval() -> None:
 
 def test_insufficient_points() -> None:
     result = trend(series_from([3.0] * 6), period(28), min_points=7)
-    assert result.direction is TrendDirection.INSUFFICIENT_DATA
+    assert result.direction is Direction.INSUFFICIENT_DATA
     assert result.slope_per_week is None
     assert result.n == 6
 
@@ -125,7 +103,7 @@ def test_insufficient_points() -> None:
 def test_insufficient_effective_points_reports_slope_without_interval() -> None:
     # A U-shape leaves residuals that are extremely autocorrelated, so n_eff collapses.
     result = trend(series_from([(i - 7) ** 2 / 10 + 0.1 * i for i in range(15)]), period(15))
-    assert result.direction is TrendDirection.INSUFFICIENT_DATA
+    assert result.direction is Direction.INSUFFICIENT_DATA
     assert result.slope_per_week is not None
     assert result.ci_low_per_week is None
     assert result.n_effective is not None and result.n_effective < 4
@@ -134,19 +112,3 @@ def test_insufficient_effective_points_reports_slope_without_interval() -> None:
 def test_rejects_invalid_confidence() -> None:
     with pytest.raises(ValueError):
         trend(series_from([3.0] * 10), period(10), confidence=1.0)
-
-
-@pytest.mark.parametrize(
-    ("direction", "polarity", "expected"),
-    [
-        (TrendDirection.INCREASING, Polarity.HIGHER_IS_BETTER, Outlook.IMPROVING),
-        (TrendDirection.DECREASING, Polarity.HIGHER_IS_BETTER, Outlook.WORSENING),
-        (TrendDirection.INCREASING, Polarity.HIGHER_IS_WORSE, Outlook.WORSENING),
-        (TrendDirection.DECREASING, Polarity.HIGHER_IS_WORSE, Outlook.IMPROVING),
-        (TrendDirection.FLAT, Polarity.HIGHER_IS_WORSE, Outlook.STABLE),
-        (TrendDirection.UNCLEAR, Polarity.HIGHER_IS_BETTER, Outlook.UNKNOWN),
-        (TrendDirection.INSUFFICIENT_DATA, Polarity.HIGHER_IS_BETTER, Outlook.UNKNOWN),
-    ],
-)
-def test_outlook(direction: TrendDirection, polarity: Polarity, expected: Outlook) -> None:
-    assert outlook(direction, polarity) is expected
