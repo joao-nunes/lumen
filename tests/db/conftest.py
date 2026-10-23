@@ -1,9 +1,12 @@
 """Integration-test fixtures: a migrated test database, one transaction per test.
 
 Tests in this package are skipped automatically when PostgreSQL isn't
-reachable. Start it with `docker compose up -d db`.
+reachable. Start it with `docker compose up -d db`. Set LUMEN_REQUIRE_DB=1
+(as CI does) to fail instead of skipping, so a broken database setup can't
+silently turn the integration suite green.
 """
 
+import os
 from collections.abc import Iterator
 
 import pytest
@@ -30,7 +33,10 @@ def engine() -> Iterator[Engine]:
         with engine.connect() as conn:
             conn.execute(text("SELECT 1"))
     except OperationalError:
-        pytest.skip("PostgreSQL test database is not reachable (docker compose up -d db)")
+        message = "PostgreSQL test database is not reachable (docker compose up -d db)"
+        if os.environ.get("LUMEN_REQUIRE_DB") == "1":
+            pytest.fail(message)
+        pytest.skip(message)
 
     # Downgrading first exercises the downgrade path and guarantees a clean schema.
     alembic_cfg = Config("alembic.ini")
