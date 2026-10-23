@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  UV_VERSION: "0.12.5"
+
+jobs:
+  lint:
+    name: Lint, format, types
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Run pre-commit hooks
+        run: uv run pre-commit run --all-files --show-diff-on-failure
+
+  test:
+    name: Tests (PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: lumen
+          POSTGRES_PASSWORD: lumen
+          POSTGRES_DB: lumen
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U lumen -d lumen"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgresql+psycopg://lumen:lumen@localhost:5432/lumen
+      TEST_DATABASE_URL: postgresql+psycopg://lumen:lumen@localhost:5432/lumen_test
+      LUMEN_REQUIRE_DB: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Install dependencies
+        run: uv sync --locked
+      - name: Create test database
+        run: psql "postgresql://lumen:lumen@localhost:5432/lumen" -c "CREATE DATABASE lumen_test"
+      - name: Apply migrations
+        run: uv run alembic upgrade head
+      - name: Check models and migrations are in sync
+        run: uv run alembic check
+      - name: Run tests with coverage
+        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
+      - name: Smoke-test seeding CLI
+        run: uv run python -m lumen.synthetic.seed burnout --days 30 --seed 1
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
