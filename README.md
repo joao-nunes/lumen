@@ -21,6 +21,11 @@ uv run pytest                       # unit + integration tests (integration skip
 uv run pytest -m "not integration"  # unit tests only
 uv run ruff check . && uv run ruff format --check . && uv run mypy
 
+# Shortcuts: make check (all pre-commit hooks), make test, make mutate
+# The mutation check reruns the suite against deliberate bugs (scripts/mutate.py):
+make mutate                         # all groups, about 7 minutes
+make mutate GROUPS="auth http"      # selected groups only
+
 # Seed the dev database with a synthetic persona (burnout | stable | seasonal_dip)
 uv run python -m lumen.synthetic.seed burnout --seed 42
 ```
