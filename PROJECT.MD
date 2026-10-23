@@ -1022,6 +1022,8 @@ lumen/
 │   │
 │   ├── scheduler/
 │   │
+│   ├── synthetic/            # persona generators + DB seeding
+│   │
 │   ├── research/
 │   │   ├── retriever.py
 │   │   └── sources.py
@@ -1038,8 +1040,8 @@ lumen/
 │   ├── graph/
 │   ├── privacy/
 │   └── safety/
-├── evaluation/
-│   └── personas/
+├── evaluation/             # evaluation runs and datasets
+│                             # (persona generators live in src/lumen/synthetic/ so tests can import them)
 ├── notebooks/
 ├── docs/
 ├── docker-compose.yml

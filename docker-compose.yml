@@ -1,0 +1,20 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: lumen
+      POSTGRES_PASSWORD: lumen
+      POSTGRES_DB: lumen
+    ports:
+      - "5432:5432"
+    volumes:
+      - lumen-pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lumen -d lumen"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  lumen-pgdata:
