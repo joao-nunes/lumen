@@ -79,7 +79,8 @@ def test_ac2_saving_a_day_again_replaces_its_checkin(user: TestClient) -> None:
     response = save(user, TODAY, {"mood": 2, "energy": 2, "stress": 4})
 
     assert response.status_code == 200
-    assert response.json()["checkin"] == {
+    # Read back: the PUT response alone would not show what was stored.
+    assert user.get(f"/api/checkins/{TODAY}").json()["checkin"] == {
         "scores": {"mood": 2, "energy": 2, "stress": 4},
         "tags": [],
         "recorded_at": "2026-10-31T12:00:00Z",
@@ -193,7 +194,9 @@ def test_ac6_overview_is_exactly_what_analytics_computes(
     actual = overview(user)
     assert list(actual) == [d.value for d in DIMENSIONS]
     assert actual == expected_overview(observations, TODAY)
-    assert actual["mood"]["change"]["outlook"] == "worsening"
+    # Spot-check that polarity flows through: rising stress is "worsening".
+    stress_trend = actual["stress"]["trend"]
+    assert (stress_trend["direction"], stress_trend["outlook"]) == ("increasing", "worsening")
 
 
 def test_ac7_a_new_user_gets_an_empty_overview(user: TestClient) -> None:

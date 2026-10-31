@@ -85,3 +85,8 @@ def user_session(container: ContainerDep, user: CurrentUser) -> Iterator[Session
     """A lumen_app session scoped (via RLS) to the logged-in user, committed on success."""
     with user_transaction(container.app_sessions, user.user_id) as db:
         yield db
+
+
+# scope="function" commits before the response is sent. FastAPI's default
+# ("request") would commit afterwards, so a failed commit could follow a 200.
+UserDb = Annotated[Session, Depends(user_session, scope="function")]
