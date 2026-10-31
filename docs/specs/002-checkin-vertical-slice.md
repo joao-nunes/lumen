@@ -121,8 +121,19 @@ Add mutants to `scripts/mutate.py` for:
 - the core-dimension requirement
 - the overview passing a different `end` or window to analytics
 
-## 5. Added during implementation
-*(empty until implementation)*
+## 5. Added during implementation (for review)
+
+### PR 1: check-in and overview API
+
+| # | Addition | Reason |
+|---|---|---|
+| I1 | Data endpoints get their database session through `Depends(user_session, scope="function")`, so the transaction **commits before the response is sent**. | FastAPI's default for `yield` dependencies (`scope="request"`) commits *after* the response. If that commit failed, the client would already have seen `200` for a check-in that was never saved. Spec 001 introduced `user_session`, but nothing wrote through it until now. **Untested by justification:** the difference only shows when a commit itself fails, and this schema has no deferred constraints that fail at commit time. |
+| I2 | AC-6's spot-check is now "stress's 12-week trend is `increasing` with outlook `worsening`", replacing "mood's change outlook is `worsening`". | The original was my guess, and the data says otherwise. With seed 42, mood's last 28 days are noisily *higher* (+0.40, 95% CI −0.09 to +0.90), so the change is correctly `unclear`. The stress check is also stronger: it proves polarity flows through the API, because rising stress is reported as worsening. |
+| I3 | Request-size bounds: at most 14 score entries, 100 tags, and 100 characters per key or tag. Beyond those, the response is `422 invalid_request`. Scores must be JSON integers: `true`, `"4"` and `4.0` are rejected. | Bounds the work one request can cause. The domain still applies the real limits (20 tags, known dimensions). Without strict integers, Pydantic would silently accept `true` as `1`. |
+| I4 | `rolling_7` lists only days that have a rolling mean. Days missing from the list are gaps for the chart to show. | That's what AC-7 implies (an empty list with no data). Joining the line across long gaps would invent a trend. |
+| I5 | The date window applies only to **saving**. `GET /api/checkins/{date}` reads any date. | Reading old data harms nothing, and the overview reads 90 days anyway. |
+| I6 | `GET /api/tags` lists only tags that at least one check-in still uses. | After an edit removes a tag, it shouldn't keep being suggested with a count of 0. |
+| I7 | The plain index on `checkins (user_id, local_date)` is dropped. | The new unique constraint's index covers the same queries. |
 
 ## 6. Decisions
 

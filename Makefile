@@ -9,6 +9,6 @@ test:
 	uv run pytest
 
 # Mutation check: rerun the suite against deliberate bugs. Recreates lumen_test.
-# Choose groups with GROUPS="auth rls http domain analytics" (default: all).
+# Choose groups with GROUPS="auth rls http checkins domain analytics" (default: all).
 mutate:
 	uv run python scripts/mutate.py $(GROUPS)
