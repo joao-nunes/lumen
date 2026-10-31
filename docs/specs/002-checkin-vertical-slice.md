@@ -1,6 +1,6 @@
 # Spec 002: Check-in vertical slice
 
-**Status:** Draft. Open questions in §6
+**Status:** Approved (decisions in §6)
 **Milestone:** 2 (PROJECT.MD §14 and §16)
 **Builds on:** spec 001 (auth HTTP layer), `lumen.domain`, `lumen.analytics`, RLS (`user_transaction`)
 
@@ -48,7 +48,7 @@ Each PR cites the acceptance criteria it covers. Adding the web CI job to the re
 - **`end` is required,** so the server never guesses the user's "today".
 
 ### 2.4 Frontend
-- **Where it lives:** `web/` (PROJECT.MD §15). React with TypeScript in strict mode. Toolchain in Q4.
+- **Where it lives:** `web/` (PROJECT.MD §15). React with TypeScript in strict mode. Toolchain in Q4 (§6).
 - **Generated API types:** TypeScript types are generated from FastAPI's OpenAPI schema into `web/src/api/schema.d.ts`. CI fails if the committed file is stale, so the frontend and backend can't drift apart silently.
 - **Screens:**
   - **Log in / Register**
@@ -124,20 +124,22 @@ Add mutants to `scripts/mutate.py` for:
 ## 5. Added during implementation
 *(empty until implementation)*
 
-## 6. Open questions
+## 6. Decisions
 
-| # | Question | Recommendation |
+The owner approved every recommendation as written (PR #16).
+
+| # | Question | Decision |
 |---|---|---|
 | Q1 | One check-in per day (saving again replaces it), or several per day (averaged)? | **One per day.** It matches "how was today", keeps the form idempotent, and analytics already work on daily means. Several per day would need a UI for choosing which one to edit. |
 | Q2 | How far back can you enter or edit a day? | **7 days.** Enough to catch up after a missed weekend, but recent enough that memory of the day is still reliable. Older retrospective scores are known to be less accurate. |
 | Q3 | Which dimensions are required? | **The 3 core dimensions required; rotating ones optional.** Requiring rotating dimensions adds friction (§2.10), and the analytics already handle sparse rotating data. |
 | Q4 | Frontend toolchain (PROJECT.MD §18) | See the table below. |
 | Q5 | How should uncertainty be shown? | **A plain-language verdict plus the data basis as the headline; the estimate and 95% interval behind an expand control.** Intervals are easy to misread, but hiding them completely would hide the method. |
-| Q6 | A static safety note before the Safety workflow (Milestone 4)? | **Yes, one footer line:** "Lumen is not a crisis service. If you are in danger, contact your local emergency number." Which number to show, if any, is your call; it's easy to change later. |
+| Q6 | A static safety note before the Safety workflow (Milestone 4)? | **Yes, one footer line:** "Lumen is not a crisis service. If you are in danger, contact your local emergency number." No specific number is shown. |
 
-**Q4: proposed toolchain**
+**Q4: toolchain**
 
-| Concern | Recommendation | Why | Main alternative |
+| Concern | Decision | Why | Main alternative considered |
 |---|---|---|---|
 | Build tool | **Vite** | Standard for React SPAs; fast dev server with an `/api` proxy | none worth considering |
 | Package manager | **pnpm** | Strict dependency resolution, and it doesn't run dependencies' install scripts by default (a supply-chain defence) | npm: one less tool to install |
