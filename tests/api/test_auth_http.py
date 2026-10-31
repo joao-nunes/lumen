@@ -1,13 +1,11 @@
 """Acceptance criteria of spec 001 (docs/specs/001-auth-http.md), one test each."""
 
 import uuid
-from collections.abc import Callable
 from datetime import UTC, date, datetime
 from typing import Annotated
 
 import httpx2
 from fastapi import Depends, FastAPI
-from fastapi.testclient import TestClient
 from sqlalchemy import Engine, select
 from sqlalchemy.orm import Session
 
@@ -16,30 +14,20 @@ from lumen.db import models
 from lumen.db.repository import save_checkin
 from lumen.domain.checkin import Checkin
 from lumen.domain.dimensions import Dimension
+from tests.api.client import (
+    CSRF,
+    EMAIL,
+    PASSWORD,
+    SESSION,
+    NewClient,
+    csrf,
+    error_code,
+    login,
+    register,
+)
 from tests.api.conftest import FakeClock
 
-SESSION, CSRF = "__Host-lumen_session", "__Host-lumen_csrf"
-EMAIL = "joao@example.com"
-PASSWORD = "correct horse battery staple"
 NEW_PASSWORD = "purple elephant dancing slowly"
-
-NewClient = Callable[[], TestClient]
-
-
-def register(client: TestClient, email: str = EMAIL, password: str = PASSWORD) -> httpx2.Response:
-    return client.post("/api/auth/register", json={"email": email, "password": password})
-
-
-def login(client: TestClient, email: str = EMAIL, password: str = PASSWORD) -> httpx2.Response:
-    return client.post("/api/auth/login", json={"email": email, "password": password})
-
-
-def csrf(client: TestClient) -> dict[str, str]:
-    return {"X-CSRF-Token": client.cookies.get(CSRF) or ""}
-
-
-def error_code(response: httpx2.Response) -> tuple[int, str]:
-    return response.status_code, response.json()["error"]["code"]
 
 
 def set_cookies(response: httpx2.Response) -> dict[str, str]:
