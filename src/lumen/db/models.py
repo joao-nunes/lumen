@@ -17,7 +17,6 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     ForeignKeyConstraint,
-    Index,
     MetaData,
     SmallInteger,
     String,
@@ -71,7 +70,8 @@ class Checkin(Base):
     __table_args__ = (
         # Target for composite foreign keys from child tables.
         UniqueConstraint("id", "user_id"),
-        Index("ix_checkins_user_id_local_date", "user_id", "local_date"),
+        # One check-in per local day (spec 002); its index also serves date-range queries.
+        UniqueConstraint("user_id", "local_date"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

@@ -42,6 +42,8 @@ RLS_MIGRATION = (
     "migrations/versions/2026_10_23_1742-3d3fd70e14a1_app_and_auth_roles_with_row_level_.py"
 )
 API = "src/lumen/api/"
+REPOSITORY = "src/lumen/db/repository.py"
+CHECKIN = "src/lumen/domain/checkin.py"
 
 GROUPS: dict[str, list[Mutant]] = {
     "auth": [
@@ -381,6 +383,70 @@ GROUPS: dict[str, list[Mutant]] = {
             "rotation stuck on same dims",
             "    start = (day.toordinal() * per_day) % n",
             "    start = 0",
+        ),
+    ],
+    "checkins": [
+        Mutant(
+            REPOSITORY,
+            "upsert merges scores instead of replacing",
+            "    for child in (models.CheckinScore, models.CheckinTag):\n"
+            "        session.execute(delete(child).where(child.checkin_id == checkin_id))\n",
+            "    session.execute(delete(models.CheckinTag).where(models.CheckinTag.checkin_id == checkin_id))\n"
+            "    session.execute(delete(models.CheckinScore).where(models.CheckinScore.checkin_id == checkin_id, models.CheckinScore.dimension.in_(list(checkin.scores))))\n",
+        ),
+        Mutant(
+            REPOSITORY,
+            "upsert keeps the old tags",
+            "    for child in (models.CheckinScore, models.CheckinTag):\n",
+            "    for child in (models.CheckinScore,):\n",
+        ),
+        Mutant(
+            CHECKIN,
+            "backfill window one day too long",
+            "    first = today_utc - timedelta(days=BACKFILL_DAYS + 1)",
+            "    first = today_utc - timedelta(days=BACKFILL_DAYS + 2)",
+        ),
+        Mutant(
+            CHECKIN,
+            "future window one day too long",
+            "    last = today_utc + timedelta(days=1)",
+            "    last = today_utc + timedelta(days=2)",
+        ),
+        Mutant(
+            CHECKIN,
+            "core dimensions not required",
+            "    if missing:\n        raise MissingCoreDimensionError",
+            "    if False:\n        raise MissingCoreDimensionError",
+        ),
+        Mutant(
+            CHECKIN,
+            "tag limit off by one",
+            "        if len(self.tags) > MAX_TAGS:",
+            "        if len(self.tags) > MAX_TAGS + 1:",
+        ),
+        Mutant(
+            "src/lumen/analytics/overview.py",
+            "no lookback for the rolling mean",
+            "    return summary_start(end) - timedelta(days=ROLLING_WINDOW_DAYS - 1)",
+            "    return summary_start(end)",
+        ),
+        Mutant(
+            "src/lumen/analytics/overview.py",
+            "rolling mean over a different window",
+            "rolling=rolling_mean(series, summary.trend_period, ROLLING_WINDOW_DAYS),",
+            "rolling=rolling_mean(series, summary.trend_period, ROLLING_WINDOW_DAYS + 7),",
+        ),
+        Mutant(
+            "src/lumen/api/routes/overview.py",
+            "overview ignores the requested end date",
+            "dimensions=[_dimension(d, o) for d, o in overview(observations, end).items()],",
+            "dimensions=[_dimension(d, o) for d, o in overview(observations, end.replace(day=1)).items()],",
+        ),
+        Mutant(
+            REPOSITORY,
+            "tags ordered by name only",
+            "        .order_by(uses.desc(), models.Tag.name)",
+            "        .order_by(models.Tag.name)",
         ),
     ],
     "analytics": [
