@@ -20,7 +20,7 @@ A user can open Lumen in the browser, log in, record today's check-in in under 3
 
 ### 2.1 Delivery: four PRs, one spec
 1. **Check-in and overview API** (backend, TDD from AC-1 to AC-8).
-2. **Web app shell:** the `web/` project, toolchain (Q4), generated API types, login and register screens, and a CI job.
+2. **Web app shell:** the `web/` project, toolchain (Q4), generated API types, the date and time helper (§2.4, AC-12), login and register screens, and a CI job.
 3. **Check-in screen.**
 4. **Overview screen** (charts), plus the end-to-end test (AC-9).
 
@@ -52,8 +52,12 @@ Each PR cites the acceptance criteria it covers. Adding the web CI job to the re
 - **Generated API types:** TypeScript types are generated from FastAPI's OpenAPI schema into `web/src/api/schema.d.ts`. CI fails if the committed file is stale, so the frontend and backend can't drift apart silently.
 - **Screens:**
   - **Log in / Register**
-  - **Today:** the check-in form. Each dimension is a group of five labelled options with their anchor descriptions, operable by keyboard. There are tag chips plus a free entry field, and a date picker limited to the backfill window. If the day already has a check-in, the form is prefilled.
+  - **Today:** the check-in form. Each dimension is a group of five labelled options with their anchor descriptions, operable by keyboard. There are tag chips plus a free entry field, and a date picker limited to the backfill window. If the day already has a check-in, the form is prefilled and shows when it was last saved, e.g. "Last saved 15 July at 21:00". The date stays in the line because a backfilled day can be saved on a later day.
   - **Overview:** see §2.5.
+- **Dates and times (Q7).** The API and database stay in UTC, and the server neither knows nor stores the user's timezone. All of this goes through one tested helper in the web app:
+  - **Instants (`recorded_at`):** converted to the browser's current timezone for display, in the browser's locale format. Someone travelling sees the time where they are now, not where they recorded it.
+  - **Calendar days (`local_date`, `end`, chart dates):** never converted. Parsing `"2026-10-31"` with `new Date(...)` means midnight UTC, which displays as 30 October west of UTC.
+  - **"Today":** the browser's local date, never the UTC date from `toISOString()`.
 - **Session handling:** one API client attaches `X-CSRF-Token` (read from the `__Host-lumen_csrf` cookie) to unsafe requests, and sends the user to *Log in* on any `401`.
 - **Running it:**
   - `make dev` runs FastAPI (uvicorn, port 8000) and the Vite dev server (port 5173). Vite proxies `/api` to FastAPI, so the browser sees a single origin, already allowed by spec 001 Q4.
@@ -108,6 +112,12 @@ Backend criteria are HTTP-level tests against the real test database with an inj
   5. Logging out returns to *Log in*.
 - **AC-10 (API client):** an unsafe request carries `X-CSRF-Token` equal to the CSRF cookie, and a `401` on any request sends the user to *Log in*. Covered by a Vitest test with a mocked `fetch`, since the network is the slow dependency here.
 - **AC-11 (contract):** CI fails when `web/src/api/schema.d.ts` differs from the types generated from the current backend.
+- **AC-12 (dates and times):** a Vitest test of the helper, with the timezone and locale (`en-GB`) fixed so the results don't depend on the machine:
+  - **Summer time:** `2026-07-15T20:00:00Z` displays as 15 July, 21:00 in `Europe/Lisbon`.
+  - **Winter time:** `2026-01-15T20:00:00Z` displays as 15 January, 20:00 in `Europe/Lisbon`.
+  - **"Today" ahead of UTC:** at `2026-07-14T23:30:00Z`, today in `Europe/Lisbon` is `2026-07-15`.
+  - **"Today" behind UTC:** at `2026-07-15T02:00:00Z`, today in `America/New_York` is `2026-07-14`.
+  - **Calendar day:** `2026-10-31` displays as 31 October in `America/New_York`.
 
 **Untested by justification**
 - **`GET /api/dimensions`:** a direct mapping of the `DIMENSIONS` constant. The generated types (AC-11) pin its shape, and AC-9 renders it.
@@ -147,6 +157,7 @@ The owner approved every recommendation as written (PR #16).
 | Q4 | Frontend toolchain (PROJECT.MD §18) | See the table below. |
 | Q5 | How should uncertainty be shown? | **A plain-language verdict plus the data basis as the headline; the estimate and 95% interval behind an expand control.** Intervals are easy to misread, but hiding them completely would hide the method. |
 | Q6 | A static safety note before the Safety workflow (Milestone 4)? | **Yes, one footer line:** "Lumen is not a crisis service. If you are in danger, contact your local emergency number." No specific number is shown. |
+| Q7 | How does the web app show dates and times? (added after approval) | **Local time in the browser, UTC in the API and database (§2.4).** The *Today* form shows when the day was last saved. Approved by the owner on 2026-11-04. |
 
 **Q4: toolchain**
 
