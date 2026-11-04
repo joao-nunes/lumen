@@ -1,5 +1,6 @@
 from datetime import timedelta
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -28,6 +29,8 @@ class Settings(BaseSettings):
     secret_key: SecretStr | None = None
     allowed_origins: list[str] = ["http://localhost:5173"]
     cookie_secure: bool = True
+    # The built frontend (`make run`). None serves the API only.
+    web_dist: Path | None = None
 
 
 @lru_cache

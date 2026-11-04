@@ -56,6 +56,11 @@ describe("today is the browser's local date", () => {
     inTimeZone("America/New_York");
     expect(today(new Date("2026-07-15T02:00:00Z"))).toBe("2026-07-14");
   });
+
+  it("crosses a month and year boundary correctly", () => {
+    inTimeZone("America/New_York");
+    expect(today(new Date("2027-01-01T02:00:00Z"))).toBe("2026-12-31");
+  });
 });
 
 describe("calendar days are never converted", () => {

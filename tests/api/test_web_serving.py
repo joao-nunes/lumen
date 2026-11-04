@@ -35,3 +35,16 @@ def test_the_api_is_not_shadowed_by_the_app(client: TestClient) -> None:
     response = client.get("/api/does-not-exist")
     assert response.status_code == 404
     assert response.headers["content-type"].startswith("application/json")
+
+
+def test_refuses_to_serve_a_directory_that_is_not_a_built_app(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # An empty WEB_DIST= in .env means the current directory: serving that would
+    # publish the whole repository, including .env.
+    (tmp_path / ".env").write_text("SECRET_KEY=do-not-serve-me")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("WEB_DIST", "")
+
+    with pytest.raises(ValueError, match=r"index\.html"):
+        create_app(Settings(_env_file=None, secret_key=SecretStr("x" * 32)))
