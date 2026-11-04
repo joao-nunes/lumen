@@ -1,4 +1,4 @@
-"""One JSON error shape for every failure (spec 001 §2.6)."""
+"""One JSON error shape for every failure (spec 001 §2.6, spec 002 §2.3)."""
 
 import math
 
@@ -9,6 +9,14 @@ from fastapi.responses import JSONResponse
 from lumen.auth.login import TooManyAttemptsError
 from lumen.auth.passwords import PasswordPolicyError
 from lumen.auth.service import EmailTakenError, InvalidCredentialsError, InvalidEmailError
+from lumen.domain.checkin import (
+    DateOutOfRangeError,
+    InvalidTagError,
+    MissingCoreDimensionError,
+    TooManyTagsError,
+    UnknownDimensionError,
+)
+from lumen.domain.dimensions import InvalidScoreError
 
 # Domain exception -> (status, code). Supporting a new error is a new row here.
 DOMAIN_ERRORS: dict[type[Exception], tuple[int, str]] = {
@@ -16,6 +24,12 @@ DOMAIN_ERRORS: dict[type[Exception], tuple[int, str]] = {
     InvalidEmailError: (422, "invalid_email"),
     PasswordPolicyError: (422, "weak_password"),
     InvalidCredentialsError: (401, "invalid_credentials"),
+    MissingCoreDimensionError: (422, "missing_core_dimension"),
+    InvalidScoreError: (422, "invalid_score"),
+    UnknownDimensionError: (422, "unknown_dimension"),
+    InvalidTagError: (422, "invalid_tag"),
+    TooManyTagsError: (422, "too_many_tags"),
+    DateOutOfRangeError: (422, "date_out_of_range"),
 }
 
 
