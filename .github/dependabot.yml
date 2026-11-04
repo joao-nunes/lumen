@@ -22,6 +22,10 @@ updates:
     directory: /web
     schedule:
       interval: weekly
+    ignore:
+      # typescript-eslint needs TypeScript below 6.1 and openapi-typescript needs 5.x.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
     groups:
       web-dev:
         dependency-type: development
