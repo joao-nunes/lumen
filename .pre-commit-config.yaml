@@ -7,6 +7,7 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
       - id: check-yaml
+        exclude: ^web/pnpm-lock\.yaml$ # multi-document by design
       - id: check-toml
       - id: check-merge-conflict
       - id: check-added-large-files
@@ -45,4 +46,26 @@ repos:
         entry: uv run mypy
         language: system
         types: [python]
+        pass_filenames: false
+
+  # The web tools run from web/node_modules: `pnpm --dir web install` first.
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: pnpm --dir web exec prettier --write .
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: eslint
+        name: eslint
+        entry: pnpm --dir web exec eslint . --max-warnings 0
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: tsc
+        name: tsc
+        entry: pnpm --dir web exec tsc --noEmit
+        language: system
+        files: ^web/
         pass_filenames: false
