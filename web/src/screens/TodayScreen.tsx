@@ -1,4 +1,4 @@
-/** The check-in form arrives in spec 002's PR 3. */
-export function TodayScreen() {
+/** The check-in form (spec 002 §2.4). */
+export function TodayScreen(_props: { today?: string }) {
   return <h1>Today</h1>;
 }
