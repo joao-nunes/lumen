@@ -10,8 +10,11 @@ Lumen is a personal wellbeing reflection app. It supports therapy and never repl
 docker compose up -d --wait db     # PostgreSQL (dev db `lumen`, test db `lumen_test`, runtime roles)
 uv run alembic upgrade head
 make check                         # pre-commit on all files: ruff, mypy (strict), gitleaks, actionlint, uv lock
-make test                          # all tests; integration tests skip if the db is down
+make test                          # backend and web tests; integration tests skip if the db is down
 make mutate [GROUPS="auth rls"]    # mutation check (about 7 min for all groups); recreates lumen_test
+make dev                           # API on :8000, Vite on http://localhost:5173
+make run                           # FastAPI serves the built frontend at http://localhost:8000
+make schema                        # regenerate web/src/api/schema.d.ts after changing the API
 ```
 
 ## Workflow for every feature
@@ -41,6 +44,7 @@ Write the minimum number of tests; every test must mitigate a real production ri
 - **Three database roles.** `lumen_app` touches user data, always through RLS: use `user_transaction(...)` from `lumen.db.scope`. `lumen_auth` touches `users` and the `auth` schema. The owner `lumen` runs migrations and dev tooling only.
 - **Every new user-data table** needs a `user_id` column, forced RLS with a `user_isolation` policy (`USING` and `WITH CHECK`), and explicit grants, all in its migration.
 - **No credentials in migrations.** Role logins live only in `docker/postgres/init/02-app-roles.sql`. `.env` is gitignored; document new settings in `.env.example`.
+- **Time.** The API and database stay in UTC. The web app shows dates and times through `web/src/lib/dates.ts`: instants in the browser's timezone, calendar days never converted.
 - **Privacy.** Never store IP addresses. Raw journal text stays local (Tier 0); a hosted LLM only ever sees redacted or aggregated data.
 
 ## Git and GitHub

@@ -6,7 +6,16 @@ See [PROJECT.MD](PROJECT.MD) for the architecture and roadmap.
 
 ## Development
 
-Requirements: [uv](https://docs.astral.sh/uv/), Docker.
+Requirements: [uv](https://docs.astral.sh/uv/), Docker, and for the web app Node (version in `web/.nvmrc`) and pnpm (version in `web/package.json`).
+
+```bash
+brew install fnm                                  # then follow its shell setup, so `node` is on your PATH
+fnm install "$(cat web/.nvmrc)" && fnm use "$(cat web/.nvmrc)"
+npm install -g "pnpm@$(node -p "require('./web/package.json').packageManager.split('@')[1]")"
+pnpm --dir web install
+```
+
+Set `SECRET_KEY` in `.env`, then use `make run` for the app at http://localhost:8000, or `make dev` to develop on http://localhost:5173. Safari refuses Secure cookies on `http://localhost`, so to use it locally set `COOKIE_SECURE=false`.
 
 ```bash
 cp .env.example .env
@@ -34,7 +43,8 @@ uv run python -m lumen.synthetic.seed burnout --seed 42
 
 GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `master`:
 
-- **Lint, format, types:** all pre-commit hooks (ruff, mypy, gitleaks, uv lock check, actionlint, file hygiene).
+- **Lint, format, types:** all pre-commit hooks (ruff, mypy, Prettier, ESLint, tsc, gitleaks, uv lock check, actionlint, file hygiene).
+- **Web (tests, build, API types):** runs the Vitest tests, builds the frontend, and fails if `web/src/api/schema.d.ts` doesn't match the backend
 - **Tests (PostgreSQL):**
   - applies migrations to a fresh pgvector database
   - runs `alembic check` to fail on models that changed without a migration
