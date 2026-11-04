@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type SyntheticEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { ApiError } from "../api/client";
+import { errorMessage } from "../api/client";
 import { logIn, register } from "../api/session";
 import styles from "./AuthForm.module.css";
 
@@ -19,13 +19,6 @@ const TEXT = {
     other: { to: "/login", prompt: "Already have an account?", label: "Log in" },
   },
 } as const;
-
-function errorMessage(error: unknown): string {
-  // Messages from 4xx responses are written for the user; anything else isn't.
-  return error instanceof ApiError && error.status < 500 && error.code !== "unexpected_response"
-    ? error.message
-    : "Lumen couldn't be reached. Please try again.";
-}
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
   const text = TEXT[mode];

@@ -3,7 +3,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { Link, MemoryRouter, Route, Routes } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { formatInstant } from "../lib/dates";
 import { TodayScreen } from "./TodayScreen";
@@ -65,7 +65,15 @@ function renderScreen() {
       <MemoryRouter>
         <Routes>
           <Route path="/" element={<TodayScreen today={TODAY} />} />
-          <Route path="/overview" element={<p>overview screen</p>} />
+          <Route
+            path="/overview"
+            element={
+              <>
+                <p>overview screen</p>
+                <Link to="/">back</Link>
+              </>
+            }
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -177,7 +185,7 @@ describe("a day that already has a check-in", () => {
       checkin: {
         // social_connection isn't prompted today, but saving replaces the whole day.
         scores: { mood: 2, energy: 3, stress: 4, social_connection: 5 },
-        tags: ["exercise"],
+        tags: ["exercise", "old_tag"], // old_tag isn't in the tag list, which may be stale
         recorded_at: RECORDED_AT,
       },
     };
@@ -189,6 +197,7 @@ describe("a day that already has a check-in", () => {
 
     expect(["mood", "energy", "stress"].map(chosen)).toEqual(["2", "3", "4"]);
     expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "exercise" }).checked).toBe(true);
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: "old_tag" }).checked).toBe(true);
     const { day, time } = formatInstant(RECORDED_AT);
     expect(screen.getByText(`Last saved ${day} at ${time}`)).toBeTruthy();
   });
@@ -204,8 +213,40 @@ describe("a day that already has a check-in", () => {
     await screen.findByText("overview screen");
     expect(puts[0]?.body).toEqual({
       scores: { mood: 3, energy: 3, stress: 4, social_connection: 5 },
-      tags: ["exercise"],
+      tags: ["exercise", "old_tag"],
     });
+  });
+});
+
+describe("coming back after saving", () => {
+  it("shows what was saved, so that saving again can't undo it", async () => {
+    days[TODAY] = {
+      ...emptyDay(TODAY),
+      checkin: {
+        scores: { mood: 1, energy: 1, stress: 1 },
+        tags: [],
+        recorded_at: "2026-11-03T08:00:00Z",
+      },
+    };
+    putResponse = () =>
+      json({
+        ...emptyDay(TODAY),
+        checkin: {
+          scores: { mood: 5, energy: 1, stress: 1 },
+          tags: [],
+          recorded_at: "2026-11-03T20:00:00Z",
+        },
+      });
+    renderScreen();
+    await screen.findByRole("group", { name: "mood" });
+    await choose("mood", 5);
+    await save();
+    await screen.findByText("overview screen");
+
+    await userEvent.click(screen.getByRole("link", { name: "back" }));
+
+    await screen.findByRole("group", { name: "mood" });
+    expect(chosen("mood")).toBe("5");
   });
 });
 
@@ -261,6 +302,22 @@ describe("choosing another day", () => {
     await screen.findByText("overview screen");
     expect(puts[0]?.url).toBe("/api/checkins/2026-11-02");
     expect(puts[0]?.body.tags).toEqual([]);
+  });
+
+  it("doesn't carry unsaved answers between days that are already loaded", async () => {
+    renderScreen();
+    await screen.findByRole("group", { name: "mood" });
+    const day = screen.getByRole("combobox", { name: "Day" });
+    await userEvent.selectOptions(day, "2026-11-02");
+    await screen.findByRole("group", { name: "mood" });
+    await userEvent.selectOptions(day, TODAY);
+    await screen.findByRole("group", { name: "mood" });
+
+    await choose("mood", 4);
+    await userEvent.selectOptions(day, "2026-11-02");
+
+    await screen.findByRole("group", { name: "mood" });
+    expect(chosen("mood")).toBeUndefined();
   });
 });
 
