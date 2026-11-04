@@ -234,6 +234,30 @@ GROUPS: dict[str, list[Mutant]] = {
     ],
     "http": [
         Mutant(
+            API + "app.py",
+            "any directory served as the web app",
+            'if not (settings.web_dist / "index.html").is_file():',
+            "if False:",
+        ),
+        Mutant(
+            API + "web.py",
+            "unknown API paths answered with the web app",
+            'if path == "api" or path.startswith("api/"):',
+            "if False:",
+        ),
+        Mutant(
+            API + "web.py",
+            "browser routes not answered with the web app",
+            'return await super().get_response("index.html", scope)',
+            "raise",
+        ),
+        Mutant(
+            API + "app.py",
+            "web app mounted before the API routes",
+            "    app.include_router(auth_router)\n",
+            '    if settings.web_dist is not None:\n        app.mount("/", WebApp(directory=settings.web_dist, html=True))\n    app.include_router(auth_router)\n',
+        ),
+        Mutant(
             API + "middleware.py",
             "origin check disabled",
             "if origin is not None and origin not in self._allowed_origins | {own_origin}:",
