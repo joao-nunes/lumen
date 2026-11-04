@@ -17,3 +17,13 @@ updates:
         dependency-type: development
       python-runtime:
         dependency-type: production
+
+  - package-ecosystem: npm # also covers pnpm, through web/pnpm-lock.yaml
+    directory: /web
+    schedule:
+      interval: weekly
+    groups:
+      web-dev:
+        dependency-type: development
+      web-runtime:
+        dependency-type: production
