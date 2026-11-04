@@ -1,6 +1,6 @@
 # Spec 003: HTTP security headers
 
-**Status:** Proposed (open questions in §5)
+**Status:** Approved (decisions in §5)
 **Builds on:** spec 001 (auth HTTP layer), spec 002 (FastAPI serves the built frontend)
 
 ## 1. Goal
@@ -73,9 +73,11 @@ Add to the `http` group:
 - `no-store` missing, and `no-store` applied to everything
 - API docs routes left on
 
-## 5. Open questions
+## 5. Decisions
 
-| # | Question | Recommendation |
+The owner approved every recommendation as written (PR #22).
+
+| # | Question | Decision |
 |---|---|---|
 | Q1 | This policy breaks FastAPI's `/docs` page, which loads its code from a third-party CDN and runs an inline script. Exempt it, or remove the docs routes? | **Remove `/docs`, `/redoc` and `/openapi.json`.** Nothing in the repo uses them, and an exemption would run third-party code on the same origin as your session. Generating the frontend's types doesn't use these routes, and `make schema` still produces the full API description in `web/openapi.json`. |
 | Q2 | Add `Strict-Transport-Security`? | **Not yet.** Browsers ignore it over plain HTTP, so it does nothing on `http://localhost`. Decide it with deployment, when HTTPS exists. |
