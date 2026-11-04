@@ -9,7 +9,7 @@ from lumen.api.clock import Clock, system_clock
 from lumen.api.cookies import CookieManager
 from lumen.api.dependencies import Container
 from lumen.api.errors import install_error_handlers
-from lumen.api.middleware import RequestGuardMiddleware
+from lumen.api.middleware import RequestGuardMiddleware, SecurityHeadersMiddleware
 from lumen.api.routes.auth import router as auth_router
 from lumen.api.routes.checkins import router as checkins_router
 from lumen.api.routes.overview import router as overview_router
@@ -48,9 +48,12 @@ def create_app(settings: Settings, clock: Clock = system_clock) -> FastAPI:
         app_engine.dispose()
         auth_engine.dispose()
 
-    app = FastAPI(title="Lumen", lifespan=lifespan)
+    # No API docs routes: they load a third-party script, which the CSP forbids (spec 003 Q1).
+    app = FastAPI(title="Lumen", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = container
     app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)
+    # Added last, so it runs outermost: requests the guard refuses get the headers too.
+    app.add_middleware(SecurityHeadersMiddleware)
     install_error_handlers(app)
     app.include_router(auth_router)
     app.include_router(checkins_router)
