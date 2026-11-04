@@ -145,6 +145,25 @@ Add mutants to `scripts/mutate.py` for:
 | I6 | `GET /api/tags` lists only tags that at least one check-in still uses. | After an edit removes a tag, it shouldn't keep being suggested with a count of 0. |
 | I7 | The plain index on `checkins (user_id, local_date)` is dropped. | The new unique constraint's index covers the same queries. |
 
+### PR 2: web app shell
+
+| # | Addition | Reason |
+|---|---|---|
+| I8 | **AC-10 is narrowed:** a `401` with code `invalid_credentials` doesn't send the user to *Log in*. | A wrong password is also a `401`. Followed literally, AC-10 would reload the login screen and lose the error. |
+| I9 | A session ending is a full page load to `/login`, not a router navigation. | It also discards all of the user's data held in memory. |
+| I10 | `make run` and `make dev` use `--no-access-log` and bind to `127.0.0.1`. | uvicorn's access log records client IP addresses, which Lumen never stores. |
+| I11 | New setting `WEB_DIST`. The app **refuses to start** if that directory has no `index.html`. | An empty `WEB_DIST=` means the current directory, which would publish the repository, including `.env`. |
+| I12 | Paths under `/api` never get the web app. Any other unknown path gets `index.html`, including a missing asset. | A reload on a browser route must load the app, and an API client must get a `404`, not a `200` with HTML. |
+| I13 | The API client reads the CSRF cookie with or without the `__Host-` prefix. | The prefix depends on `COOKIE_SECURE`. Safari rejects Secure cookies on `http://localhost`, so using Safari locally needs `COOKIE_SECURE=false`. |
+| I14 | Node 26 (pinned in `web/.nvmrc`, installed with fnm), and pnpm pinned through `packageManager`. TypeScript stays on 5.9. | Node 26 no longer includes corepack. `typescript-eslint` needs TypeScript below 6.1, and `openapi-typescript` needs 5.x. |
+| I15 | Screens have no unit tests, and Testing Library and jsdom aren't installed yet. | The forms are linear glue over the tested client, and AC-9 covers them end to end in PR 4. For this PR, a throwaway browser script checked 14 behaviours under both `make run` and `make dev`. |
+| I16 | The web mutants aren't in `scripts/mutate.py`, which only runs pytest. They were run once with a throwaway script: 16 of 16 caught. | The first run found a real gap (no test crossed a month boundary), so AC-12 has one extra case: `2027-01-01T02:00:00Z` is `2026-12-31` in `America/New_York`. Adding web mutants to `make mutate` is a follow-up. |
+| I17 | *Today* and *Overview* are headings only. | They're filled in by PR 3 and PR 4. |
+
+**Open for the owner:**
+- **Required check:** add "Web (tests, build, API types)" to `master`'s required checks, as §2.1 proposed.
+- **Content-Security-Policy:** FastAPI now serves HTML, and no CSP or other security headers are set. Adding them would be a separate small PR.
+
 ## 6. Decisions
 
 The owner approved every recommendation as written (PR #16).
