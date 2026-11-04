@@ -1,6 +1,6 @@
 # Spec 003: HTTP security headers
 
-**Status:** Approved (decisions in §5)
+**Status:** Approved (decisions in §6)
 **Builds on:** spec 001 (auth HTTP layer), spec 002 (FastAPI serves the built frontend)
 
 ## 1. Goal
@@ -73,7 +73,13 @@ Add to the `http` group:
 - `no-store` missing, and `no-store` applied to everything
 - API docs routes left on
 
-## 5. Decisions
+## 5. Added during implementation (for review)
+
+- **Browser check results:** in headless Chromium under `make run`, the login flow caused no CSP violations. An injected inline script, `eval`, an external script and a `fetch` to another site were all blocked.
+- **`eval` must be tested from a timer in Playwright.** Called directly inside `page.evaluate`, `eval` wasn't blocked, even with the policy on. From a timer it fails with `EvalError` under the policy and runs on a control page without it, so the direct result looks like an artifact of how Playwright runs code. Any future test should use a timer.
+- **`CLAUDE.md`** now says not to add inline script or style.
+
+## 6. Decisions
 
 The owner approved every recommendation as written (PR #22).
 

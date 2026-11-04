@@ -235,6 +235,51 @@ GROUPS: dict[str, list[Mutant]] = {
     "http": [
         Mutant(
             API + "app.py",
+            "security headers not installed",
+            "    app.add_middleware(SecurityHeadersMiddleware)\n",
+            "",
+        ),
+        Mutant(
+            API + "app.py",
+            "security headers inside the request guard",
+            "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n"
+            "    # Added last, so it runs outermost: requests the guard refuses get the headers too.\n"
+            "    app.add_middleware(SecurityHeadersMiddleware)\n",
+            "    app.add_middleware(SecurityHeadersMiddleware)\n"
+            "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n",
+        ),
+        Mutant(
+            API + "middleware.py",
+            "inline script allowed by the CSP",
+            """\"script-src 'self'\",""",
+            """\"script-src 'self' 'unsafe-inline'\",""",
+        ),
+        Mutant(
+            API + "middleware.py",
+            "CSP lets script contact any site",
+            """\"connect-src 'self'\",""",
+            """\"connect-src *\",""",
+        ),
+        Mutant(
+            API + "middleware.py",
+            "API responses may be stored",
+            '''headers["Cache-Control"] = "no-store"''',
+            "pass",
+        ),
+        Mutant(
+            API + "middleware.py",
+            "everything marked no-store",
+            """if scope["path"].startswith("/api/"):""",
+            "if True:",
+        ),
+        Mutant(
+            API + "app.py",
+            "API docs routes left on",
+            "docs_url=None, redoc_url=None, openapi_url=None",
+            "",
+        ),
+        Mutant(
+            API + "app.py",
             "any directory served as the web app",
             'if not (settings.web_dist / "index.html").is_file():',
             "if False:",
