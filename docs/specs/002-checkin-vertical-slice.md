@@ -182,7 +182,7 @@ Add mutants to `scripts/mutate.py` for:
 | # | Addition | Reason |
 |---|---|---|
 | I26 | The overview's wording has tests, and three lines §2.5 didn't give exact wording for are decided. Flat and unclear changes both read "No clear change". A trend with too little data reads "Not enough data yet (N days)". Every line keeps its data basis. This narrows the "untested" justification for wording in §3; colours are still reviewed by eye. | A swapped branch would tell someone the opposite of what their data says, and nothing would crash. |
-| I27 | "Not enough data yet" counts the days in both 4-week periods, so it can read "(22 days)". | That's what analytics reports: rotating dimensions can have 22 days and still not support a comparison, because neighbouring days are correlated. Rewording it to explain this is open for the owner. |
+| I27 | "Not enough data yet" counts the days in both 4-week periods, so it can read "(22 days)". | That's what analytics reports: rotating dimensions can have 22 days and still not support a comparison, because neighbouring days are correlated. The owner kept this wording. |
 | I28 | Outlook colour is a small dot beside each line: teal for better, violet for harder, grey otherwise. The chart itself is always blue. The legend names them "Getting better", "Getting harder" and "No clear change". | *Lately* and *Direction* can disagree, so one card can't have a single colour. Violet avoids alarm colours (§2.5). The colours pass the palette checker in both modes, apart from one contrast warning on the light-mode teal dot, and the words beside it carry the meaning. |
 | I29 | *Numbers* also holds a table of the chart's values, newest first. The chart can be read with the arrow keys. | §2.5 only asked for the estimates there. A tooltip can't be the only way to read a value. |
 | I30 | A card with no data has no chart. Daily points are smaller (radius 2.5) and paler than the chart guidance's default. | Seven empty charts say nothing. At 84 days, larger points would overlap. |
@@ -192,9 +192,10 @@ Add mutants to `scripts/mutate.py` for:
 | I34 | **AC-9 is `make e2e`:** `make run` on port 8001 (`make run` gains `PORT`), against `lumen_test`, in a new CI job, "End to end (Playwright)". It also fails on any CSP violation or uncaught page error, and checks the policy header is present. | It can run beside the everyday app, it can't touch the development database, and it never reuses a running server. |
 | I35 | Overview mutants were run once with a throwaway script: 30 of 30 caught. They aren't in `make mutate` (see I16). A real browser checked the screen with 16 weeks of synthetic data, in light and dark, at phone width, and with the tooltip by mouse and keyboard. | Wording, numbers and the cache are what can quietly go wrong here. Layout and colour can only be checked by eye. |
 
-**Open for the owner:**
-- **Required check:** add "End to end (Playwright)" to `master`'s required checks.
-- **Wording of I27:** keep "Not enough data yet (22 days)", or explain why 22 days can be too few.
+**Decided by the owner (2026-11-05):**
+- **Required check:** "End to end (Playwright)" is now one of `master`'s required checks.
+- **Wording of I27:** "Not enough data yet (22 days)" stays as it is.
+- **Colours and legend wording of I28:** kept for now.
 
 ## 6. Decisions
 
