@@ -30,3 +30,13 @@ export function formatDay(day: string, locale?: string): string {
     timeZone: "UTC",
   }).format(new Date(day));
 }
+
+/** `day` and the `count` calendar days before it, newest first. */
+export function daysBack(day: string, count: number): string[] {
+  const start = new Date(day); // midnight UTC, so the arithmetic below can't cross a DST change
+  return Array.from({ length: count + 1 }, (_, offset) => {
+    const date = new Date(start);
+    date.setUTCDate(start.getUTCDate() - offset);
+    return date.toISOString().slice(0, 10);
+  });
+}

@@ -11,6 +11,13 @@ export class ApiError extends Error {
   }
 }
 
+/** What to show the user: messages from 4xx responses are written for them; anything else isn't. */
+export function errorMessage(error: unknown): string {
+  return error instanceof ApiError && error.status < 500 && error.code !== "unexpected_response"
+    ? error.message
+    : "Lumen couldn't be reached. Please try again.";
+}
+
 export interface ApiClient {
   get(path: string): Promise<unknown>;
   send(method: "POST" | "PUT", path: string, body?: unknown): Promise<unknown>;

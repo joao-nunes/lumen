@@ -1,0 +1,56 @@
+.day {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 16rem;
+  margin-bottom: 1rem;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.saved {
+  margin: 0;
+  color: var(--muted);
+}
+
+.group {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.group legend {
+  font-weight: 600;
+}
+
+.option {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.125rem 0;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+}
+
+.tag {
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.newTag {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  max-width: 16rem;
+  margin-top: 0.75rem;
+}

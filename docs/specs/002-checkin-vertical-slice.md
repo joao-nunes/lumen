@@ -164,6 +164,19 @@ Add mutants to `scripts/mutate.py` for:
 - **Required check:** add "Web (tests, build, API types)" to `master`'s required checks, as §2.1 proposed.
 - **Content-Security-Policy:** FastAPI now serves HTML, and no CSP or other security headers are set. Adding them would be a separate small PR.
 
+### PR 3: check-in screen
+
+| # | Addition | Reason |
+|---|---|---|
+| I18 | The form also shows any dimension that day already has a score for, even if it isn't prompted. This goes beyond §2.2, which says the UI shows only the prompted ones. | Saving replaces the whole day, so hiding an answered dimension would silently delete its score on the next save. |
+| I19 | The day picker is a dropdown of today and the 7 days before it, not a calendar. | It can't produce a date outside the window, and it's quick by keyboard. |
+| I20 | The UI offers `[local today − 7, local today]`. The API's wider window only allows for timezones. | Tomorrow's date is accepted by the API, but the form has no reason to offer it. |
+| I21 | Optional dimensions get a *Clear* button once answered. | Native radio buttons can't be unselected, so an optional answer couldn't otherwise be taken back. |
+| I22 | Tags are shown as stored, e.g. `time_outdoors`. | It's the simplest honest display, and it matches what the user will see in later analytics. Friendlier labels can come later. |
+| I23 | Typed tags are normalized in the browser with the same rule as the API. | A typed "Time-Outdoors" must select the existing tag rather than add a duplicate. The API stays the authority and rejects invalid tags. |
+| I24 | The screen has component tests with Testing Library and jsdom. This reverses I15, which applied to the login forms. | This form has real branches, and a mistake here corrupts data without any visible error. |
+| I25 | Check-in screen mutants were run once with a throwaway script: 21 of 21 caught. They aren't in `make mutate` (see I16). | The first run found two missing tests, and one check that could never fail, which was removed. |
+
 ## 6. Decisions
 
 The owner approved every recommendation as written (PR #16).
