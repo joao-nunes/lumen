@@ -95,6 +95,8 @@ function CheckinForm({
     onSuccess: async (result) => {
       // The form reads its answers once: a stale copy would bring back the old ones.
       queryClient.setQueryData(["checkin", day.local_date], result);
+      // Removed, not just marked stale: the next screen must not show the overview from before.
+      queryClient.removeQueries({ queryKey: ["overview"] });
       await navigate("/overview");
     },
   });

@@ -1,0 +1,141 @@
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0 0 1rem;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.keyPoint {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 50%;
+  background: var(--chart-line);
+  opacity: 0.55;
+}
+
+.keyLine {
+  width: 1rem;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--chart-line);
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.card h2 {
+  margin: 0;
+  font-size: 1.125rem;
+}
+
+.note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.lines {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.125rem 0.75rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.lines dt {
+  color: var(--muted);
+}
+
+.lines dd {
+  margin: 0;
+}
+
+.dot {
+  display: inline-block;
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-right: 0.375rem;
+  border-radius: 50%;
+  vertical-align: 0.0625rem;
+}
+
+.legend .dot {
+  margin-right: 0;
+}
+
+/* The words carry the meaning. Never an alarm colour: spec 002 §2.5. */
+.improving {
+  background: var(--outlook-better);
+}
+
+.worsening {
+  background: var(--outlook-harder);
+}
+
+.stable,
+.unknown {
+  background: var(--muted);
+}
+
+/* The chart's height, so the page doesn't jump when its code arrives. */
+.chartSpace {
+  height: 200px;
+}
+
+.numbers {
+  margin-top: 0.5rem;
+}
+
+.estimates {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+
+.values {
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.values table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.values th,
+.values td {
+  padding: 0.125rem 0.5rem 0.125rem 0;
+  font-weight: 400;
+  text-align: left;
+}
+
+.values thead th {
+  color: var(--muted);
+}
+
+.tooltip {
+  padding: 0.375rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background: var(--background);
+  font-size: 0.875rem;
+}
