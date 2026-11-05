@@ -11,6 +11,7 @@ docker compose up -d --wait db     # PostgreSQL (dev db `lumen`, test db `lumen_
 uv run alembic upgrade head
 make check                         # pre-commit on all files: ruff, mypy (strict), gitleaks, actionlint, uv lock
 make test                          # backend and web tests; integration tests skip if the db is down
+make e2e                           # AC-9 in Chromium on :8001, against the test database
 make mutate [GROUPS="auth rls"]    # mutation check (about 7 min for all groups); recreates lumen_test
 make dev                           # API on :8000, Vite on http://localhost:5173
 make run                           # FastAPI serves the built frontend at http://localhost:8000

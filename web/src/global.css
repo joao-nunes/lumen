@@ -4,6 +4,11 @@
   --muted: light-dark(#59636e, #9aa4af);
   --border: light-dark(#d1d9e0, #3d444d);
   --background: light-dark(#ffffff, #15191e);
+  /* Validated with the dataviz palette checker against these two backgrounds. */
+  --chart-line: light-dark(#2a78d6, #3987e5);
+  --chart-grid: light-dark(#e6e8eb, #2a3037);
+  --outlook-better: light-dark(#1baf7a, #199e70);
+  --outlook-harder: light-dark(#6250d6, #9085e9);
   font-family: system-ui, sans-serif;
   line-height: 1.5;
 }

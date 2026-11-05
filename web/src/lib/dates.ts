@@ -31,6 +31,14 @@ export function formatDay(day: string, locale?: string): string {
   }).format(new Date(day));
 }
 
+export function formatShortDay(day: string, locale?: string): string {
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC", // as in formatDay
+  }).format(new Date(day));
+}
+
 /** `day` and the `count` calendar days before it, newest first. */
 export function daysBack(day: string, count: number): string[] {
   const start = new Date(day); // midnight UTC, so the arithmetic below can't cross a DST change

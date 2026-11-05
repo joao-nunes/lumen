@@ -185,6 +185,9 @@ build/
 # Generated: the OpenAPI document web/src/api/schema.d.ts is built from
 web/openapi.json
 
+# Playwright's output when a test fails
+web/test-results/
+
 # ============================================================
 
 # Project-specific
