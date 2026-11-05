@@ -78,6 +78,7 @@ Add to the `http` group:
 - **Browser check results:** in headless Chromium under `make run`, the login flow caused no CSP violations. An injected inline script, `eval`, an external script and a `fetch` to another site were all blocked.
 - **`eval` must be tested from a timer in Playwright.** Called directly inside `page.evaluate`, `eval` wasn't blocked, even with the policy on. From a timer it fails with `EvalError` under the policy and runs on a control page without it, so the direct result looks like an artifact of how Playwright runs code. Any future test should use a timer.
 - **`CLAUDE.md`** now says not to add inline script or style.
+- **Recharts works under this policy, so §6's risk didn't happen (spec 002 PR 4).** Its styles are set from script, which the policy allows. AC-9 now runs under the real policy and fails on any violation: a deliberately added inline `style` attribute made it fail. The policy itself is unchanged.
 
 ## 6. Decisions
 
