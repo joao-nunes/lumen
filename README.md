@@ -1,54 +1,10 @@
-## Lumen — an agentic personal assistant for reflection and self-understanding.
+## Lumen: a personal wellbeing reflection app
 
 [![CI](https://github.com/joao-nunes/lumen/actions/workflows/ci.yml/badge.svg)](https://github.com/joao-nunes/lumen/actions/workflows/ci.yml)
 
-See [PROJECT.MD](PROJECT.MD) for the architecture and roadmap.
+Record a daily check-in and see what your data shows, with the uncertainty attached. Lumen supports therapy and never replaces it. Check-ins, analytics and the web app work today; the agents are planned.
 
-## Development
-
-Requirements: [uv](https://docs.astral.sh/uv/), Docker, and for the web app Node (version in `web/.nvmrc`) and pnpm (version in `web/package.json`).
-
-```bash
-brew install fnm                                  # then follow its shell setup, so `node` is on your PATH
-fnm install "$(cat web/.nvmrc)" && fnm use "$(cat web/.nvmrc)"
-npm install -g "pnpm@$(node -p "require('./web/package.json').packageManager.split('@')[1]")"
-pnpm --dir web install
-```
-
-Set `SECRET_KEY` in `.env`, then use `make run` for the app at http://localhost:8000, or `make dev` to develop on http://localhost:5173. Safari refuses Secure cookies on `http://localhost`, so to use it locally set `COOKIE_SECURE=false`.
-
-```bash
-cp .env.example .env
-uv sync
-uv run pre-commit install           # lint, format, type-check, and secret-scan on every commit
-docker compose up -d --wait db      # PostgreSQL 16 + pgvector (creates databases and runtime roles)
-# Volumes created before the runtime roles existed need this once:
-#   docker compose exec -T db psql -U lumen -d lumen < docker/postgres/init/02-app-roles.sql
-uv run alembic upgrade head
-
-uv run pytest                       # unit + integration tests (integration skips if DB is down)
-uv run pytest -m "not integration"  # unit tests only
-uv run ruff check . && uv run ruff format --check . && uv run mypy
-
-# Shortcuts: make check (all pre-commit hooks), make test, make mutate
-# The mutation check reruns the suite against deliberate bugs (scripts/mutate.py):
-make mutate                         # all groups, about 7 minutes
-make mutate GROUPS="auth http"      # selected groups only
-
-# Seed the dev database with a synthetic persona (burnout | stable | seasonal_dip)
-uv run python -m lumen.synthetic.seed burnout --seed 42
-```
-
-## Continuous integration
-
-GitHub Actions (`.github/workflows/ci.yml`) runs on every pull request and on pushes to `master`:
-
-- **Lint, format, types:** all pre-commit hooks (ruff, mypy, Prettier, ESLint, tsc, gitleaks, uv lock check, actionlint, file hygiene).
-- **Web (tests, build, API types):** runs the Vitest tests, builds the frontend, and fails if `web/src/api/schema.d.ts` doesn't match the backend
-- **Tests (PostgreSQL):**
-  - applies migrations to a fresh pgvector database
-  - runs `alembic check` to fail on models that changed without a migration
-  - runs the full test suite with integration tests required (never skipped) and a 90% coverage gate
-  - smoke-tests the seeding CLI
-
-Actions are pinned to commit SHAs. Dependabot proposes weekly updates for actions and Python dependencies.
+- **[Developer guide](docs/developer-guide.md):** set up, call the API, extend and debug
+- **[PROJECT.MD](PROJECT.MD):** product, architecture and roadmap
+- **[CLAUDE.md](CLAUDE.md):** workflow, testing rules and security invariants
+- **[docs/specs/](docs/specs/):** feature specs and their decisions
