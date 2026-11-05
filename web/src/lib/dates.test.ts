@@ -1,6 +1,6 @@
 // AC-12 (spec 002): each case is run in a real process timezone, as a browser would be.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { formatDay, formatInstant, today } from "./dates";
+import { formatDay, formatInstant, formatShortDay, today } from "./dates";
 
 const originalTz = process.env.TZ;
 
@@ -67,5 +67,6 @@ describe("calendar days are never converted", () => {
   it("stays on the same day west of UTC", () => {
     inTimeZone("America/New_York");
     expect(formatDay("2026-10-31", "en-GB")).toBe("31 October");
+    expect(formatShortDay("2026-10-31", "en-GB")).toBe("31 Oct");
   });
 });

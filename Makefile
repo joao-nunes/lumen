@@ -1,8 +1,9 @@
-.PHONY: check test mutate dev run schema check-schema
+.PHONY: check test e2e mutate dev run schema check-schema
 
 WEB := pnpm --dir web
 # --no-access-log: uvicorn's access log records client IP addresses, which Lumen never stores.
-API := uv run uvicorn lumen.api.main:app --factory --host 127.0.0.1 --port 8000 --no-access-log
+PORT ?= 8000
+API := uv run uvicorn lumen.api.main:app --factory --host 127.0.0.1 --port $(PORT) --no-access-log
 
 # Lint, format, type-check and secret-scan everything (as CI's first job does).
 check:
@@ -12,6 +13,13 @@ check:
 test:
 	uv run pytest
 	$(WEB) test
+
+# End-to-end test (AC-9) in Chromium, against what `make run` serves. It runs on :8001 and uses
+# the test database, so it can run beside the app and no test accounts reach the development one.
+e2e:
+	ADMIN_DATABASE_URL=postgresql+psycopg://lumen:lumen@localhost:5432/lumen_test uv run alembic upgrade head
+	$(WEB) exec playwright install chromium
+	$(WEB) exec playwright test
 
 # Mutation check: rerun the suite against deliberate bugs. Recreates lumen_test.
 # Choose groups with GROUPS="auth rls http checkins domain analytics" (default: all).
