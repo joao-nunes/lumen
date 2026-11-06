@@ -1,6 +1,6 @@
 # Spec 005: Privacy-safe logging
 
-**Status:** Draft, awaiting approval to merge (decisions in §5)
+**Status:** Approved (decisions in §5)
 **Builds on:** spec 001 (auth HTTP layer), spec 003 (security headers), spec 004 (password change limit)
 
 ## 1. Goal
