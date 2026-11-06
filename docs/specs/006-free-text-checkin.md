@@ -25,6 +25,7 @@ This also answers a question the rest of Milestone 3 depends on: can a local mod
 | Is raw text saved? | **No.** It's used for the suggestion and then discarded |
 | Which runtime? | **Ollama** |
 | Accuracy bar | **95%, if realistic.** §3 says what that can mean, and Q1 asks you to confirm it |
+| Installing Ollama | **Done with the owner's permission:** version 0.40.14, with cloud features off, listening on `127.0.0.1` only, and no models downloaded yet |
 
 ### 2.2 The flow
 
@@ -66,14 +67,14 @@ POST /api/checkins/{local_date}/suggestion
 |---|---|
 | `OLLAMA_URL` points at another machine | The app refuses to start unless the host is a loopback address |
 | A cloud model is configured | The app refuses to start if `OLLAMA_MODEL` names a cloud model, such as a `-cloud` tag |
-| Ollama itself allows cloud models | Setup requires `OLLAMA_NO_CLOUD=1`, and the hand check confirms `Ollama cloud disabled: true` in Ollama's log. The app can't verify this itself, so the two checks above don't rely on it |
+| Ollama itself allows cloud models | Setup requires `"disable_ollama_cloud": true` in `~/.ollama/server.json`, which applies however Ollama is started, and the hand check confirms `Ollama cloud disabled: true` in its log. The app can't verify this itself, so the two checks above don't rely on it |
 | Ollama writes prompts to its own logs | Ollama's documentation doesn't say. **The hand check tests this with a marker.** If a marker appears at default settings, implementation stops and this comes back to the owner |
 | Stored in the database | No table has a column for it |
 | In Lumen's log | `EventLog` can't carry it (spec 005), and AC-5 tests it |
 | In the browser | React state only: no `localStorage`, no URL, and no retained TanStack mutation (`gcTime: 0`). `autocomplete="off"` applies, and `spellcheck="false"`, because some browsers' enhanced spell check sends text to a remote service |
 | Left on screen | The box is cleared after a successful save. **A reload loses a draft,** which follows from not storing it |
 
-Ollama runs natively rather than in Compose, because Docker on a Mac has no GPU access. The CSP doesn't change: the server calls Ollama, not the browser.
+Ollama runs natively rather than in Compose, because Docker on a Mac has no GPU access. It's installed with Homebrew's `ollama` formula, which adds no login item and runs only when started, and it writes its log to its own output rather than a file. The CSP doesn't change: the server calls Ollama, not the browser.
 
 ### 2.5 Code
 
@@ -149,7 +150,7 @@ API and screen tests use a fake `SuggestionModel`, since a real model is slow an
 - **AC-15 (end to end):** in Chromium under the real CSP, with a stub standing in for Ollama: write, suggest, correct a score, save, and see the corrected value on the overview.
 
 **Checked by hand once, with real Ollama**
-- With a marker in the text and default settings, the marker isn't in `~/.ollama/logs`.
+- With a marker in the text and default settings, the marker isn't in the output of `ollama serve`, or anywhere under `~/.ollama`.
 - Ollama's log shows `Ollama cloud disabled: true`, and it binds to `127.0.0.1` only.
 - A suggestion still works with the network off, which shows nothing depends on leaving the machine.
 
@@ -179,7 +180,6 @@ One-off faults under the project workflow: a slow model while other requests arr
 | Q2 | **Which languages?** You may want to write in Portuguese, and accuracy could differ between languages. | **Both English and Portuguese,** with the set split evenly and the results reported separately, so a weak language can't hide inside an average. It needs your Portuguese labelling in Q3. |
 | Q3 | **Who labels the evaluation set?** If I write the text and labels, the model looks better than it is. | **I write the entries, and you score 30 of them blind.** How far your scores differ from mine shows how ambiguous the text is, which is the realistic ceiling for any model. It should take about 15 minutes. |
 | Q4 | **Is the §2.7 wording right?** It's safety text, and it should be your decision. The number and option 4 come from press reports and a government notice, so please confirm them before this ships. | **Use it as written,** once you've confirmed the details. |
-| Q5 | **Will you install Ollama, or should I?** It's software on your machine, plus several GB per model. | **I install it with your approval,** native, with `OLLAMA_NO_CLOUD=1`. |
 
 ## 7. Added during implementation (for review)
 
