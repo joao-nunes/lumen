@@ -53,10 +53,13 @@ def outcome(
 ALL_SEVEN = len(Dimension)
 
 
-def test_a_blank_on_an_addressed_dimension_is_a_miss_so_blanks_cant_win() -> None:
+def test_a_blank_lowers_coverage_rather_than_counting_as_a_wrong_suggestion() -> None:
     metrics = measure([outcome(entry({MOOD: 3, ENERGY: 3}), {MOOD: 3})])
 
-    assert (metrics.addressed, metrics.within_one, metrics.exact) == (2, 0.5, 0.5)
+    assert metrics.addressed == 2
+    assert metrics.coverage == 0.5
+    assert metrics.within_one == 1.0  # of the one score it suggested
+    assert metrics.exact == 0.5
     assert metrics.off_by_three == 0
 
 
@@ -75,9 +78,15 @@ def test_score_distance_is_measured_both_ways() -> None:
     )
 
     assert metrics.addressed == 8
-    assert metrics.exact == 1 / 8
-    assert metrics.within_one == 3 / 8
-    assert metrics.off_by_three == 3 / 8
+    assert metrics.coverage == 7 / 8
+    assert metrics.within_one == 3 / 7  # of the 7 it suggested
+    assert metrics.exact == 1 / 8  # of the 8 addressed
+    assert metrics.off_by_three == 3 / 8  # of the 8 addressed, as the owner approved
+
+
+def test_scores_on_unaddressed_dimensions_dont_count_towards_within_one() -> None:
+    metrics = measure([outcome(entry({MOOD: 3}), {MOOD: 3, ENERGY: 1})])
+    assert (metrics.within_one, metrics.coverage) == (1.0, 1.0)
 
 
 def test_an_invented_score_on_an_unaddressed_dimension_counts_against_blanks() -> None:
@@ -95,6 +104,7 @@ def test_a_dimension_marked_either_way_counts_in_neither_measure() -> None:
 
     assert filled.addressed == blank.addressed == 1
     assert filled.within_one == blank.within_one == 1
+    assert filled.coverage == blank.coverage == 1
     assert filled.unaddressed == blank.unaddressed == ALL_SEVEN - 2
     assert filled.left_blank == blank.left_blank == 1
 
@@ -108,6 +118,7 @@ def test_a_failed_call_counts_as_wrong_everywhere() -> None:
     )
 
     assert metrics.within_one == 0
+    assert metrics.coverage == 0
     assert metrics.left_blank == 0  # a failure must not look like correctly leaving things blank
     assert metrics.addressed == 2
     assert metrics.unaddressed == 2 * (ALL_SEVEN - 1)
@@ -143,10 +154,11 @@ def test_slowest_time_excludes_the_first_call_which_loads_the_model() -> None:
 GOOD = Metrics(
     addressed=300,
     within_one=0.95,
+    coverage=0.75,
     exact=0.5,
     off_by_three=0.01,
     unaddressed=300,
-    left_blank=0.95,
+    left_blank=0.90,
     tag_precision=0.5,
     tag_recall=0.5,
     p95_seconds=9.99,
@@ -167,7 +179,8 @@ def test_the_bar_is_met_exactly_at_each_limit() -> None:
     "changes",
     [
         {"within_one": 0.949},
-        {"left_blank": 0.949},
+        {"coverage": 0.749},
+        {"left_blank": 0.899},
         {"off_by_three": 0.0101},
         {"p95_seconds": 10.0},
         {"distress_failures": 1},

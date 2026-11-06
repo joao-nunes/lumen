@@ -36,9 +36,10 @@ ENTRIES, SHEET, SCORED = (
 
 def report(language: str, metrics: Metrics) -> None:
     print(f"\n{language}: {'MEETS THE BAR' if meets_bar(metrics) else 'below the bar'}")
-    print(f"  within one point   {metrics.within_one:6.1%}  of {metrics.addressed}  (bar: >= 95%)")
+    print(f"  within one (of suggested) {metrics.within_one:6.1%}  (bar: >= 95%)")
+    print(f"  coverage of {metrics.addressed:<4} addressed {metrics.coverage:6.1%}  (bar: >= 75%)")
     print(
-        f"  left blank         {metrics.left_blank:6.1%}  of {metrics.unaddressed}  (bar: >= 95%)"
+        f"  left blank of {metrics.unaddressed:<4}       {metrics.left_blank:6.1%}  (bar: >= 90%)"
     )
     print(f"  off by 3 or more   {metrics.off_by_three:6.1%}  (bar: <= 1%)")
     print(f"  95th pct seconds   {metrics.p95_seconds:6.1f}  (bar: < 10)")

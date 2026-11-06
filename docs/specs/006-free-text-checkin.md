@@ -102,16 +102,19 @@ Someone may write about a crisis in this box, and Lumen won't detect it. So, wit
 
 **Exact matches on a 1 to 5 score probably won't reach 95%, and that isn't all down to the model.** *"ok evening"* has no single right number: reasonable people could pick 3 or 4. I haven't measured this, and no study I found matches this task. The nearest figure is from a different task, where two people rating text quality on a 5-point scale were within one point of each other 82.7% of the time.
 
-A wrong suggestion also costs little here, because the person sees and corrects it. The expensive errors are the ones they might miss. So the bar focuses on those:
+A wrong suggestion also costs little here, because the person sees and corrects it. The expensive errors are the ones they might miss. So the bar focuses on those. The owner approved these numbers after scoring 30 held-out notes blind, and before any model saw the held-out split (Q1):
 
-| Metric | What it catches | Bar |
-|---|---|---|
-| **Within one point,** on dimensions the text addresses | A clearly wrong suggestion | **At least 95%** |
-| **Left blank,** on dimensions the text doesn't address | Invented scores | **At least 95%** |
-| **Off by three or more** | Reversals, such as high stress scored as calm | **At most 1%** |
-| **Time per suggestion** on this machine (M4 Pro, 24 GB), after the model has loaded | Check-ins should take under a minute (`PROJECT.MD` §2.10) | **Under 10 seconds, 95th percentile** |
-| Exact match | Reported for reference | No bar |
-| Tag precision and recall | Reported for reference | No bar yet: set with the owner after the first run |
+| Metric | What it catches | Bar | The owner, on the same measure |
+|---|---|---|---|
+| **Suggested scores within one point** | A clearly wrong suggestion | **At least 95%** | 96.5% |
+| **Addressed dimensions it scores at all** | Being useless by leaving everything blank | **At least 75%** | 81% |
+| **Left blank,** on dimensions the text doesn't address | Invented scores | **At least 90%** | 94% |
+| **Off by three or more,** of addressed dimensions | Reversals, such as high stress scored as calm | **At most 1%** | 1.4% |
+| **Time per suggestion** on this machine (M4 Pro, 24 GB), after the model has loaded | Check-ins should take under a minute (`PROJECT.MD` §2.10) | **Under 10 seconds, 95th percentile** | n/a |
+| Exact match, of addressed dimensions | Reported for reference | No bar | 56% |
+| Tag precision and recall | Reported for reference | No bar yet: set with the owner after the first run | n/a |
+
+The bar applies to each language separately.
 
 **If no model meets the bar, implementation stops and the options go to the owner.** The bar is never lowered silently.
 
@@ -174,11 +177,11 @@ One-off faults under the project workflow: a slow model while other requests arr
 
 ## 6. Decisions
 
-The owner chose the recommendation on all four, and approved downloading the candidate models.
+The owner chose the recommendation on Q2 to Q4, approved the revised bar on Q1 after scoring the blind sheet, and approved downloading the candidate models.
 
 | # | Question | Decision |
 |---|---|---|
-| Q1 | **Is the bar in §3 what the owner meant by 95%?** Exact match is simpler to state, but many texts have no single right score. | **Yes, §3 as written:** 95% within one point and 95% left blank when not mentioned, with exact match reported but not required. |
+| Q1 | **What does 95% mean?** The first version counted a blank on an addressed dimension as a miss, and asked for 95% within one point and 95% left blank. The owner then scored 30 held-out notes blind, and scored 79% and 94% on those measures, because two careful people often disagree about whether a note addresses a dimension at all. Where both gave a score, they agreed 96.5% within one point. | **§3 as it now stands,** approved by the owner before any model saw the held-out split. 95% applies to suggested scores, with coverage and left blank set against the owner's own result. This is easier to pass than the first version. |
 | Q2 | **Which languages?** | **English and Portuguese,** split evenly and reported separately. The bar applies to each language. |
 | Q3 | **Who labels the evaluation set?** | **Claude writes the entries, and the owner scores 30 of them blind.** How far the scores differ shows how ambiguous the text is, the realistic ceiling for any model. |
 | Q4 | **Is the §2.7 wording right?** | **Yes, as written.** The owner confirmed it, including the phone details. |
@@ -191,7 +194,7 @@ The owner chose the recommendation on all four, and approved downloading the can
 - **Fewer labelled scores than §3 estimated:** 215 on the held-out split, about 108 per language, rather than about 300. A measured 95% is good to about 4 points per language.
 - **`either` in the evaluation set** marks dimensions a note only hints at, where a score and a blank are both fair. They aren't measured.
 - **Distressing entries are left out of the owner's blind sheet.** They're the least ambiguous entries, and the owner doesn't need to read them.
-- **A failed call counts as wrong in every measure,** and a blank on an addressed dimension counts as a miss, so that leaving everything blank can't meet the bar.
+- **A failed call counts as wrong in every measure,** including left blank, so a failure can't look like a correct blank.
 - **Hand check results so far:** a marker sent to real Ollama wasn't in its output or anywhere under `~/.ollama`, its log shows `Ollama cloud disabled: true`, and it listens on `127.0.0.1` only. Not yet checked: a suggestion with the network off.
 - **Results vary slightly between runs,** even at temperature 0 with a fixed seed.
 

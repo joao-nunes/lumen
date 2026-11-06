@@ -14,7 +14,8 @@ SPLITS = frozenset({"dev", "test"})
 LANGUAGES = frozenset({"en", "pt"})
 
 WITHIN_ONE_BAR = 0.95
-LEFT_BLANK_BAR = 0.95
+COVERAGE_BAR = 0.75
+LEFT_BLANK_BAR = 0.90
 OFF_BY_THREE_BAR = 0.01
 P95_SECONDS_BAR = 10.0
 BLIND_PER_LANGUAGE = 15
@@ -43,7 +44,8 @@ class Outcome:
 @dataclass(frozen=True, slots=True)
 class Metrics:
     addressed: int
-    within_one: float
+    within_one: float  # of the scores it suggested on addressed dimensions
+    coverage: float  # of the addressed dimensions, how many it scored
     exact: float
     off_by_three: float
     unaddressed: int
@@ -84,7 +86,7 @@ def _ratio(part: int, whole: int, *, empty: float = 0.0) -> float:
 
 
 def measure(outcomes: list[Outcome]) -> Metrics:
-    addressed = exact = within_one = off_by_three = 0
+    addressed = suggested = exact = within_one = off_by_three = 0
     unaddressed = left_blank = 0
     suggested_tags = correct_tags = labelled_tags = 0
 
@@ -96,9 +98,8 @@ def measure(outcomes: list[Outcome]) -> Metrics:
             guess = None if suggestion is None else suggestion.scores.get(dimension)
             if dimension in entry.scores:
                 addressed += 1
-                if (
-                    guess is not None
-                ):  # a blank here is a miss, so leaving everything blank can't win
+                if guess is not None:
+                    suggested += 1
                     distance = abs(guess - entry.scores[dimension])
                     exact += distance == 0
                     within_one += distance <= 1
@@ -116,7 +117,8 @@ def measure(outcomes: list[Outcome]) -> Metrics:
     times = sorted(o.seconds for o in outcomes[1:])
     return Metrics(
         addressed=addressed,
-        within_one=_ratio(within_one, addressed),
+        within_one=_ratio(within_one, suggested),
+        coverage=_ratio(suggested, addressed),
         exact=_ratio(exact, addressed),
         off_by_three=_ratio(off_by_three, addressed),
         unaddressed=unaddressed,
@@ -135,6 +137,7 @@ def meets_bar(metrics: Metrics) -> bool:
         metrics.addressed > 0
         and metrics.unaddressed > 0
         and metrics.within_one >= WITHIN_ONE_BAR
+        and metrics.coverage >= COVERAGE_BAR
         and metrics.left_blank >= LEFT_BLANK_BAR
         and metrics.off_by_three <= OFF_BY_THREE_BAR
         and metrics.p95_seconds < P95_SECONDS_BAR
