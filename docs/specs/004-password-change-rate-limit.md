@@ -1,6 +1,6 @@
 # Spec 004: Password change rate limit
 
-**Status:** Proposed
+**Status:** Approved (decisions in §5)
 **Builds on:** spec 001 (auth HTTP layer, login rate limit in §2.5)
 
 ## 1. Goal
@@ -83,9 +83,11 @@ Add to the `auth` or `http` group:
 - counted per session instead of per user
 - login failures counted towards the password change limit
 
-## 5. Open questions
+## 5. Decisions
 
-| # | Question | Recommendation |
+The owner approved both recommendations.
+
+| # | Question | Decision |
 |---|---|---|
 | Q1 | Should reaching the limit also end the user's sessions? It would cut off a thief, but anyone mistyping 5 times would be logged out everywhere. | **No.** The limit already makes guessing impractical, and the app has no way yet to tell the owner why they were logged out. |
-| Q2 | Login has the same parallel gap as §2.3, from reading the code; I haven't reproduced it. It has no row to lock, because unknown emails are counted too, so it would need another mechanism, such as an advisory lock on the email. Fix it here? | **Not here.** Add it to the developer guide's known issues and decide it separately, since it's a different mechanism on a different endpoint. |
+| Q2 | Login has the same parallel gap as §2.3, from reading the code; it hasn't been reproduced. It has no row to lock, because unknown emails are counted too, so it would need another mechanism, such as an advisory lock on the email. Fix it here? | **Not here.** Add it to the developer guide's known issues and decide it separately. |
