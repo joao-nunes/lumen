@@ -12,7 +12,7 @@ export default defineConfig(
     languageOptions: {
       globals: globals.browser,
       parserOptions: {
-        projectService: { allowDefaultProject: ["eslint.config.js"] },
+        projectService: { allowDefaultProject: ["eslint.config.js", "e2e/fake-ollama.mjs"] },
         tsconfigRootDir: import.meta.dirname,
       },
     },

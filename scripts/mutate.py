@@ -48,6 +48,7 @@ CHANGE_LIMIT = "src/lumen/auth/password_change.py"
 EVENT_LOG = API + "event_log.py"
 MIDDLEWARE = API + "middleware.py"
 OLLAMA = "src/lumen/suggestions/ollama.py"
+ROUTES_CHECKINS = API + "routes/checkins.py"
 SUGGESTION = "src/lumen/suggestions/model.py"
 EVALUATION = "src/lumen/suggestions/evaluation.py"
 LOG_MIDDLEWARE = (
@@ -766,6 +767,98 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
     ],
     "suggestions": [
+        Mutant(
+            ROUTES_CHECKINS,
+            "the endpoint saves the suggestion",
+            "    return SuggestionOut(scores=dict(valid.scores), tags=sorted(valid.tags))\n",
+            "    with user_transaction(container.app_sessions, user.user_id) as db:\n"
+            "        save_checkin(db, user.user_id, Checkin(recorded_at=container.clock(), local_date=local_date, scores=dict(valid.scores)))\n"
+            "    return SuggestionOut(scores=dict(valid.scores), tags=sorted(valid.tags))\n",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "a transaction stays open during the model call",
+            "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
+            "    asked = dimensions_for(local_date)\n"
+            "    offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))\n"
+            "    reply = container.suggestions.suggest(body.text, asked, offered)\n",
+            "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
+            "        asked = dimensions_for(local_date)\n"
+            "        offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))\n"
+            "        reply = container.suggestions.suggest(body.text, asked, offered)\n",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "the model's reply isn't checked again",
+            "    return SuggestionOut(scores=dict(valid.scores), tags=sorted(valid.tags))\n",
+            "    return SuggestionOut(scores=dict(reply.scores), tags=sorted(reply.tags))\n",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "every dimension asked, whatever the day",
+            "    asked = dimensions_for(local_date)\n",
+            "    asked = tuple(Dimension)\n",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "the person's own tags not offered",
+            "tuple(dict.fromkeys([*used, *STARTER_TAGS]))",
+            "tuple(dict.fromkeys(STARTER_TAGS))",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "a tag offered twice",
+            "tuple(dict.fromkeys([*used, *STARTER_TAGS]))",
+            "(*used, *STARTER_TAGS)",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "the text isn't trimmed",
+            "StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)",
+            "StringConstraints(min_length=1, max_length=2000)",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "any length of text allowed",
+            "StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)",
+            "StringConstraints(strip_whitespace=True, min_length=1)",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "any day allowed",
+            "    check_editable(local_date, container.clock())\n    if container.suggestions is None:",
+            "    if container.suggestions is None:",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "no model configured crashes",
+            "    if container.suggestions is None:\n        raise SuggestionsUnavailableError\n",
+            "",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "mode ignored on save",
+            "        mode=body.mode,\n",
+            "",
+        ),
+        Mutant(
+            API + "errors.py",
+            "an unavailable model crashes instead",
+            '    SuggestionsUnavailableError: (503, "suggestions_unavailable"),\n',
+            "",
+        ),
+        Mutant(
+            API + "errors.py",
+            "validation errors repeat the input",
+            'return error_response(422, "invalid_request", "The request is invalid")',
+            'return error_response(422, "invalid_request", str(exc))',
+        ),
+        Mutant(
+            API + "app.py",
+            "the configured model is never used",
+            "    if settings.ollama_model is None:\n        return None\n",
+            "    return None\n",
+        ),
         Mutant(
             OLLAMA,
             "any host allowed",

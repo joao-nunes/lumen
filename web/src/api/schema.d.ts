@@ -107,6 +107,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/checkins/{local_date}/suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Checkin
+         * @description Suggested scores and tags from the local model. Saves nothing, and keeps nothing.
+         */
+        post: operations["suggest_checkin_api_checkins__local_date__suggestion_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dimensions": {
         parameters: {
             query?: never;
@@ -189,6 +209,8 @@ export interface components {
         };
         /** CheckinIn */
         CheckinIn: {
+            /** @default structured */
+            mode: components["schemas"]["CheckinMode"];
             /** Scores */
             scores: {
                 [key: string]: number;
@@ -196,6 +218,11 @@ export interface components {
             /** Tags */
             tags?: string[];
         };
+        /**
+         * CheckinMode
+         * @enum {string}
+         */
+        CheckinMode: "structured" | "free_text";
         /** CheckinOut */
         CheckinOut: {
             /**
@@ -354,6 +381,20 @@ export interface components {
             mean: number;
             /** N */
             n: number;
+        };
+        /** SuggestionIn */
+        SuggestionIn: {
+            /** Text */
+            text: string;
+        };
+        /** SuggestionOut */
+        SuggestionOut: {
+            /** Scores */
+            scores: {
+                [key: string]: number;
+            };
+            /** Tags */
+            tags: string[];
         };
         /** TagOut */
         TagOut: {
@@ -748,6 +789,77 @@ export interface operations {
             };
             /** @description Unprocessable Entity */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    suggest_checkin_api_checkins__local_date__suggestion_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                local_date: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuggestionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestionOut"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Unsupported Media Type */
+            415: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

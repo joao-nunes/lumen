@@ -5,7 +5,7 @@ table before and after each test (rollback can't undo another connection's
 commits).
 """
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Collection, Iterator
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -17,6 +17,8 @@ from sqlalchemy import Engine, make_url, text
 from lumen.api.app import create_app
 from lumen.api.event_log import EventLog
 from lumen.config import Settings, get_settings
+from lumen.domain.dimensions import Dimension
+from lumen.suggestions.model import Suggestion
 
 T0 = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)
 
@@ -69,20 +71,63 @@ def log_lines() -> list[str]:
     return []
 
 
+class FakeSuggestionModel:
+    """Stands in for a local model, which is slow and non-deterministic. Records what it's asked."""
+
+    def __init__(self) -> None:
+        self.reply = Suggestion()
+        self.error: Exception | None = None
+        self.calls: list[tuple[str, tuple[Dimension, ...], tuple[str, ...]]] = []
+        self.during_call: Callable[[], None] = lambda: None
+
+    def suggest(
+        self, text: str, dimensions: Collection[Dimension], tags: Collection[str]
+    ) -> Suggestion:
+        self.calls.append((text, tuple(dimensions), tuple(tags)))
+        self.during_call()
+        if self.error is not None:
+            raise self.error
+        return self.reply
+
+
 @pytest.fixture
-def app(clean_db: Engine, clock: FakeClock, log_lines: list[str]) -> FastAPI:
-    test_url = get_settings().test_database_url
-    settings = Settings(
-        _env_file=None,
-        database_url=_as_role(test_url, "lumen_app"),
-        auth_database_url=_as_role(test_url, "lumen_auth"),
-        admin_database_url=test_url,
-        test_database_url=test_url,
-        secret_key=SecretStr("test-secret-key-" + "x" * 32),
-        allowed_origins=["http://localhost:5173"],
-        cookie_secure=True,
+def suggestion_model() -> FakeSuggestionModel:
+    return FakeSuggestionModel()
+
+
+@pytest.fixture
+def test_settings() -> Callable[..., Settings]:
+    def make(**changes: object) -> Settings:
+        test_url = get_settings().test_database_url
+        return Settings(
+            _env_file=None,
+            database_url=_as_role(test_url, "lumen_app"),
+            auth_database_url=_as_role(test_url, "lumen_auth"),
+            admin_database_url=test_url,
+            test_database_url=test_url,
+            secret_key=SecretStr("test-secret-key-" + "x" * 32),
+            allowed_origins=["http://localhost:5173"],
+            cookie_secure=True,
+            **changes,
+        )
+
+    return make
+
+
+@pytest.fixture
+def app(
+    clean_db: Engine,
+    clock: FakeClock,
+    log_lines: list[str],
+    suggestion_model: FakeSuggestionModel,
+    test_settings: Callable[..., Settings],
+) -> FastAPI:
+    return create_app(
+        test_settings(),
+        clock=clock,
+        log=EventLog(clock, log_lines.append),
+        suggestions=suggestion_model,
     )
-    return create_app(settings, clock=clock, log=EventLog(clock, log_lines.append))
 
 
 @pytest.fixture

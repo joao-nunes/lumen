@@ -201,6 +201,18 @@ The owner chose the recommendation on Q2 to Q4, approved the revised bar on Q1 a
 - **The client reads scores written as text,** such as `"score": "3"`. The first held-out run dropped these, so the two smaller models scored almost nothing. That was a client bug rather than their result. All three models were rerun after the fix, with no change to the prompt, and only the fixed result is reported.
 - **`--against-owner` added,** which judges a model against the owner's blind scores. It has no bar: the bar was set against the labels.
 
+### Second PR: the API and screen
+
+- **The owner chose `gemma4:26b` for now,** the only model that met the bar, and kept `gemma4:e4b` as a fallback. `qwen3:8b` was deleted.
+- **The endpoint also applies the editable-day rule,** giving `422 date_out_of_range`, as saving does.
+- **`mode` is always sent by the web app,** because the generated type requires it. A day edited later without suggestions becomes `structured` again, since saving replaces the whole day.
+- **A person's own tags are offered first,** then the starter tags, each once.
+- **A note that gives nothing to suggest says so,** rather than appearing to do nothing.
+- **The first suggestion after starting Ollama took 25 seconds,** while the model loaded. The bar excludes this, but a person will notice it. The 60-second timeout leaves room for it.
+- **The network check used a sandbox** rather than turning off the owner's network: `sandbox-exec` denied all outbound traffic except to localhost, with a control showing that an outside request failed inside it and worked outside it. A real suggestion through the real app worked, and a marker in the note wasn't in the app's log, Ollama's log, under `~/.ollama`, or in the database's log.
+- **Web faults were run by hand,** as §5 says, because `make mutate` doesn't cover the frontend.
+- **"No session needed" isn't a repeatable mutant,** because it takes two edits and the runner applies one. It was checked once by hand, and went red.
+
 ### Held-out results (100 entries)
 
 Each cell is English / Portuguese.
