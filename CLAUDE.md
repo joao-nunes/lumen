@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Conventions for working on Lumen. [PROJECT.MD](PROJECT.MD) is the source of truth for the product and architecture; feature specs live in [docs/specs/](docs/specs/).
+Conventions for working on Lumen. [PROJECT.MD](PROJECT.MD) is the source of truth for the product and architecture; feature specs live in [docs/specs/](docs/specs/); API contracts, recipes and known issues are in the [developer guide](docs/developer-guide.md).
 
 Lumen is a personal wellbeing reflection app. It supports therapy and never replaces it, and it is also a portfolio project, so production-grade rigor is the point, not overhead.
 
