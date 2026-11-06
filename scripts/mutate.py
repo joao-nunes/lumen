@@ -45,6 +45,11 @@ API = "src/lumen/api/"
 REPOSITORY = "src/lumen/db/repository.py"
 CHECKIN = "src/lumen/domain/checkin.py"
 CHANGE_LIMIT = "src/lumen/auth/password_change.py"
+EVENT_LOG = API + "event_log.py"
+MIDDLEWARE = API + "middleware.py"
+LOG_MIDDLEWARE = (
+    "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
+)
 
 GROUPS: dict[str, list[Mutant]] = {
     "auth": [
@@ -244,10 +249,13 @@ GROUPS: dict[str, list[Mutant]] = {
             API + "app.py",
             "security headers inside the request guard",
             "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n"
+            "    # Outside the guard, to log what it refuses; inside the headers, so a crash's 500 gets them.\n"
+            "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
             "    # Added last, so it runs outermost: requests the guard refuses get the headers too.\n"
             "    app.add_middleware(SecurityHeadersMiddleware)\n",
             "    app.add_middleware(SecurityHeadersMiddleware)\n"
-            "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n",
+            "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n"
+            "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n",
         ),
         Mutant(
             API + "middleware.py",
@@ -569,6 +577,189 @@ GROUPS: dict[str, list[Mutant]] = {
             "password change attempts editable by the auth role",
             "GRANT SELECT, INSERT ON auth.password_change_attempts",
             "GRANT SELECT, INSERT, UPDATE, DELETE ON auth.password_change_attempts",
+        ),
+    ],
+    "logging": [
+        Mutant(
+            EVENT_LOG,
+            "exception message on the crash line",
+            '                        "frames": _lumen_frames(exc.__traceback__),\n',
+            '                        "frames": _lumen_frames(exc.__traceback__),\n'
+            '                        "message": str(exc),\n',
+        ),
+        Mutant(
+            EVENT_LOG,
+            "method logged as received",
+            '"method": method if method in METHODS else "OTHER",',
+            '"method": method,',
+        ),
+        Mutant(
+            EVENT_LOG,
+            "failed write not swallowed: request line",
+            '        with suppress(Exception):\n            self._write(\n                self._line(\n                    {\n                        "event": "request",',
+            '        if True:\n            self._write(\n                self._line(\n                    {\n                        "event": "request",',
+        ),
+        Mutant(
+            EVENT_LOG,
+            "failed write not swallowed: crash line",
+            '        with suppress(Exception):\n            self._write(\n                self._line(\n                    {\n                        "event": "crash",',
+            '        if True:\n            self._write(\n                self._line(\n                    {\n                        "event": "crash",',
+        ),
+        Mutant(
+            EVENT_LOG,
+            "frames from outside Lumen logged",
+            'if module.startswith("lumen.") and module != _MIDDLEWARE:',
+            "if module != _MIDDLEWARE:",
+        ),
+        Mutant(
+            EVENT_LOG,
+            "middleware frames logged",
+            'if module.startswith("lumen.") and module != _MIDDLEWARE:',
+            'if module.startswith("lumen."):',
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "raw path logged instead of the route's template",
+            "route=route.path if isinstance(route, APIRoute) else None,",
+            'route=scope["path"],',
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "query string added to the route",
+            "route=route.path if isinstance(route, APIRoute) else None,",
+            "route=f\"{route.path}?{scope['query_string'].decode()}\" if isinstance(route, APIRoute) else None,",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "headers and cookies added to the route",
+            "route=route.path if isinstance(route, APIRoute) else None,",
+            "route=f\"{route.path}#{scope['headers']}\" if isinstance(route, APIRoute) else None,",
+        ),
+        Mutant(
+            API + "dependencies.py",
+            "user ID added to the route",
+            "    return Authenticated(user_id=user_id, session_token=token)\n",
+            '    request.scope["route"].path = f"/api/{user_id}"\n'
+            "    return Authenticated(user_id=user_id, session_token=token)\n",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "client's X-Request-ID trusted",
+            "request_id = uuid.uuid4().hex",
+            'request_id = dict(scope["headers"]).get(b"x-request-id", uuid.uuid4().hex.encode()).decode()',
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "request ID shared between requests",
+            "request_id = uuid.uuid4().hex",
+            'request_id = "0" * 32',
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "request ID not returned to the client",
+            '                MutableHeaders(scope=message)["X-Request-ID"] = request_id\n',
+            "",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "unknown error code logged as received",
+            'return code if isinstance(code, str) and code in ERROR_CODES else "unknown"',
+            "return str(code)",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "crash re-raised after logging",
+            "                        scope, receive, send_with_id\n                    )\n",
+            "                        scope, receive, send_with_id\n                    )\n            raise\n",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "crash caught but not logged",
+            "            self._log.crash(request_id, exc)\n",
+            "",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "crash caught but no 500 sent",
+            "            if status is None:\n",
+            "            if False:\n",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "500 sent even after the response started",
+            "            if status is None:\n",
+            "            if True:\n",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "cancellation treated as a crash",
+            "        except Exception as exc:\n            crashed = True",
+            "        except BaseException as exc:\n            crashed = True",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "failure sending the 500 reaches uvicorn",
+            '                with suppress(Exception):\n                    await error_response(500, "internal_error", "Something went wrong")(\n                        scope, receive, send_with_id\n                    )\n',
+            '                await error_response(500, "internal_error", "Something went wrong")(\n                    scope, receive, send_with_id\n                )\n',
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "startup and shutdown not passed through",
+            '        if scope["type"] != "http":\n            await self._app(scope, receive, send)\n            return\n\n        request_id',
+            "        request_id",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "error buffer unbounded",
+            "[: MAX_ERROR_BODY - len(error_body)])",
+            ")",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "redirects treated as errors",
+            "if final >= 400\n",
+            "if final >= 300\n",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "paths like /apiary logged as API",
+            'if scope["path"] == "/api" or scope["path"].startswith("/api/"):',
+            'if scope["path"].startswith("/api"):',
+        ),
+        Mutant(
+            API + "errors.py",
+            "a code missing from the list",
+            '        "not_authenticated",\n',
+            "",
+        ),
+        Mutant(
+            EVENT_LOG,
+            "frames outermost first",
+            "return frames[::-1]",
+            "return frames",
+        ),
+        Mutant(
+            MIDDLEWARE,
+            "pages and assets logged",
+            'if scope["path"] == "/api" or scope["path"].startswith("/api/"):',
+            "if True:",
+        ),
+        Mutant(
+            API + "app.py",
+            "log middleware outside the security headers",
+            LOG_MIDDLEWARE
+            + "    # Added last, so it runs outermost: requests the guard refuses get the headers too.\n"
+            "    app.add_middleware(SecurityHeadersMiddleware)\n",
+            "    app.add_middleware(SecurityHeadersMiddleware)\n" + LOG_MIDDLEWARE,
+        ),
+        Mutant(
+            API + "app.py",
+            "log middleware inside the request guard",
+            "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n"
+            "    # Outside the guard, to log what it refuses; inside the headers, so a crash's 500 gets them.\n"
+            + LOG_MIDDLEWARE,
+            LOG_MIDDLEWARE
+            + "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n",
         ),
     ],
     "domain": [

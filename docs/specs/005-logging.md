@@ -178,4 +178,13 @@ The owner chose the recommendation on all three.
 
 ## 6. Added during implementation (for review)
 
-Nothing yet.
+- **`route` is `null` for requests the guard refuses,** such as `forbidden_origin` or `unsupported_media_type`, because they're refused before routing. This corrects "any write" in §2.3's Origin row. The event is still identified by its status and error code.
+- **A method the route doesn't allow keeps the route's template,** because it matched the path. `PROPFIND /api/auth/me` logs `route: "/api/auth/me"`, `method: "OTHER"` and `status: 405`. A template is safe either way.
+- **AC-3 goes further than login.** A user ID only exists once a session does, so it also reads `/me` and saves a check-in.
+- **AC-4 needs no mocks.** A `CHECK` constraint that can never pass makes the real check-in route fail with a real PostgreSQL error repeating the tag.
+- **`ERROR_CODES` is a hand-kept list for the codes outside `DOMAIN_ERRORS`.** A code missing from it logs as `unknown`, which is safe but misleads whoever is diagnosing, so the common ones are tested. `http_error` isn't, because no route produces it today.
+- **Frames are innermost first, and leave out `lumen.api.middleware`,** whose frames appear in every crash.
+- **Hand check results:** under real uvicorn, a real PostgreSQL error returned the JSON `500` with the security headers. Its marker wasn't in the terminal or `docker compose logs db`, no traceback was printed, and the `crash` line named the failing frame. Ruff rejects `import logging` in `src/lumen`. Recreating the database container kept the dev data (the same user and check-in counts, and the same revision).
+- **Fault injection found one real bug in the first implementation:** the limit on the error buffer was only checked between chunks, and an error usually arrives as one chunk, so a 100 KB body was buffered whole. It now truncates.
+- **More mutants than §4,** most from fault injection, listed in `scripts/mutate.py`'s `logging` group.
+- **Tests beyond §3, also from fault injection:** cancellation, a failure while sending the `500`, startup and shutdown, an app that sends nothing, redirects, duration units, and how exception chains are followed.

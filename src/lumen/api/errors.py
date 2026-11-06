@@ -39,6 +39,22 @@ DOMAIN_ERRORS: dict[type[Exception], tuple[int, str]] = {
 # Failures that come from routing rather than from an endpoint.
 HTTP_ERROR_CODES = {404: "not_found", 405: "method_not_allowed"}
 
+# Every code the API can return. The log writes any other value as "unknown" (spec 005).
+ERROR_CODES = frozenset(
+    {
+        *(code for _, code in DOMAIN_ERRORS.values()),
+        *HTTP_ERROR_CODES.values(),
+        "csrf_failed",
+        "forbidden_origin",
+        "http_error",
+        "internal_error",
+        "invalid_request",
+        "not_authenticated",
+        "too_many_attempts",
+        "unsupported_media_type",
+    }
+)
+
 
 class ErrorDetail(BaseModel):
     code: str
