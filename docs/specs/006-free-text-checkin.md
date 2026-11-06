@@ -1,6 +1,6 @@
 # Spec 006: Free-text check-in with a local model
 
-**Status:** Draft, for approval (owner decisions in §2.1, open questions in §6)
+**Status:** Approved (decisions in §2.1 and §6)
 **Builds on:** spec 002 (check-in slice), spec 005 (logging). First slice of Milestone 3.
 
 ## 1. Goal
@@ -24,7 +24,7 @@ This also answers a question the rest of Milestone 3 depends on: can a local mod
 |---|---|
 | Is raw text saved? | **No.** It's used for the suggestion and then discarded |
 | Which runtime? | **Ollama** |
-| Accuracy bar | **95%, if realistic.** §3 says what that can mean, and Q1 asks you to confirm it |
+| Accuracy bar | **95%, if realistic.** §3 says what that can mean, and Q1 confirms it |
 | Installing Ollama | **Done with the owner's permission:** version 0.40.14, with cloud features off, listening on `127.0.0.1` only, and no models downloaded yet |
 
 ### 2.2 The flow
@@ -92,7 +92,7 @@ This avoids building a screen around a model that isn't good enough.
 
 ### 2.7 The safety gap until Milestone 4
 
-Someone may write about a crisis in this box, and Lumen won't detect it. So, with no model involved and regardless of what's typed, this is **always visible next to the box** (wording in Q4):
+Someone may write about a crisis in this box, and Lumen won't detect it. So, with no model involved and regardless of what's typed, this is **always visible next to the box** (Q4):
 
 > Lumen only turns this text into suggested scores. No one reads it, and it can't respond to what you write.
 > If you're struggling: SNS 24, 808 24 24 24, option 4 (psychological support, 24 hours).
@@ -172,14 +172,16 @@ And web faults, tested by hand as with earlier specs: overwriting a chosen field
 
 One-off faults under the project workflow: a slow model while other requests arrive, a reply that's cut off mid-JSON, a second suggestion pressed while the first is running, and a reply arriving after the person has already saved.
 
-## 6. Open questions
+## 6. Decisions
 
-| # | Question | Recommendation |
+The owner chose the recommendation on all four, and approved downloading the candidate models.
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | **Is the bar in §3 what you meant by 95%?** Exact match would be simplest to state, but I doubt any model can reach it, because many texts have no single right score. | **Use §3:** 95% within one point and 95% left blank when not mentioned, with exact match reported but not required. |
-| Q2 | **Which languages?** You may want to write in Portuguese, and accuracy could differ between languages. | **Both English and Portuguese,** with the set split evenly and the results reported separately, so a weak language can't hide inside an average. It needs your Portuguese labelling in Q3. |
-| Q3 | **Who labels the evaluation set?** If I write the text and labels, the model looks better than it is. | **I write the entries, and you score 30 of them blind.** How far your scores differ from mine shows how ambiguous the text is, which is the realistic ceiling for any model. It should take about 15 minutes. |
-| Q4 | **Is the §2.7 wording right?** It's safety text, and it should be your decision. The number and option 4 come from press reports and a government notice, so please confirm them before this ships. | **Use it as written,** once you've confirmed the details. |
+| Q1 | **Is the bar in §3 what the owner meant by 95%?** Exact match is simpler to state, but many texts have no single right score. | **Yes, §3 as written:** 95% within one point and 95% left blank when not mentioned, with exact match reported but not required. |
+| Q2 | **Which languages?** | **English and Portuguese,** split evenly and reported separately. The bar applies to each language. |
+| Q3 | **Who labels the evaluation set?** | **Claude writes the entries, and the owner scores 30 of them blind.** How far the scores differ shows how ambiguous the text is, the realistic ceiling for any model. |
+| Q4 | **Is the §2.7 wording right?** | **Yes, as written.** The owner confirmed it, including the phone details. |
 
 ## 7. Added during implementation (for review)
 
