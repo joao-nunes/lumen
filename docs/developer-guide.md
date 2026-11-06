@@ -148,7 +148,7 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 
 **Sessions**
 - A session ends after 12 hours idle or 7 days in total (`SESSION_*` settings). A `401 not_authenticated` also clears the cookies.
-- Login is limited per email: 5 failures within 15 minutes gives `429` with `Retry-After`. Refused attempts don't extend the lockout, and a success resets the count.
+- Login is limited per email, and password change per user, counted separately: 5 failures within 15 minutes gives `429` with `Retry-After`. Refused attempts don't extend the lockout, and a success resets the count.
 
 ### Errors
 
@@ -170,7 +170,7 @@ Failures from the app itself have this shape; see [known issues](#known-issues-a
 | 422 | `weak_password` | Registration or password change |
 | 422 | `missing_core_dimension`, `unknown_dimension`, `invalid_score`, `invalid_tag`, `too_many_tags`, `date_out_of_range` | Check-in rules |
 | 422 | `invalid_request` | The request didn't match the schema |
-| 429 | `too_many_attempts` | Login lockout |
+| 429 | `too_many_attempts` | Login or password change lockout |
 
 ## Use the analytics from Python
 
@@ -377,15 +377,13 @@ Each was checked against a running server or the code. None is fixed yet.
 6. **Seeded users can't log in,** because `lumen.synthetic.seed` creates them without a password. The script above works around it.
 7. **Registering while logged in leaves the old session valid until it expires.** Login ends the previous session; registration doesn't. Spec 001 doesn't say which is intended.
 
-**Decided, not built yet**
-8. **Password change has no rate limit.** Someone holding a session cookie can guess the current password without limit. The owner has decided to add one (spec 004).
-
 **Needs a decision**
-9. **Only one checkout can run the database at a time.** Compose names its project after the folder and always publishes port 5432, so a second clone or worktree fails on `docker compose up` and leaves an unused container and volume behind. Pinning `name:` in `docker-compose.yml` would make all checkouts share one database, which may or may not be wanted.
+8. **Parallel logins can get extra guesses.** From reading the code, requests sent together can all read a failure count below the limit before any failure is recorded; this hasn't been reproduced. Password change closes this gap with a row lock, but login counts unknown emails too, so it has no row to lock (spec 004 Q2).
 
 **Deliberate, so don't "fix" without revisiting the spec**
 - **Anyone can lock an email out for 15 minutes,** because the limit is per email and no IP addresses are stored (spec 001 §2.5).
 - **Registration has no rate limit.** The owner decided against one.
+- **Only one checkout can run the database at a time.** Compose names its project after the folder and always publishes port 5432, so a second clone or worktree fails on `docker compose up` and leaves an unused container and volume behind. The owner chose this over sharing one database across checkouts, where one checkout's migrations would affect another.
 - **Registration reveals which emails exist** through `409 email_taken`, although login hides it (spec 001 §2.6).
-- **Nothing cleans up authentication data yet.** `purge_expired` has no caller, and `auth.login_attempts` is never purged, so it keeps every attempted email. Both wait for the scheduler milestone (spec 001 I4).
+- **Nothing cleans up authentication data yet.** `purge_expired` has no caller, and `auth.login_attempts` and `auth.password_change_attempts` are never purged, so the first keeps every attempted email. Both wait for the scheduler milestone (spec 001 I4).
 - **A missing asset gets `200` with `index.html`,** not `404`, so that reloading a browser route works (spec 002 I12).

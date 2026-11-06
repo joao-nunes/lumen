@@ -91,3 +91,10 @@ The owner approved both recommendations.
 |---|---|---|
 | Q1 | Should reaching the limit also end the user's sessions? It would cut off a thief, but anyone mistyping 5 times would be logged out everywhere. | **No.** The limit already makes guessing impractical, and the app has no way yet to tell the owner why they were logged out. |
 | Q2 | Login has the same parallel gap as §2.3, from reading the code; it hasn't been reproduced. It has no row to lock, because unknown emails are counted too, so it would need another mechanism, such as an advisory lock on the email. Fix it here? | **Not here.** Add it to the developer guide's known issues and decide it separately. |
+
+## 6. Added during implementation (for review)
+
+- **AC-3 is stricter than written:** session B logs in after the failures, which also proves that a login doesn't reset the count.
+- **One mutant differs from §4.** "Counted per session" can't be made with a small change, because the table has no session column. "A successful login resets the count" takes its place, as the realistic way for a new session to get new guesses.
+- **Added a mutant** for the grants (AC-9).
+- **After pulling this, run `uv run alembic upgrade head`,** or `POST /api/auth/password` returns `500` on an existing database.

@@ -15,7 +15,7 @@ from lumen.api.routes.checkins import router as checkins_router
 from lumen.api.routes.overview import router as overview_router
 from lumen.api.web import WebApp
 from lumen.auth.policy import SessionPolicy
-from lumen.auth.rate_limit import LoginRateLimiter
+from lumen.auth.rate_limit import LoginRateLimiter, PasswordChangeRateLimiter
 from lumen.auth.service import AuthService
 from lumen.config import Settings
 from lumen.db.session import make_engine, make_session_factory
@@ -35,6 +35,7 @@ def create_app(settings: Settings, clock: Clock = system_clock) -> FastAPI:
         clock=clock,
         auth=AuthService(policy=policy),
         limiter=LoginRateLimiter(),
+        password_change_limiter=PasswordChangeRateLimiter(),
         cookies=CookieManager(
             secret, secure=settings.cookie_secure, max_age=policy.absolute_timeout
         ),

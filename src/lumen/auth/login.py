@@ -15,7 +15,7 @@ from lumen.auth.service import AuthError, AuthService, InvalidCredentialsError, 
 
 class TooManyAttemptsError(AuthError):
     def __init__(self, retry_after: timedelta) -> None:
-        super().__init__("Too many login attempts; try again later")
+        super().__init__("Too many attempts; try again later")
         self.retry_after = retry_after
 
 
