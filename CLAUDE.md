@@ -23,7 +23,14 @@ make schema                        # regenerate web/src/api/schema.d.ts after ch
 1. **Spec first.** `docs/specs/NNN-name.md`, as a PR the owner approves before any code. It holds the scope, decisions, acceptance criteria as concrete examples, and open questions. Don't fill gaps with silent defaults: anything undecided goes in the open questions, and anything decided during implementation goes in an "Added during implementation" section for review.
 2. **Tests first,** from the acceptance criteria. Show them failing for the right reason before implementing.
 3. **Minimal implementation, then refactor.**
-4. **Mutation check** for security-critical code: add mutants to `scripts/mutate.py` and run `make mutate`.
+4. **Fault injection** for every significant code change or new feature:
+   1. Deliberately introduce subtle bugs, memory leaks, race conditions, edge cases or common failure modes.
+   2. Run the existing tests against them, and verify that the relevant tests go red.
+   3. If they don't, refine the tests until they do.
+   4. Revert every injected bug. None is ever merged.
+   5. Fix any real issues found, then continue normal development and testing.
+
+   Keep repeatable faults as mutants in `scripts/mutate.py` (`make mutate`). Security-critical code must have them.
 
 ## Tests
 

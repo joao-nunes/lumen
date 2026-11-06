@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from lumen.api.dependencies import AuthDb, ContainerDep, CurrentUser, OptionalUser
 from lumen.auth.login import login_with_rate_limit
+from lumen.auth.password_change import change_password_with_rate_limit
 from lumen.auth.service import InvalidCredentialsError
 from lumen.db.models import User
 
@@ -80,9 +81,19 @@ def logout(user: OptionalUser, container: ContainerDep, db: AuthDb) -> Response:
 def change_password(
     body: PasswordChange, user: CurrentUser, container: ContainerDep, db: AuthDb
 ) -> Response:
-    issued = container.auth.change_password(
-        db, user.user_id, body.current_password, body.new_password, container.clock()
-    )
+    try:
+        issued = change_password_with_rate_limit(
+            db,
+            container.auth,
+            container.password_change_limiter,
+            user.user_id,
+            body.current_password,
+            body.new_password,
+            container.clock(),
+        )
+    except InvalidCredentialsError:
+        db.commit()  # the failed change must persist, or the rate limit never triggers
+        raise
     db.commit()
     response = Response(status_code=204)
     container.cookies.set(response, issued.token)

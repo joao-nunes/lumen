@@ -104,3 +104,24 @@ class LoginAttempt(Base):
     email: Mapped[str] = mapped_column(CITEXT)
     attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     succeeded: Mapped[bool] = mapped_column(Boolean)
+
+
+class PasswordChangeAttempt(Base):
+    """One attempt to change a password, for rate limiting (spec 004 §2.2).
+
+    Keyed by user rather than session, and kept apart from login attempts, so
+    neither a new session nor a stranger's failed logins affect the count.
+    """
+
+    __tablename__ = "password_change_attempts"
+    __table_args__ = (
+        Index("ix_password_change_attempts_user_id_attempted_at", "user_id", "attempted_at"),
+        {"schema": AUTH_SCHEMA},
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+    )
+    attempted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    succeeded: Mapped[bool] = mapped_column(Boolean)

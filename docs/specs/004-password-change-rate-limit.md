@@ -91,3 +91,12 @@ The owner approved both recommendations.
 |---|---|---|
 | Q1 | Should reaching the limit also end the user's sessions? It would cut off a thief, but anyone mistyping 5 times would be logged out everywhere. | **No.** The limit already makes guessing impractical, and the app has no way yet to tell the owner why they were logged out. |
 | Q2 | Login has the same parallel gap as §2.3, from reading the code; it hasn't been reproduced. It has no row to lock, because unknown emails are counted too, so it would need another mechanism, such as an advisory lock on the email. Fix it here? | **Not here.** Add it to the developer guide's known issues and decide it separately. |
+
+## 6. Added during implementation (for review)
+
+- **AC-3 is stricter than written:** session B logs in after the failures, which also proves that a login doesn't reset the count.
+- **One mutant differs from §4.** "Counted per session" can't be made with a small change, because the table has no session column. "A successful login resets the count" takes its place, as the realistic way for a new session to get new guesses.
+- **Added a mutant** for the grants (AC-9).
+- **After pulling this, run `uv run alembic upgrade head`,** or `POST /api/auth/password` returns `500` on an existing database.
+- **Fault injection beyond §4,** under the workflow the owner added during this work. Each of these made a test fail: reading the count before the lock, skipping or failing on a busy lock, a shared lock, losing the failure on rollback, the window edge and length, a threshold of 4, and counting other users' attempts.
+- **A leaked database session hung the suite instead of failing it,** because cleanup between tests waited on its locks forever. Cleanup now has a 5-second lock timeout, and a new test checks that no outcome leaves a transaction open. The leak isn't a repeatable mutant, because the timeout on every test would take minutes; it was checked once by hand.
