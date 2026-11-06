@@ -492,6 +492,28 @@ GROUPS: dict[str, list[Mutant]] = {
             "",
         ),
         Mutant(
+            CHANGE_LIMIT,
+            "password change count read before taking the lock",
+            "    db.execute(\n"
+            "        select(PasswordCredential.user_id)\n"
+            "        .where(PasswordCredential.user_id == user_id)\n"
+            "        .with_for_update()\n"
+            "    )\n"
+            "    retry_after = limiter.retry_after(db, user_id, now)\n",
+            "    retry_after = limiter.retry_after(db, user_id, now)\n"
+            "    db.execute(\n"
+            "        select(PasswordCredential.user_id)\n"
+            "        .where(PasswordCredential.user_id == user_id)\n"
+            "        .with_for_update()\n"
+            "    )\n",
+        ),
+        Mutant(
+            "src/lumen/auth/rate_limit.py",
+            "other users' failures counted",
+            ".where(key, attempts.succeeded.is_(False),",
+            ".where(attempts.succeeded.is_(False),",
+        ),
+        Mutant(
             "src/lumen/auth/login.py",
             "successful login resets the password change count",
             "    limiter.record(db, email, succeeded=True, now=now)\n",

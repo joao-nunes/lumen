@@ -143,3 +143,24 @@ def test_ac9_attempts_are_append_only_for_the_auth_role_and_closed_to_the_app(
             for role in ("lumen_auth", "lumen_app")
         }
     assert held == {"lumen_auth": {"SELECT", "INSERT"}, "lumen_app": set()}
+
+
+def test_every_outcome_releases_the_row_lock(new_client: NewClient, engine: Engine) -> None:
+    def open_transactions() -> int | None:
+        with engine.connect() as conn:
+            return conn.scalar(
+                text(
+                    "SELECT count(*) FROM pg_stat_activity "
+                    "WHERE datname = current_database() AND state LIKE 'idle in transaction%'"
+                )
+            )
+
+    client = logged_in(new_client)
+    # Checked after each request: a lock still held would block the next one forever.
+    assert change(client, PASSWORD, "short").status_code == 422
+    assert open_transactions() == 0
+    for _ in range(5):
+        assert change(client, WRONG).status_code == 401
+        assert open_transactions() == 0
+    assert change(client).status_code == 429
+    assert open_transactions() == 0

@@ -98,3 +98,5 @@ The owner approved both recommendations.
 - **One mutant differs from §4.** "Counted per session" can't be made with a small change, because the table has no session column. "A successful login resets the count" takes its place, as the realistic way for a new session to get new guesses.
 - **Added a mutant** for the grants (AC-9).
 - **After pulling this, run `uv run alembic upgrade head`,** or `POST /api/auth/password` returns `500` on an existing database.
+- **Fault injection beyond §4,** under the workflow the owner added during this work. Each of these made a test fail: reading the count before the lock, skipping or failing on a busy lock, a shared lock, losing the failure on rollback, the window edge and length, a threshold of 4, and counting other users' attempts.
+- **A leaked database session hung the suite instead of failing it,** because cleanup between tests waited on its locks forever. Cleanup now has a 5-second lock timeout, and a new test checks that no outcome leaves a transaction open. The leak isn't a repeatable mutant, because the timeout on every test would take minutes; it was checked once by hand.

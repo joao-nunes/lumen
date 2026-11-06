@@ -41,6 +41,8 @@ def _truncate_all(engine: Engine) -> None:
                 "AND table_name <> 'alembic_version'"
             )
         ).all()
+        # A request that leaked a transaction would otherwise block this forever.
+        conn.execute(text("SET LOCAL lock_timeout = '5s'"))
         conn.execute(text(f"TRUNCATE {', '.join(tables)} CASCADE"))
 
 
