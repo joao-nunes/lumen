@@ -1,6 +1,8 @@
 services:
   db:
     image: pgvector/pgvector:pg16
+    # Drops ERROR lines, whose messages repeat query values (spec 005).
+    command: ["postgres", "-c", "log_min_messages=log"]
     environment:
       POSTGRES_USER: lumen
       POSTGRES_PASSWORD: lumen

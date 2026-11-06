@@ -30,13 +30,19 @@ target-version = "py312"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "S", "DTZ"]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "S", "DTZ", "TID251"]
 ignore = []
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Only EventLog writes logs, so nothing can bypass its allowlist (spec 005).
+"logging".msg = "Use lumen.api.event_log.EventLog: it only accepts allowlisted fields."
+"traceback".msg = "Tracebacks contain exception messages, which can repeat private values."
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106"]  # asserts and deliberate fake passwords
-"migrations/**" = ["N999"]
-"scripts/mutate.py" = ["E501"]  # mutant snippets must match the source verbatim
+"tests/**" = ["S101", "S105", "S106", "TID251"]  # asserts and deliberate fake passwords
+"migrations/**" = ["N999", "TID251"]
+"scripts/**" = ["TID251"]
+"scripts/mutate.py" = ["E501", "TID251"]  # mutant snippets must match the source verbatim
 
 [tool.mypy]
 python_version = "3.12"

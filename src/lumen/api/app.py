@@ -9,7 +9,12 @@ from lumen.api.clock import Clock, system_clock
 from lumen.api.cookies import CookieManager
 from lumen.api.dependencies import Container
 from lumen.api.errors import install_error_handlers
-from lumen.api.middleware import RequestGuardMiddleware, SecurityHeadersMiddleware
+from lumen.api.event_log import EventLog
+from lumen.api.middleware import (
+    RequestGuardMiddleware,
+    RequestLogMiddleware,
+    SecurityHeadersMiddleware,
+)
 from lumen.api.routes.auth import router as auth_router
 from lumen.api.routes.checkins import router as checkins_router
 from lumen.api.routes.overview import router as overview_router
@@ -23,7 +28,9 @@ from lumen.db.session import make_engine, make_session_factory
 MIN_SECRET_KEY_BYTES = 32
 
 
-def create_app(settings: Settings, clock: Clock = system_clock) -> FastAPI:
+def create_app(
+    settings: Settings, clock: Clock = system_clock, log: EventLog | None = None
+) -> FastAPI:
     secret = settings.secret_key.get_secret_value().encode() if settings.secret_key else b""
     if len(secret) < MIN_SECRET_KEY_BYTES:
         raise ValueError(f"SECRET_KEY must be set to at least {MIN_SECRET_KEY_BYTES} bytes")
@@ -53,6 +60,8 @@ def create_app(settings: Settings, clock: Clock = system_clock) -> FastAPI:
     app = FastAPI(title="Lumen", lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     app.state.container = container
     app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)
+    # Outside the guard, to log what it refuses; inside the headers, so a crash's 500 gets them.
+    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)
     # Added last, so it runs outermost: requests the guard refuses get the headers too.
     app.add_middleware(SecurityHeadersMiddleware)
     install_error_handlers(app)

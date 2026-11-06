@@ -41,6 +41,7 @@ make run    # http://localhost:8000
 
 ```text
 SecurityHeadersMiddleware   headers on every response; no-store under /api/
+RequestLogMiddleware        request ID; one log line for /api/; a crash becomes a JSON 500
 RequestGuardMiddleware      unsafe methods: Origin allowed? JSON body?
 route (lumen.api.routes)    orchestration only
   CurrentUser               session cookie -> user, via lumen_auth; CSRF on unsafe methods
@@ -152,7 +153,7 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 
 ### Errors
 
-Every failure from the app has this shape, except an unhandled `500`.
+Every failure from the app has this shape.
 
 ```json
 {"error":{"code":"csrf_failed","message":"Missing or invalid CSRF token. Reload the page and try again."}}
@@ -173,6 +174,7 @@ Every failure from the app has this shape, except an unhandled `500`.
 | 422 | `missing_core_dimension`, `unknown_dimension`, `invalid_score`, `invalid_tag`, `too_many_tags`, `date_out_of_range` | Check-in rules |
 | 422 | `invalid_request` | The request didn't match the schema |
 | 429 | `too_many_attempts` | Login or password change lockout |
+| 500 | `internal_error` | Unhandled exception; the log has a `crash` line with the same `X-Request-ID` |
 
 ## Use the analytics from Python
 
@@ -315,11 +317,21 @@ Gotchas:
 
 ## Debug
 
+**Read the log.** The app writes one JSON object per line to stderr, through `EventLog` (`lumen/api/event_log.py`), and nothing is kept once the terminal closes:
+
+```json
+{"ts":"2026-11-06T09:00:00Z","event":"request","request_id":"9f1c...","method":"PUT","route":"/api/checkins/{local_date}","status":422,"duration_ms":12,"error":"invalid_score"}
+```
+
+Security events are identified by `route`, `status` and `error`. For example, `/api/auth/password`, `429` and `too_many_attempts` is a password change lockout. A request the guard refuses has `route: null`, because it never reached routing.
+
+To log something new, add a typed argument to `EventLog` and record the field in spec 005 or the feature's spec. Ruff rejects `logging` and `traceback` in `src/lumen`. A new error code also goes in `ERROR_CODES` in `lumen/api/errors.py`, or the log shows it as `unknown`.
+
 | Symptom | Likely cause |
 |---|---|
 | `ValueError: SECRET_KEY must be set` | Not in `.env`, or you're not in the repository root. |
 | `ValueError: WEB_DIST has no index.html` | Empty or wrong `WEB_DIST`. Leave it unset unless you need it; `make run` sets it. |
-| `500`, plain text "Internal Server Error", no security headers | Unhandled exception. The traceback is in uvicorn's stderr; there's no application logging. |
+| `500 internal_error` | Unhandled exception. Find the `crash` line in the terminal by the response's `X-Request-ID`. It has the exception classes and Lumen's frames, never the message, so reproduce the failure in a test to see more. |
 | `403 csrf_failed` on every write, while reads work | `SECRET_KEY` changed. Reload the page, or call `GET /api/auth/me` from a client, to get a new CSRF cookie. |
 | `403 forbidden_origin` | The client's origin isn't in `ALLOWED_ORIGINS`, for example Vite on another port. |
 | `KeyError: 'lumen_csrf'` in a Python client | The server has Secure cookies on. Set `COOKIE_SECURE=false`. |
@@ -361,7 +373,7 @@ Each was checked against a running server or the code.
 
 **Deliberate, so don't "fix" without revisiting the spec**
 - **Anyone can lock an email out for 15 minutes,** because the limit is per email and no IP addresses are stored (spec 001 §2.5).
-- **The app has no logging.** Uvicorn reports unhandled errors, and its access log stays off because it records IP addresses.
+- **Logs go only to the terminal, hold only allowlisted fields, and never include exception messages or user IDs.** There's no developer switch to show more, because PostgreSQL's messages can repeat private values (spec 005). Uvicorn's access log stays off because it records IP addresses, and the database's log drops `ERROR` lines for the same reason as the messages.
 - **Registration has no rate limit.** The owner decided against one.
 - **Only one checkout can run the database at a time.** Compose names its project after the folder and always publishes port 5432, so a second clone or worktree fails on `docker compose up` and leaves an unused container and volume behind. The owner chose this over sharing one database across checkouts, where one checkout's migrations would affect another.
 - **Registration reveals which emails exist** through `409 email_taken`, although login hides it (spec 001 §2.6).

@@ -1,16 +1,23 @@
 """Middleware: request guards (spec 001 §2.4) and security headers (spec 003)."""
 
+import json
+import time
+import uuid
 from collections.abc import Awaitable, Callable, Collection
+from contextlib import suppress
 
+from fastapi.routing import APIRoute
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from lumen.api.errors import error_response
+from lumen.api.errors import ERROR_CODES, error_response
+from lumen.api.event_log import EventLog
 
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
+MAX_ERROR_BODY = 4096  # the API's errors are far smaller; a cut-off body fails to parse
 
 CONTENT_SECURITY_POLICY = "; ".join(
     (
@@ -57,6 +64,65 @@ class SecurityHeadersMiddleware:
         await self._app(scope, receive, send_with_headers)
 
 
+class RequestLogMiddleware:
+    """Gives each request an ID, logs it, and turns a crash into a JSON 500 (spec 005).
+
+    Catching the crash here is what keeps it from uvicorn, which would print the exception's
+    message, and PostgreSQL's messages repeat the values they were given.
+    """
+
+    def __init__(self, app: ASGIApp, *, log: EventLog) -> None:
+        self._app, self._log = app, log
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self._app(scope, receive, send)
+            return
+
+        request_id = uuid.uuid4().hex
+        started = time.perf_counter()
+        status: int | None = None
+        error_body = bytearray()
+        crashed = False
+
+        async def send_with_id(message: Message) -> None:
+            nonlocal status
+            if message["type"] == "http.response.start":
+                status = message["status"]
+                MutableHeaders(scope=message)["X-Request-ID"] = request_id
+            elif status is not None and status >= 400:
+                error_body.extend(message.get("body", b"")[: MAX_ERROR_BODY - len(error_body)])
+            await send(message)
+
+        try:
+            await self._app(scope, receive, send_with_id)
+        except Exception as exc:
+            crashed = True
+            self._log.crash(request_id, exc)
+            if status is None:
+                # The client may be gone, and this mustn't reach uvicorn either.
+                with suppress(Exception):
+                    await error_response(500, "internal_error", "Something went wrong")(
+                        scope, receive, send_with_id
+                    )
+
+        if scope["path"] == "/api" or scope["path"].startswith("/api/"):
+            final = 500 if status is None else status
+            route = scope.get("route")
+            self._log.request(
+                request_id=request_id,
+                method=scope["method"],
+                route=route.path if isinstance(route, APIRoute) else None,
+                status=final,
+                duration_ms=int((time.perf_counter() - started) * 1000),
+                error="internal_error"
+                if crashed
+                else _listed_error_code(error_body)
+                if final >= 400
+                else None,
+            )
+
+
 class RequestGuardMiddleware(BaseHTTPMiddleware):
     def __init__(self, app: ASGIApp, *, allowed_origins: Collection[str]) -> None:
         super().__init__(app)
@@ -85,3 +151,12 @@ def _has_body(request: Request) -> bool:
 
 def _media_type(request: Request) -> str:
     return request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+
+
+def _listed_error_code(body: bytes | bytearray) -> str:
+    """The response's error code if it's on the fixed list, so nothing else can reach the log."""
+    try:
+        code = json.loads(body)["error"]["code"]
+    except (ValueError, KeyError, TypeError, RecursionError):
+        return "unknown"
+    return code if isinstance(code, str) and code in ERROR_CODES else "unknown"

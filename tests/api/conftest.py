@@ -15,6 +15,7 @@ from pydantic import SecretStr
 from sqlalchemy import Engine, make_url, text
 
 from lumen.api.app import create_app
+from lumen.api.event_log import EventLog
 from lumen.config import Settings, get_settings
 
 T0 = datetime(2026, 10, 23, 9, 0, tzinfo=UTC)
@@ -64,7 +65,12 @@ def clock() -> FakeClock:
 
 
 @pytest.fixture
-def app(clean_db: Engine, clock: FakeClock) -> FastAPI:
+def log_lines() -> list[str]:
+    return []
+
+
+@pytest.fixture
+def app(clean_db: Engine, clock: FakeClock, log_lines: list[str]) -> FastAPI:
     test_url = get_settings().test_database_url
     settings = Settings(
         _env_file=None,
@@ -76,7 +82,7 @@ def app(clean_db: Engine, clock: FakeClock) -> FastAPI:
         allowed_origins=["http://localhost:5173"],
         cookie_secure=True,
     )
-    return create_app(settings, clock=clock)
+    return create_app(settings, clock=clock, log=EventLog(clock, log_lines.append))
 
 
 @pytest.fixture
