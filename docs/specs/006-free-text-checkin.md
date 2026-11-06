@@ -102,16 +102,19 @@ Someone may write about a crisis in this box, and Lumen won't detect it. So, wit
 
 **Exact matches on a 1 to 5 score probably won't reach 95%, and that isn't all down to the model.** *"ok evening"* has no single right number: reasonable people could pick 3 or 4. I haven't measured this, and no study I found matches this task. The nearest figure is from a different task, where two people rating text quality on a 5-point scale were within one point of each other 82.7% of the time.
 
-A wrong suggestion also costs little here, because the person sees and corrects it. The expensive errors are the ones they might miss. So the bar focuses on those:
+A wrong suggestion also costs little here, because the person sees and corrects it. The expensive errors are the ones they might miss. So the bar focuses on those. The owner approved these numbers after scoring 30 held-out notes blind, and before any model saw the held-out split (Q1):
 
-| Metric | What it catches | Bar |
-|---|---|---|
-| **Within one point,** on dimensions the text addresses | A clearly wrong suggestion | **At least 95%** |
-| **Left blank,** on dimensions the text doesn't address | Invented scores | **At least 95%** |
-| **Off by three or more** | Reversals, such as high stress scored as calm | **At most 1%** |
-| **Time per suggestion** on this machine (M4 Pro, 24 GB), after the model has loaded | Check-ins should take under a minute (`PROJECT.MD` §2.10) | **Under 10 seconds, 95th percentile** |
-| Exact match | Reported for reference | No bar |
-| Tag precision and recall | Reported for reference | No bar yet: set with the owner after the first run |
+| Metric | What it catches | Bar | The owner, on the same measure |
+|---|---|---|---|
+| **Suggested scores within one point** | A clearly wrong suggestion | **At least 95%** | 96.5% |
+| **Addressed dimensions it scores at all** | Being useless by leaving everything blank | **At least 75%** | 81% |
+| **Left blank,** on dimensions the text doesn't address | Invented scores | **At least 90%** | 94% |
+| **Off by three or more,** of addressed dimensions | Reversals, such as high stress scored as calm | **At most 1%** | 1.4% |
+| **Time per suggestion** on this machine (M4 Pro, 24 GB), after the model has loaded | Check-ins should take under a minute (`PROJECT.MD` §2.10) | **Under 10 seconds, 95th percentile** | n/a |
+| Exact match, of addressed dimensions | Reported for reference | No bar | 56% |
+| Tag precision and recall | Reported for reference | No bar yet: set with the owner after the first run | n/a |
+
+The bar applies to each language separately.
 
 **If no model meets the bar, implementation stops and the options go to the owner.** The bar is never lowered silently.
 
@@ -174,15 +177,60 @@ One-off faults under the project workflow: a slow model while other requests arr
 
 ## 6. Decisions
 
-The owner chose the recommendation on all four, and approved downloading the candidate models.
+The owner chose the recommendation on Q2 to Q4, approved the revised bar on Q1 after scoring the blind sheet, and approved downloading the candidate models.
 
 | # | Question | Decision |
 |---|---|---|
-| Q1 | **Is the bar in §3 what the owner meant by 95%?** Exact match is simpler to state, but many texts have no single right score. | **Yes, §3 as written:** 95% within one point and 95% left blank when not mentioned, with exact match reported but not required. |
+| Q1 | **What does 95% mean?** The first version counted a blank on an addressed dimension as a miss, and asked for 95% within one point and 95% left blank. The owner then scored 30 held-out notes blind, and scored 79% and 94% on those measures, because two careful people often disagree about whether a note addresses a dimension at all. Where both gave a score, they agreed 96.5% within one point. | **§3 as it now stands,** approved by the owner before any model saw the held-out split. 95% applies to suggested scores, with coverage and left blank set against the owner's own result. This is easier to pass than the first version. |
 | Q2 | **Which languages?** | **English and Portuguese,** split evenly and reported separately. The bar applies to each language. |
 | Q3 | **Who labels the evaluation set?** | **Claude writes the entries, and the owner scores 30 of them blind.** How far the scores differ shows how ambiguous the text is, the realistic ceiling for any model. |
 | Q4 | **Is the §2.7 wording right?** | **Yes, as written.** The owner confirmed it, including the phone details. |
 
 ## 7. Added during implementation (for review)
 
-Nothing yet.
+- **Replaces §2.5's schema: the client doesn't use Ollama's `format`.** `gemma4` answers `501 structured output is unavailable` to both a schema and JSON mode, in Ollama 0.40.14, and it's the strongest candidate so far. The prompt asks for JSON, the client reads the first JSON object, and everything is still validated.
+- **Adds a quote check.** For each dimension the model must quote the note's exact words, and code drops any score whose quote isn't in the note. Without it, `qwen3:8b` left unaddressed dimensions blank only 23 to 29% of the time. It discards the quote afterwards.
+- **`trust_env=False` and no redirects,** because a proxy setting or a redirect could carry text off the machine, even with a loopback URL. Both are tested.
+- **Fewer labelled scores than §3 estimated:** 215 on the held-out split, about 108 per language, rather than about 300. A measured 95% is good to about 4 points per language.
+- **`either` in the evaluation set** marks dimensions a note only hints at, where a score and a blank are both fair. They aren't measured.
+- **Distressing entries are left out of the owner's blind sheet.** They're the least ambiguous entries, and the owner doesn't need to read them.
+- **A failed call counts as wrong in every measure,** including left blank, so a failure can't look like a correct blank.
+- **Hand check results so far:** a marker sent to real Ollama wasn't in its output or anywhere under `~/.ollama`, its log shows `Ollama cloud disabled: true`, and it listens on `127.0.0.1` only. Not yet checked: a suggestion with the network off.
+- **Results vary slightly between runs,** even at temperature 0 with a fixed seed.
+
+- **The client reads scores written as text,** such as `"score": "3"`. The first held-out run dropped these, so the two smaller models scored almost nothing. That was a client bug rather than their result. All three models were rerun after the fix, with no change to the prompt, and only the fixed result is reported.
+- **`--against-owner` added,** which judges a model against the owner's blind scores. It has no bar: the bar was set against the labels.
+
+### Held-out results (100 entries)
+
+Each cell is English / Portuguese.
+
+| Model | Size | Suggestions within one | Coverage | Left blank | Off by 3+ | Slowest 5% | Bar |
+|---|---|---|---|---|---|---|---|
+| **Bar** | | **≥95%** | **≥75%** | **≥90%** | **≤1%** | **<10 s** | |
+| `gemma4:26b` | 16 GB | 99.1% / 98.0% | 99.1% / 93.4% | 95.8% / 95.5% | 0% / 0% | 4.2 / 4.7 s | **Met in both** |
+| `gemma4:e4b` | 9.5 GB | 100% / 99.0% | 96.3% / 96.2% | 91.2% / **88.9%** | 0% / 0% | 1.4 / 1.4 s | English only |
+| `qwen3:8b` | 5.2 GB | 99.0% / 97.9% | 95.4% / 90.6% | **87.4%** / **88.5%** | 0% / 0.9% | 5.5 / 6.7 s | Neither |
+
+Exact match: `gemma4:26b` 79.8% / 74.5%, `gemma4:e4b` 78.0% / 71.7%, `qwen3:8b` 66.1% / 64.2%. `qwen3:8b` also failed 2 calls in English, one of them on a distressing note, which on its own fails the bar. `gemma4:26b` and `gemma4:e4b` failed none.
+
+Tags (precision and recall): `gemma4:26b` 90.5% and 70.4% / 95.5% and 60.0%. Recall is weak on all three, and tags have no bar yet.
+
+### Against the owner's blind scores (30 entries, 66 of the owner's scores)
+
+Too few notes to judge precisely: one note moves off-by-3 by about 3 points.
+
+| Rater | Suggestions within one | Coverage | Left blank | Off by 3+ |
+|---|---|---|---|---|
+| Claude's labels (the baseline) | 96.6% / 96.4% | 80.6% / 93.3% | 92.8% / 89.3% | 2.8% / 0% |
+| `gemma4:26b` | 93.5% / 96.3% | 86.1% / 90.0% | 88.4% / 84.0% | 2.8% / 3.3% |
+| `gemma4:e4b` | 97.0% / 96.6% | 91.7% / 96.7% | 82.6% / 76.0% | 2.8% / 0% |
+| `qwen3:8b` | 93.8% / 100% | 88.9% / 93.3% | 84.1% / 80.0% | 2.8% / 0% |
+
+### How far to trust these numbers
+
+- **The labels and the notes have the same author, Claude,** which flatters language models. `gemma4:26b` beats the owner on those labels, and falls below the labels' own result against the owner's scores on left blank. The second table is the more independent one, and it's small.
+- **The held-out notes are easier than the tuning ones,** because they were deliberately written to mention more dimensions: `gemma4:26b` has 99.1% / 93.4% coverage on them, against 90.2% / 88.9% on the tuning split.
+- **All of it is synthetic.** Accuracy on real notes is unmeasured.
+- **`gemma4:26b` peaks at about 23.5 GB of memory on this 24 GB machine.**
+- **The held-out split has now been used,** and its results were read. Any future prompt change needs new held-out notes to be measured fairly.

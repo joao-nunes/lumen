@@ -1,0 +1,31 @@
+id,text,mood,energy,stress,sleep_quality,motivation,concentration,social_connection
+en-test-01,"good sleep, good mood, lots of energy",4,5,,4,,,
+en-test-04,tired but happy,5,1,,,,,
+en-test-07,"slept nine hours and woke up refreshed, ready for anything",,,,5,5,,
+en-test-10,"I woke up several times during the night and felt groggy until noon. Work was quiet, which helped, nothing pressing at all. Got a few small things finished, nothing ambitious, and felt about average by the evening. Barely spoke to anyone.",,2,2,2,,3,2
+en-test-13,"Spent the whole morning hiking in the hills and my legs are done, but I feel fantastic. No phone, no pressure, nothing to worry about. I slept like a log last night too. Went with my brother and it was so good to catch up properly.",5,,1,5,,,4
+en-test-16,"Therapy this afternoon. We talked about my dad and I felt raw afterwards, quite down for the rest of the day. I went for a slow walk to clear my head and went to bed early. I couldn't face seeing anyone tonight, and I feel a bit distant from everyone.",1,,,,,,1
+en-test-19,"lonely morning, then a long chat with a neighbour cheered me up, though I've struggled to focus",,,,,,2,4
+en-test-22,"fine day overall even though I had a fight with my partner at breakfast, plenty of energy too",4,4,2,,,,
+en-test-25,"good workout, terrible concentration at the desk afterwards, mood okay",3,3,,,,2,
+en-test-28,wasn't able to focus at all and couldn't be bothered to try,,,,,,1,
+en-test-31,"no pressure today, nothing to worry about, not a care in the world",,,1,,,,
+en-test-34,"not a bad day at all, quite positive really",4,4,2,,,,
+en-test-37,"some pressure at work, easily manageable, mood fine",3,,3,,,,
+en-test-40,"mood terrible, stress terrible, energy terrible",1,1,1,,,,
+en-test-43,"watching the football later, kick-off at eight",,,,,,,
+pt-test-01,"estou a cair de sono, nem consigo pensar",,,1,,,1,
+pt-test-04,ressaca e uma noite horrível,,,,1,,,
+pt-test-07,"zangado com a minha colega, tensão no ar o dia inteiro",,,,,,,
+pt-test-10,Hoje acordei às seis cheio de vontade de avançar com o projeto. Trabalhei de seguida até à hora de almoço sem me distrair uma única vez. À tarde fui ao futebol com os amigos e voltei de rastos mas feliz. Sinto-me mesmo ligado a esta malta.,5,4,,,5,5,5
+pt-test-13,"Sessão de terapia difícil. Voltei a falar da morte da minha mãe e saí de lá desfeito. Não tive cabeça para trabalhar, respondi só a dois emails e passei o resto do dia no sofá. Dormi pouco, com a cabeça a mil.",1,1,,1,,1,
+pt-test-16,"Dia sem história: fui trabalhar, voltei, fiz o jantar. Estive razoavelmente concentrado, nada de especial. Disposição normal, nem boa nem má. Falei um bocado com os colegas, o costume. Dormi o suficiente, mas sem acordar fresco.",3,,,3,,3,3
+pt-test-19,"estive com os amigos e foi ótimo, só que não me sai da cabeça o prazo de sexta",,,3,,,,4
+pt-test-22,"discuti com o meu pai ao telefone, depois fui correr e fiquei mais calmo",,,3,,,,
+pt-test-25,"pouca conversa com os colegas hoje, mas consegui concentrar-me como há muito não fazia",,,,,,5,2
+pt-test-28,hoje não consegui fixar nada e não me apeteceu fazer nada,,,,,,1,
+pt-test-31,"sem preocupações e sem pressas, nada a incomodar-me",,,1,,,,
+pt-test-34,"não dormi quase nada, mas não estou stressado",,,1,2,,,
+pt-test-37,"tudo calmo no trabalho, humor bom, energia normal",4,3,1,,,,
+pt-test-40,"nível de stress moderado, disposição razoável",3,,3,,,,
+pt-test-43,marquei a revisão do carro para dia 15,,,,,,,

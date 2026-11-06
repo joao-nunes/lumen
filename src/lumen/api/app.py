@@ -24,6 +24,7 @@ from lumen.auth.rate_limit import LoginRateLimiter, PasswordChangeRateLimiter
 from lumen.auth.service import AuthService
 from lumen.config import Settings
 from lumen.db.session import make_engine, make_session_factory
+from lumen.suggestions.ollama import check_local_only
 
 MIN_SECRET_KEY_BYTES = 32
 
@@ -34,6 +35,8 @@ def create_app(
     secret = settings.secret_key.get_secret_value().encode() if settings.secret_key else b""
     if len(secret) < MIN_SECRET_KEY_BYTES:
         raise ValueError(f"SECRET_KEY must be set to at least {MIN_SECRET_KEY_BYTES} bytes")
+
+    check_local_only(settings.ollama_url, settings.ollama_model)
 
     policy = SessionPolicy.from_settings(settings)
     app_engine = make_engine(settings.database_url)

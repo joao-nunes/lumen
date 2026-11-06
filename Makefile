@@ -1,4 +1,4 @@
-.PHONY: check test e2e mutate dev run schema check-schema
+.PHONY: check test e2e mutate eval-extraction dev run schema check-schema
 
 WEB := pnpm --dir web
 # --no-access-log: uvicorn's access log records client IP addresses, which Lumen never stores.
@@ -25,6 +25,12 @@ e2e:
 # Choose groups with GROUPS="auth rls http checkins domain analytics" (default: all).
 mutate:
 	uv run python scripts/mutate.py $(GROUPS)
+
+# Measure a local model on the evaluation set (spec 006 §3). Needs Ollama running; not part of CI.
+# SPLIT=dev is for tuning prompts. Report on SPLIT=test only once, after they're settled.
+SPLIT ?= dev
+eval-extraction:
+	uv run python scripts/eval_extraction.py --model $(MODEL) --split $(SPLIT) $(ARGS)
 
 # Development: the API on :8000 and Vite on http://localhost:5173, both reloading on changes.
 dev:
