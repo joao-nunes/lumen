@@ -1,6 +1,6 @@
 # Spec 005: Privacy-safe logging
 
-**Status:** Draft, for approval
+**Status:** Draft, awaiting approval to merge (decisions in §5)
 **Builds on:** spec 001 (auth HTTP layer), spec 003 (security headers), spec 004 (password change limit)
 
 ## 1. Goal
@@ -166,12 +166,14 @@ Add a `logging` group to `make mutate`:
 
 One-off faults under the project workflow, beyond these: cancellation swallowed, a crash in the error handling itself, a failure while the `500` is being sent, and an exception whose cause chain loops.
 
-## 5. Open questions
+## 5. Decisions
 
-| # | Question | Recommendation |
+The owner chose the recommendation on all three.
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | **Where do lines go?** Stderr only, or also a rotating file? A file keeps history after the terminal closes, but it would be a dated record of when someone used the app, outside row-level security. | **Stderr only for now.** You can see failures while the app runs, and nothing is written to disk. Decide on a file at deployment, when there's also somewhere safer to keep it. |
-| Q2 | **Should there be a developer switch that shows full exception messages?** It would make local debugging easier, but it's easy to leave on, and it's the exact leak this spec closes. | **No switch.** Reproduce the bug in a test, where the data is fake. Revisit it if `crash` lines turn out to be too little in practice. |
+| Q1 | **Where do lines go?** Stderr only, or also a rotating file? A file keeps history after the terminal closes, but it would be a dated record of when someone used the app, outside row-level security. | **Stderr only.** You can see failures while the app runs, and nothing is written to disk. Revisit at deployment, when there's also somewhere safer to keep a file. |
+| Q2 | **Should there be a developer switch that shows full exception messages?** It would make local debugging easier, but it's easy to leave on, and it's the exact leak this spec closes. | **No switch.** Reproduce the bug in a test, where the data is fake. |
 | Q3 | **Should `request` lines include the user ID?** It would separate users' activity once there are several, but it would tie each person to a timeline of their use. | **No.** Lumen has few users on `localhost`, so it would add little. Revisit at deployment. |
 
 ## 6. Added during implementation (for review)
