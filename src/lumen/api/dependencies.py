@@ -12,7 +12,7 @@ from lumen.api.clock import Clock
 from lumen.api.cookies import CookieManager
 from lumen.api.errors import ApiError
 from lumen.api.middleware import UNSAFE_METHODS
-from lumen.auth.rate_limit import LoginRateLimiter
+from lumen.auth.rate_limit import LoginRateLimiter, PasswordChangeRateLimiter
 from lumen.auth.service import AuthService
 from lumen.db.scope import user_transaction
 
@@ -24,6 +24,7 @@ class Container:
     clock: Clock
     auth: AuthService
     limiter: LoginRateLimiter
+    password_change_limiter: PasswordChangeRateLimiter
     cookies: CookieManager
     app_sessions: sessionmaker[Session]  # lumen_app: user data through RLS
     auth_sessions: sessionmaker[Session]  # lumen_auth: users and the auth schema

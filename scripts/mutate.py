@@ -44,6 +44,7 @@ RLS_MIGRATION = (
 API = "src/lumen/api/"
 REPOSITORY = "src/lumen/db/repository.py"
 CHECKIN = "src/lumen/domain/checkin.py"
+CHANGE_LIMIT = "src/lumen/auth/password_change.py"
 
 GROUPS: dict[str, list[Mutant]] = {
     "auth": [
@@ -436,20 +437,138 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             "src/lumen/auth/rate_limit.py",
             "success doesn't reset the count",
-            "        if last_success is not None and last_success > since:\n            since = last_success\n",
+            "    if last_success is not None and last_success > since:\n        since = last_success\n",
             "",
         ),
         Mutant(
             "src/lumen/auth/rate_limit.py",
             "unlock time from newest failure",
-            "unlocks_at = failures[len(failures) - self.policy.max_failures] + self.policy.window",
-            "unlocks_at = failures[-1] + self.policy.window",
+            "unlocks_at = failures[len(failures) - policy.max_failures] + policy.window",
+            "unlocks_at = failures[-1] + policy.window",
         ),
         Mutant(
             "src/lumen/auth/rate_limit.py",
             "off-by-one threshold",
-            "if len(failures) < self.policy.max_failures:",
-            "if len(failures) <= self.policy.max_failures:",
+            "if len(failures) < policy.max_failures:",
+            "if len(failures) <= policy.max_failures:",
+        ),
+        # Spec 004: password change limit.
+        Mutant(
+            CHANGE_LIMIT,
+            "password change limit not checked",
+            "    if retry_after is not None:\n"
+            "        # Refused before checking the password, so the right password can't\n"
+            "        # be confirmed during a lockout, and the refusal isn't recorded.\n"
+            "        raise TooManyAttemptsError(retry_after)\n",
+            "",
+        ),
+        Mutant(
+            CHANGE_LIMIT,
+            "correct password accepted during a password change lockout",
+            "    if retry_after is not None:\n"
+            "        # Refused before checking the password, so the right password can't\n"
+            "        # be confirmed during a lockout, and the refusal isn't recorded.\n"
+            "        raise TooManyAttemptsError(retry_after)\n"
+            "    try:\n"
+            "        issued = auth.change_password(db, user_id, current_password, new_password, now)\n"
+            "    except InvalidCredentialsError:\n",
+            "    try:\n"
+            "        issued = auth.change_password(db, user_id, current_password, new_password, now)\n"
+            "    except InvalidCredentialsError:\n"
+            "        if retry_after is not None:\n"
+            "            raise TooManyAttemptsError(retry_after) from None\n",
+        ),
+        Mutant(
+            API + "routes/auth.py",
+            "failed password change not committed",
+            "        db.commit()  # the failed change must persist, or the rate limit never triggers\n",
+            "",
+        ),
+        Mutant(
+            CHANGE_LIMIT,
+            "refused password changes recorded (lockout extends)",
+            "        raise TooManyAttemptsError(retry_after)",
+            "        limiter.record(db, user_id, succeeded=False, now=now)\n"
+            "        db.commit()\n        raise TooManyAttemptsError(retry_after)",
+        ),
+        Mutant(
+            CHANGE_LIMIT,
+            "successful password change doesn't reset the count",
+            "    limiter.record(db, user_id, succeeded=True, now=now)\n",
+            "",
+        ),
+        Mutant(
+            CHANGE_LIMIT,
+            "weak new password counted as a failure",
+            "    except InvalidCredentialsError:\n"
+            "        limiter.record(db, user_id, succeeded=False, now=now)\n",
+            "    except Exception:\n"
+            "        limiter.record(db, user_id, succeeded=False, now=now)\n"
+            "        db.commit()\n",
+        ),
+        Mutant(
+            CHANGE_LIMIT,
+            "weak new password counted as a success",
+            "        limiter.record(db, user_id, succeeded=False, now=now)\n        raise\n",
+            "        limiter.record(db, user_id, succeeded=False, now=now)\n        raise\n"
+            "    except Exception:\n"
+            "        limiter.record(db, user_id, succeeded=True, now=now)\n"
+            "        db.commit()\n        raise\n",
+        ),
+        Mutant(
+            CHANGE_LIMIT,
+            "password change row lock removed",
+            "        .with_for_update()\n",
+            "",
+        ),
+        Mutant(
+            CHANGE_LIMIT,
+            "password change count read before taking the lock",
+            "    db.execute(\n"
+            "        select(PasswordCredential.user_id)\n"
+            "        .where(PasswordCredential.user_id == user_id)\n"
+            "        .with_for_update()\n"
+            "    )\n"
+            "    retry_after = limiter.retry_after(db, user_id, now)\n",
+            "    retry_after = limiter.retry_after(db, user_id, now)\n"
+            "    db.execute(\n"
+            "        select(PasswordCredential.user_id)\n"
+            "        .where(PasswordCredential.user_id == user_id)\n"
+            "        .with_for_update()\n"
+            "    )\n",
+        ),
+        Mutant(
+            "src/lumen/auth/rate_limit.py",
+            "other users' failures counted",
+            ".where(key, attempts.succeeded.is_(False),",
+            ".where(attempts.succeeded.is_(False),",
+        ),
+        Mutant(
+            "src/lumen/auth/login.py",
+            "successful login resets the password change count",
+            "    limiter.record(db, email, succeeded=True, now=now)\n",
+            "    limiter.record(db, email, succeeded=True, now=now)\n"
+            "    from lumen.auth.models import PasswordChangeAttempt\n\n"
+            "    db.add(PasswordChangeAttempt(user_id=issued.user_id, attempted_at=now, succeeded=True))\n",
+        ),
+        Mutant(
+            "src/lumen/auth/rate_limit.py",
+            "failed logins count towards the password change limit",
+            "        key = PasswordChangeAttempt.user_id == user_id\n",
+            "        from lumen.db.models import User\n\n"
+            "        email = db.scalar(select(User.email).where(User.id == user_id))\n"
+            "        locked = _retry_after(\n"
+            "            db, self.policy, LoginAttempt, LoginAttempt.email == email, now\n"
+            "        )\n"
+            "        if locked is not None:\n"
+            "            return locked\n"
+            "        key = PasswordChangeAttempt.user_id == user_id\n",
+        ),
+        Mutant(
+            "migrations/versions/2026_11_06_1200-7c41e9a2d6b3_password_change_attempts.py",
+            "password change attempts editable by the auth role",
+            "GRANT SELECT, INSERT ON auth.password_change_attempts",
+            "GRANT SELECT, INSERT, UPDATE, DELETE ON auth.password_change_attempts",
         ),
     ],
     "domain": [
