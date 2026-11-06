@@ -152,17 +152,19 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 
 ### Errors
 
-Failures from the app itself have this shape; see [known issues](#known-issues-and-open-questions) for the exceptions.
+Every failure from the app has this shape, except an unhandled `500`.
 
 ```json
-{"error":{"code":"csrf_failed","message":"Missing or invalid CSRF token"}}
+{"error":{"code":"csrf_failed","message":"Missing or invalid CSRF token. Reload the page and try again."}}
 ```
 
 | Status | `code` | Cause |
 |---|---|---|
 | 401 | `not_authenticated` | No valid session |
 | 401 | `invalid_credentials` | Wrong email or password (deliberately doesn't say which) |
-| 403 | `csrf_failed` | Missing or wrong `X-CSRF-Token` |
+| 403 | `csrf_failed` | Missing or wrong `X-CSRF-Token`. After a `SECRET_KEY` change, `GET /api/auth/me` issues a new cookie |
+| 404 | `not_found` | Unknown path |
+| 405 | `method_not_allowed` | Wrong method; the `Allow` header lists the right ones |
 | 403 | `forbidden_origin` | `Origin` is neither the server's own nor in `ALLOWED_ORIGINS` |
 | 409 | `email_taken` | Registering an existing email, in any letter case |
 | 415 | `unsupported_media_type` | Unsafe request with a body that isn't `application/json` |
@@ -318,7 +320,7 @@ Gotchas:
 | `ValueError: SECRET_KEY must be set` | Not in `.env`, or you're not in the repository root. |
 | `ValueError: WEB_DIST has no index.html` | Empty or wrong `WEB_DIST`. Leave it unset unless you need it; `make run` sets it. |
 | `500`, plain text "Internal Server Error", no security headers | Unhandled exception. The traceback is in uvicorn's stderr; there's no application logging. |
-| `403 csrf_failed` on every write, while reads work | `SECRET_KEY` changed. Log in again (see known issues). |
+| `403 csrf_failed` on every write, while reads work | `SECRET_KEY` changed. Reload the page, or call `GET /api/auth/me` from a client, to get a new CSRF cookie. |
 | `403 forbidden_origin` | The client's origin isn't in `ALLOWED_ORIGINS`, for example Vite on another port. |
 | `KeyError: 'lumen_csrf'` in a Python client | The server has Secure cookies on. Set `COOKIE_SECURE=false`. |
 | Can't stay logged in on Safari | Safari rejects Secure cookies on `http://localhost`. Set `COOKIE_SECURE=false`. |
@@ -342,49 +344,24 @@ ROLLBACK;
 SQL
 ```
 
-**See charts with data.** Seeded users have no password, so register in the app first, then fill that account:
+**See charts with data.** This creates an account with 112 days of check-ins and prints its email and password:
 
-```python
-# uv run python seed_account.py
-from datetime import date, timedelta
-from sqlalchemy import select
-from lumen.config import get_settings
-from lumen.db.models import User
-from lumen.db.repository import save_checkin
-from lumen.db.session import make_engine, make_session_factory
-from lumen.synthetic.personas import PERSONAS, generate
-
-EMAIL, DAYS = "you@example.com", 112
-factory = make_session_factory(make_engine(get_settings().admin_database_url))
-with factory.begin() as db:
-    user_id = db.scalars(select(User.id).where(User.email == EMAIL)).one()
-    for checkin in generate(PERSONAS["burnout"], date.today() - timedelta(days=DAYS - 1), DAYS, seed=42):
-        save_checkin(db, user_id, checkin)
+```bash
+uv run python -m lumen.synthetic.seed burnout --days 112 --seed 42
 ```
 
 **Start the database again:** `docker compose down -v && docker compose up -d --wait db && uv run alembic upgrade head`. This deletes all local data.
 
 ## Known issues and open questions
 
-Each was checked against a running server or the code. None is fixed yet.
-
-**Looks like a bug**
-1. **Not every error has the documented shape.** Unknown paths and wrong methods return FastAPI's `{"detail":"Not Found"}` and `{"detail":"Method Not Allowed"}`, although spec 001 §2.6 and `lumen/api/errors.py` promise one shape. The web client copes, reporting them as `unexpected_response`; other clients may not.
-2. **Misleading `invalid_request` message.** A bad path or query value, such as `GET /api/checkins/notadate` or a missing `end`, says "The request body is invalid".
-3. **The OpenAPI document doesn't describe the errors.** It gives `422` as FastAPI's `HTTPValidationError`, which the API never returns, and omits 401, 403, 409, 415 and 429. So `schema.d.ts` has the same gap.
-4. **Changing `SECRET_KEY` traps logged-in users.** The CSRF token is derived from it, so existing sessions can read but get `403 csrf_failed` on every write, **including logout**. Logging in again fixes it. From reading the code, the web app's *Log out* button would appear to do nothing, because `handleLogOut` doesn't catch the failure.
-5. **`LOG_LEVEL` does nothing.** `Settings` reads it, but nothing uses it and the app has no logging.
-6. **Seeded users can't log in,** because `lumen.synthetic.seed` creates them without a password. The script above works around it.
-7. **Registering while logged in leaves the old session valid until it expires.** Login ends the previous session; registration doesn't. Spec 001 doesn't say which is intended.
-
-**Decided, not built yet**
-8. **Password change has no rate limit.** Someone holding a session cookie can guess the current password without limit. The owner has decided to add one (spec 004).
+Each was checked against a running server or the code.
 
 **Needs a decision**
-9. **Only one checkout can run the database at a time.** Compose names its project after the folder and always publishes port 5432, so a second clone or worktree fails on `docker compose up` and leaves an unused container and volume behind. Pinning `name:` in `docker-compose.yml` would make all checkouts share one database, which may or may not be wanted.
+2. **Only one checkout can run the database at a time.** Compose names its project after the folder and always publishes port 5432, so a second clone or worktree fails on `docker compose up` and leaves an unused container and volume behind. Pinning `name:` in `docker-compose.yml` would make all checkouts share one database, which may or may not be wanted.
 
 **Deliberate, so don't "fix" without revisiting the spec**
 - **Anyone can lock an email out for 15 minutes,** because the limit is per email and no IP addresses are stored (spec 001 §2.5).
+- **The app has no logging.** Uvicorn reports unhandled errors, and its access log stays off because it records IP addresses.
 - **Registration has no rate limit.** The owner decided against one.
 - **Registration reveals which emails exist** through `409 email_taken`, although login hides it (spec 001 §2.6).
 - **Nothing cleans up authentication data yet.** `purge_expired` has no caller, and `auth.login_attempts` is never purged, so it keeps every attempted email. Both wait for the scheduler milestone (spec 001 I4).

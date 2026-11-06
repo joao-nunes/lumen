@@ -1,10 +1,13 @@
 """One JSON error shape for every failure (spec 001 §2.6, spec 002 §2.3)."""
 
 import math
+from typing import Any
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from starlette.exceptions import HTTPException
 
 from lumen.auth.login import TooManyAttemptsError
 from lumen.auth.passwords import PasswordPolicyError
@@ -31,6 +34,25 @@ DOMAIN_ERRORS: dict[type[Exception], tuple[int, str]] = {
     TooManyTagsError: (422, "too_many_tags"),
     DateOutOfRangeError: (422, "date_out_of_range"),
 }
+
+
+# Failures that come from routing rather than from an endpoint.
+HTTP_ERROR_CODES = {404: "not_found", 405: "method_not_allowed"}
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    message: str
+
+
+class ErrorBody(BaseModel):
+    error: ErrorDetail
+
+
+def error_responses(*statuses: int) -> dict[int | str, dict[str, Any]]:
+    """Documents an operation's failures. Listing 422 replaces FastAPI's HTTPValidationError,
+    which this API never returns."""
+    return {status: {"model": ErrorBody} for status in statuses}
 
 
 class ApiError(Exception):
@@ -74,12 +96,20 @@ async def _too_many_attempts(request: Request, exc: Exception) -> JSONResponse:
 
 
 async def _invalid_request(request: Request, exc: Exception) -> JSONResponse:
-    return error_response(422, "invalid_request", "The request body is invalid")
+    return error_response(422, "invalid_request", "The request is invalid")
+
+
+async def _http_error(request: Request, exc: Exception) -> JSONResponse:
+    if not isinstance(exc, HTTPException):
+        raise exc
+    code = HTTP_ERROR_CODES.get(exc.status_code, "http_error")
+    return error_response(exc.status_code, code, exc.detail, dict(exc.headers or {}))
 
 
 def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ApiError, _api_error)
     app.add_exception_handler(TooManyAttemptsError, _too_many_attempts)
     app.add_exception_handler(RequestValidationError, _invalid_request)
+    app.add_exception_handler(HTTPException, _http_error)
     for exc_type in DOMAIN_ERRORS:
         app.add_exception_handler(exc_type, _domain_error)

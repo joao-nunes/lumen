@@ -27,20 +27,23 @@ class CookieManager:
         return header is not None and hmac.compare_digest(self.csrf_token(session_token), header)
 
     def set(self, response: Response, session_token: str) -> None:
-        # The CSRF cookie is readable by the frontend, which echoes it in X-CSRF-Token.
-        for name, value, httponly in (
-            (self.session_name, session_token, True),
-            (self.csrf_name, self.csrf_token(session_token), False),
-        ):
-            response.set_cookie(
-                name,
-                value,
-                max_age=self._max_age,
-                path="/",
-                secure=self._secure,
-                httponly=httponly,
-                samesite="strict",
-            )
+        self._set(response, self.session_name, session_token, httponly=True)
+        self.set_csrf(response, session_token)
+
+    def set_csrf(self, response: Response, session_token: str) -> None:
+        # Readable by the frontend, which echoes it in X-CSRF-Token.
+        self._set(response, self.csrf_name, self.csrf_token(session_token), httponly=False)
+
+    def _set(self, response: Response, name: str, value: str, *, httponly: bool) -> None:
+        response.set_cookie(
+            name,
+            value,
+            max_age=self._max_age,
+            path="/",
+            secure=self._secure,
+            httponly=httponly,
+            samesite="strict",
+        )
 
     def clear(self, response: Response) -> None:
         # Deletion must repeat Secure and Path=/, or browsers ignore it for __Host- cookies.

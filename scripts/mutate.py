@@ -359,8 +359,38 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             API + "routes/auth.py",
             "no session rotation on login",
-            "    if previous is not None:\n        container.auth.logout(db, previous)\n",
+            "        raise\n    _end_previous_session(request, container, db)\n",
+            "        raise\n",
+        ),
+        Mutant(
+            API + "routes/auth.py",
+            "no session rotation on register",
+            "container.clock())\n    _end_previous_session(request, container, db)\n",
+            "container.clock())\n",
+        ),
+        Mutant(
+            API + "routes/auth.py",
+            "stale CSRF cookie not repaired",
+            "        cookies.set_csrf(response, user.session_token)\n",
+            "        pass\n",
+        ),
+        Mutant(
+            API + "routes/auth.py",
+            "CSRF cookie reissued on every read",
+            "    if not cookies.csrf_matches(user.session_token, request.cookies.get(cookies.csrf_name)):\n",
+            "    if True:\n",
+        ),
+        Mutant(
+            API + "errors.py",
+            "routing failures keep FastAPI's shape",
+            "    app.add_exception_handler(HTTPException, _http_error)\n",
             "",
+        ),
+        Mutant(
+            API + "errors.py",
+            "405 loses its Allow header",
+            "exc.detail, dict(exc.headers or {}))",
+            "exc.detail)",
         ),
         Mutant(
             API + "routes/auth.py",

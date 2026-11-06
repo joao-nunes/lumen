@@ -1,17 +1,45 @@
-"""Seed a database with a synthetic persona.
+"""Seed a database with a synthetic persona that can log in.
 
 Usage:
     uv run python -m lumen.synthetic.seed burnout --days 90 --seed 42
 """
 
 import argparse
+import secrets
 import uuid
+from dataclasses import dataclass
 from datetime import date, timedelta
 
+from sqlalchemy.orm import Session
+
+from lumen.auth.models import PasswordCredential
+from lumen.auth.passwords import Passwords
 from lumen.config import get_settings
 from lumen.db.repository import create_user, save_checkin
 from lumen.db.session import make_engine, make_session_factory
 from lumen.synthetic.personas import PERSONAS, generate
+
+
+@dataclass(frozen=True, slots=True)
+class SeededUser:
+    user_id: uuid.UUID
+    email: str
+    password: str
+    start: date
+    checkins: int
+
+
+def seed_persona(db: Session, persona: str, *, days: int, seed: int, end: date) -> SeededUser:
+    start = end - timedelta(days=days - 1)
+    checkins = generate(PERSONAS[persona], start, days, seed)
+    # Synthetic users get addresses on the reserved .invalid TLD (RFC 2606).
+    email = f"{persona}-{uuid.uuid4().hex[:8]}@example.invalid"
+    password = secrets.token_urlsafe(18)
+    user_id = create_user(db, email)
+    db.add(PasswordCredential(user_id=user_id, password_hash=Passwords().hash(password)))
+    for checkin in checkins:
+        save_checkin(db, user_id, checkin)
+    return SeededUser(user_id, email, password, start, len(checkins))
 
 
 def main() -> None:
@@ -28,19 +56,14 @@ def main() -> None:
     args = parser.parse_args()
 
     end: date = args.end or date.today()  # noqa: DTZ011 - local calendar day is intended
-    start = end - timedelta(days=args.days - 1)
-    checkins = generate(PERSONAS[args.persona], start, args.days, args.seed)
 
     # Dev tooling: runs as the owner, which bypasses row-level security.
     session_factory = make_session_factory(make_engine(get_settings().admin_database_url))
     with session_factory.begin() as session:
-        # Synthetic users get addresses on the reserved .invalid TLD (RFC 2606).
-        email = f"{args.persona}-{uuid.uuid4().hex[:8]}@example.invalid"
-        user_id = create_user(session, email)
-        for checkin in checkins:
-            save_checkin(session, user_id, checkin)
+        user = seed_persona(session, args.persona, days=args.days, seed=args.seed, end=end)
 
-    print(f"Created user {user_id} <{email}> with {len(checkins)} check-ins ({start} to {end}).")
+    print(f"Created {user.email} with {user.checkins} check-ins ({user.start} to {end}).")
+    print(f"Password: {user.password}")
 
 
 if __name__ == "__main__":

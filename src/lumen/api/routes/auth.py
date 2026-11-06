@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 
 from lumen.api.dependencies import AuthDb, ContainerDep, CurrentUser, OptionalUser
+from lumen.api.errors import error_responses
 from lumen.auth.login import login_with_rate_limit
 from lumen.auth.service import InvalidCredentialsError
 from lumen.db.models import User
@@ -36,18 +37,26 @@ class Me(BaseModel):
     email: str
 
 
-@router.post("/register", status_code=201)
+def _end_previous_session(request: Request, container: ContainerDep, db: AuthDb) -> None:
+    """Session rotation: whatever session this browser had is ended."""
+    previous = request.cookies.get(container.cookies.session_name)
+    if previous is not None:
+        container.auth.logout(db, previous)
+
+
+@router.post("/register", status_code=201, responses=error_responses(403, 409, 415, 422))
 def register(
-    body: Credentials, response: Response, container: ContainerDep, db: AuthDb
+    body: Credentials, request: Request, response: Response, container: ContainerDep, db: AuthDb
 ) -> Registered:
     user_id = container.auth.register(db, body.email, body.password)
     issued = container.auth.login(db, body.email, body.password, container.clock())
+    _end_previous_session(request, container, db)
     db.commit()
     container.cookies.set(response, issued.token)
     return Registered(user_id=user_id)
 
 
-@router.post("/login", status_code=204)
+@router.post("/login", status_code=204, responses=error_responses(401, 403, 415, 422, 429))
 def login(body: Credentials, request: Request, container: ContainerDep, db: AuthDb) -> Response:
     try:
         issued = login_with_rate_limit(
@@ -56,17 +65,14 @@ def login(body: Credentials, request: Request, container: ContainerDep, db: Auth
     except InvalidCredentialsError:
         db.commit()  # the failed attempt must persist, or the rate limit never triggers
         raise
-    # Session rotation: whatever session this browser had is ended.
-    previous = request.cookies.get(container.cookies.session_name)
-    if previous is not None:
-        container.auth.logout(db, previous)
+    _end_previous_session(request, container, db)
     db.commit()
     response = Response(status_code=204)
     container.cookies.set(response, issued.token)
     return response
 
 
-@router.post("/logout", status_code=204)
+@router.post("/logout", status_code=204, responses=error_responses(403, 415))
 def logout(user: OptionalUser, container: ContainerDep, db: AuthDb) -> Response:
     if user is not None:
         container.auth.logout(db, user.session_token)
@@ -76,7 +82,7 @@ def logout(user: OptionalUser, container: ContainerDep, db: AuthDb) -> Response:
     return response
 
 
-@router.post("/password", status_code=204)
+@router.post("/password", status_code=204, responses=error_responses(401, 403, 415, 422, 429))
 def change_password(
     body: PasswordChange, user: CurrentUser, container: ContainerDep, db: AuthDb
 ) -> Response:
@@ -89,7 +95,14 @@ def change_password(
     return response
 
 
-@router.get("/me")
-def me(user: CurrentUser, db: AuthDb) -> Me:
+@router.get("/me", responses=error_responses(401))
+def me(
+    user: CurrentUser, request: Request, response: Response, container: ContainerDep, db: AuthDb
+) -> Me:
+    # Repairs the cookie after SECRET_KEY changes: the session survives, but the token derived
+    # from it changes. Safe, because other sites can't read the response or the cookie.
+    cookies = container.cookies
+    if not cookies.csrf_matches(user.session_token, request.cookies.get(cookies.csrf_name)):
+        cookies.set_csrf(response, user.session_token)
     email = db.scalar(select(User.email).where(User.id == user.user_id))
     return Me(user_id=user.user_id, email=email or "")
