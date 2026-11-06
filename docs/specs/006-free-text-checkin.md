@@ -198,13 +198,39 @@ The owner chose the recommendation on Q2 to Q4, approved the revised bar on Q1 a
 - **Hand check results so far:** a marker sent to real Ollama wasn't in its output or anywhere under `~/.ollama`, its log shows `Ollama cloud disabled: true`, and it listens on `127.0.0.1` only. Not yet checked: a suggestion with the network off.
 - **Results vary slightly between runs,** even at temperature 0 with a fixed seed.
 
-### Tuning split results so far (50 entries, not the measurement)
+- **The client reads scores written as text,** such as `"score": "3"`. The first held-out run dropped these, so the two smaller models scored almost nothing. That was a client bug rather than their result. All three models were rerun after the fix, with no change to the prompt, and only the fixed result is reported.
+- **`--against-owner` added,** which judges a model against the owner's blind scores. It has no bar: the bar was set against the labels.
 
-| Model | Size | Within one (en / pt) | Left blank (en / pt) | Off by 3+ (en / pt) | Slowest 5% |
-|---|---|---|---|---|---|
-| `gemma4:26b`, quote check | 16 GB | 93% / 89% | 96% / 93% | 0% / 0% | about 6 s |
-| `qwen3:8b`, quote check, examples | 5.2 GB | 85% / 78% | 93% / 88% | 0% / 0% | about 6 s |
-| `qwen3:8b`, plain prompt with schema | 5.2 GB | 100% / 97% | 29% / 23% | 0% / 3% | about 2 s |
-| `gemma4:e4b`, quote check | 9.5 GB | 39% / 25% | 99% / 99% | 0% / 0% | about 1.5 s |
+### Held-out results (100 entries)
 
-`gemma4:26b` peaked at about 23 GB of memory on this 24 GB machine.
+Each cell is English / Portuguese.
+
+| Model | Size | Suggestions within one | Coverage | Left blank | Off by 3+ | Slowest 5% | Bar |
+|---|---|---|---|---|---|---|---|
+| **Bar** | | **≥95%** | **≥75%** | **≥90%** | **≤1%** | **<10 s** | |
+| `gemma4:26b` | 16 GB | 99.1% / 98.0% | 99.1% / 93.4% | 95.8% / 95.5% | 0% / 0% | 4.2 / 4.7 s | **Met in both** |
+| `gemma4:e4b` | 9.5 GB | 100% / 99.0% | 96.3% / 96.2% | 91.2% / **88.9%** | 0% / 0% | 1.4 / 1.4 s | English only |
+| `qwen3:8b` | 5.2 GB | 99.0% / 97.9% | 95.4% / 90.6% | **87.4%** / **88.5%** | 0% / 0.9% | 5.5 / 6.7 s | Neither |
+
+Exact match: `gemma4:26b` 79.8% / 74.5%, `gemma4:e4b` 78.0% / 71.7%, `qwen3:8b` 66.1% / 64.2%. `qwen3:8b` also failed 2 calls in English, one of them on a distressing note, which on its own fails the bar. `gemma4:26b` and `gemma4:e4b` failed none.
+
+Tags (precision and recall): `gemma4:26b` 90.5% and 70.4% / 95.5% and 60.0%. Recall is weak on all three, and tags have no bar yet.
+
+### Against the owner's blind scores (30 entries, 66 of the owner's scores)
+
+Too few notes to judge precisely: one note moves off-by-3 by about 3 points.
+
+| Rater | Suggestions within one | Coverage | Left blank | Off by 3+ |
+|---|---|---|---|---|
+| Claude's labels (the baseline) | 96.6% / 96.4% | 80.6% / 93.3% | 92.8% / 89.3% | 2.8% / 0% |
+| `gemma4:26b` | 93.5% / 96.3% | 86.1% / 90.0% | 88.4% / 84.0% | 2.8% / 3.3% |
+| `gemma4:e4b` | 97.0% / 96.6% | 91.7% / 96.7% | 82.6% / 76.0% | 2.8% / 0% |
+| `qwen3:8b` | 93.8% / 100% | 88.9% / 93.3% | 84.1% / 80.0% | 2.8% / 0% |
+
+### How far to trust these numbers
+
+- **The labels and the notes have the same author, Claude,** which flatters language models. `gemma4:26b` beats the owner on those labels, and falls below the labels' own result against the owner's scores on left blank. The second table is the more independent one, and it's small.
+- **The held-out notes are easier than the tuning ones,** because they were deliberately written to mention more dimensions: `gemma4:26b` has 99.1% / 93.4% coverage on them, against 90.2% / 88.9% on the tuning split.
+- **All of it is synthetic.** Accuracy on real notes is unmeasured.
+- **`gemma4:26b` peaks at about 23.5 GB of memory on this 24 GB machine.**
+- **The held-out split has now been used,** and its results were read. Any future prompt change needs new held-out notes to be measured fairly.

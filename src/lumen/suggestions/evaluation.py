@@ -4,7 +4,7 @@ import csv
 import json
 import math
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from lumen.domain.dimensions import SCALE_MAX, SCALE_MIN, Dimension
@@ -211,3 +211,11 @@ def agreement(entries: list[Entry], owner: Mapping[str, Mapping[Dimension, int]]
         only_owner_scored=only_owner,
         only_labels_scored=only_labels,
     )
+
+
+def labelled_by_owner(
+    entries: list[Entry], owner: Mapping[str, Mapping[Dimension, int]]
+) -> list[Entry]:
+    """The same notes with the owner's scores as the truth: an independent check on the labels,
+    since the model and the labels' author may read notes in the same way."""
+    return [replace(e, scores=dict(owner[e.id]), either=frozenset()) for e in entries]

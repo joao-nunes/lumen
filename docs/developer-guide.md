@@ -299,6 +299,20 @@ Dimensions are defined in `lumen/domain/dimensions.py`, and the web app picks th
 - **API calls** go through `web/src/api/client.ts`, which adds the CSRF header and handles an ended session.
 - **No inline script, inline `style` attributes or third-party sources.** Styles React sets from script are fine. `make dev` won't reveal a violation; `make e2e` will. Changing the policy needs the owner's approval.
 
+## Run a local model
+
+Free-text check-ins (spec 006) use a model on this machine through Ollama. The API and screen aren't built yet, so for now this is only for measuring models.
+
+```bash
+brew install ollama
+printf '{\n  "disable_ollama_cloud": true\n}\n' > ~/.ollama/server.json   # after the first run creates ~/.ollama
+ollama serve                                                              # its log should say "Ollama cloud disabled: true"
+ollama pull gemma4:26b
+make eval-extraction MODEL=gemma4:26b
+```
+
+Text must never leave the machine, so the app refuses an `OLLAMA_URL` that isn't a loopback address, and any cloud `OLLAMA_MODEL`. Don't turn on `OLLAMA_DEBUG`. The evaluation set is in `evals/extraction/`: it's public, so never add real check-in text to it.
+
 ## Test
 
 | Layer | Where | Use |

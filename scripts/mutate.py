@@ -47,6 +47,9 @@ CHECKIN = "src/lumen/domain/checkin.py"
 CHANGE_LIMIT = "src/lumen/auth/password_change.py"
 EVENT_LOG = API + "event_log.py"
 MIDDLEWARE = API + "middleware.py"
+OLLAMA = "src/lumen/suggestions/ollama.py"
+SUGGESTION = "src/lumen/suggestions/model.py"
+EVALUATION = "src/lumen/suggestions/evaluation.py"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
 )
@@ -760,6 +763,172 @@ GROUPS: dict[str, list[Mutant]] = {
             + LOG_MIDDLEWARE,
             LOG_MIDDLEWARE
             + "    app.add_middleware(RequestGuardMiddleware, allowed_origins=settings.allowed_origins)\n",
+        ),
+    ],
+    "suggestions": [
+        Mutant(
+            OLLAMA,
+            "any host allowed",
+            'if parts.scheme not in ("http", "https") or not _is_loopback(parts.hostname):',
+            'if parts.scheme not in ("http", "https"):',
+        ),
+        Mutant(
+            OLLAMA,
+            "host checked by its prefix",
+            '    if host == "localhost":\n',
+            '    if host is not None and host.startswith(("localhost", "127.")):\n',
+        ),
+        Mutant(
+            OLLAMA,
+            "cloud models allowed",
+            "    if model is not None and _CLOUD_MODEL.search(model):\n",
+            "    if False:\n",
+        ),
+        Mutant(
+            API + "app.py",
+            "app starts without checking the settings",
+            "    check_local_only(settings.ollama_url, settings.ollama_model)\n",
+            "",
+        ),
+        Mutant(OLLAMA, "proxy settings followed", "trust_env=False,", "trust_env=True,"),
+        Mutant(
+            OLLAMA,
+            "redirects followed",
+            "follow_redirects=False,",
+            "follow_redirects=True,",
+        ),
+        Mutant(
+            OLLAMA,
+            "status not checked",
+            "            response.raise_for_status()\n",
+            "",
+        ),
+        Mutant(
+            OLLAMA,
+            "the original error stays attached",
+            "raise SuggestionsUnavailableError from None",
+            "raise SuggestionsUnavailableError",
+        ),
+        Mutant(
+            OLLAMA,
+            "quote not checked against the note",
+            "if isinstance(quote, str) and (found := _normalized(quote)) and found in note:",
+            "if isinstance(quote, str) and (found := _normalized(quote)):",
+        ),
+        Mutant(
+            OLLAMA,
+            "an empty quote counts as evidence",
+            "if isinstance(quote, str) and (found := _normalized(quote)) and found in note:",
+            "if isinstance(quote, str) and ((found := _normalized(quote)) in note):",
+        ),
+        Mutant(
+            OLLAMA,
+            "quote compared exactly",
+            "and found in note:",
+            "and quote in text:",
+        ),
+        Mutant(
+            OLLAMA,
+            "scores written as text dropped",
+            "scores[key] = int(score) if isinstance(score, str) and score.isdecimal() else score",
+            "scores[key] = score",
+        ),
+        Mutant(
+            OLLAMA,
+            "only a reply that is purely JSON accepted",
+            'reply, _ = json.JSONDecoder().raw_decode(content, content.index("{"))',
+            "reply = json.loads(content)",
+        ),
+        Mutant(OLLAMA, "temperature left to the default", '"temperature": 0, ', ""),
+        Mutant(
+            OLLAMA,
+            "the note sent inside the system prompt",
+            '{"role": "user", "content": text},',
+            '{"role": "user", "content": "note"},',
+        ),
+        Mutant(
+            SUGGESTION,
+            "scores above the scale kept",
+            "and SCALE_MIN <= value <= SCALE_MAX",
+            "",
+        ),
+        Mutant(
+            SUGGESTION,
+            "true accepted as a score",
+            "type(value := scores.get(dimension.value)) is int",
+            "isinstance(value := scores.get(dimension.value), int)",
+        ),
+        Mutant(
+            SUGGESTION,
+            "unlisted tags kept",
+            "if isinstance(tag, str) and tag in offered",
+            "if isinstance(tag, str)",
+        ),
+        Mutant(
+            EVALUATION,
+            "a failure counts as a correct blank",
+            "left_blank += suggestion is not None and guess is None",
+            "left_blank += guess is None",
+        ),
+        Mutant(
+            EVALUATION,
+            "within one counted against every addressed dimension",
+            "within_one=_ratio(within_one, suggested),",
+            "within_one=_ratio(within_one, addressed),",
+        ),
+        Mutant(
+            EVALUATION,
+            "coverage always full",
+            "coverage=_ratio(suggested, addressed),",
+            "coverage=1.0,",
+        ),
+        Mutant(
+            EVALUATION,
+            "within one means within two",
+            "within_one += distance <= 1",
+            "within_one += distance <= 2",
+        ),
+        Mutant(
+            EVALUATION,
+            "off by three misses exactly three",
+            "off_by_three += distance >= 3",
+            "off_by_three += distance > 3",
+        ),
+        Mutant(
+            EVALUATION,
+            "dimensions marked either way measured",
+            "            if dimension in entry.either:\n                continue\n            guess",
+            "            guess",
+        ),
+        Mutant(
+            EVALUATION,
+            "the model's loading time counted",
+            "times = sorted(o.seconds for o in outcomes[1:])",
+            "times = sorted(o.seconds for o in outcomes)",
+        ),
+        Mutant(
+            EVALUATION,
+            "the bar ignores coverage",
+            "        and metrics.coverage >= COVERAGE_BAR\n",
+            "",
+        ),
+        Mutant(
+            EVALUATION,
+            "the bar ignores failures on distressing text",
+            "        and metrics.distress_failures == 0\n",
+            "",
+        ),
+        Mutant(
+            EVALUATION,
+            "the blind sheet shows the labels",
+            '*[""] * len(Dimension)]',
+            "*[entry.scores.get(d, '') for d in Dimension]]",
+        ),
+        Mutant(
+            EVALUATION,
+            "the blind sheet includes distressing notes",
+            ' and e.category != "distress"',
+            "",
         ),
     ],
     "domain": [

@@ -3,6 +3,7 @@
 import json
 import threading
 import time
+import unicodedata
 from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
@@ -122,6 +123,38 @@ def test_a_score_counts_only_if_its_quote_is_really_in_the_note(stub: Stub) -> N
     assert model.suggest(TEXT, asked, ()) == Suggestion(scores={Dimension.MOOD: 3})
 
 
+def test_scores_written_as_text_are_read_as_numbers(stub: Stub) -> None:
+    """Smaller models write "score": "3". Reading only numbers cost them almost every score."""
+    stub.answer(
+        reply(
+            mood=("slept badly", "3"),
+            stress=("slept badly", "null"),
+            energy=("slept badly", "9"),
+            motivation=("slept badly", "three"),
+            concentration=("slept badly", "2.5"),
+        )
+    )
+    model = OllamaSuggestionModel(stub.url, "some-model")
+
+    assert model.suggest(TEXT, tuple(Dimension), ()) == Suggestion(scores={Dimension.MOOD: 3})
+
+
+def test_a_quote_matches_however_its_accents_are_encoded(stub: Stub) -> None:
+    note = unicodedata.normalize("NFC", "noite péssima")
+    stub.answer(reply(sleep_quality=(unicodedata.normalize("NFD", note), 1)))
+    model = OllamaSuggestionModel(stub.url, "some-model")
+
+    assert model.suggest(note, [Dimension.SLEEP_QUALITY], ()) == Suggestion(
+        scores={Dimension.SLEEP_QUALITY: 1}
+    )
+
+
+def test_a_trailing_slash_on_the_url_is_fine(stub: Stub) -> None:
+    stub.answer(reply())
+    OllamaSuggestionModel(f"{stub.url}/", "some-model").suggest(TEXT, ASKED, TAGS)
+    assert stub.requests[0]["path"] == "/api/chat"
+
+
 @pytest.mark.parametrize(
     "wrap",
     [
@@ -159,12 +192,21 @@ def test_ac6_values_outside_what_was_asked_are_dropped(stub: Stub) -> None:
         pytest.param(lambda s: s.answer('{"scores": {"mood"'), id="content cut off"),
         pytest.param(lambda s: s.send(200, "[1, 2]"), id="reply has the wrong shape"),
         pytest.param(lambda s: s.answer("[1, 2]"), id="content has no object"),
+        pytest.param(lambda s: s.answer(None), id="content is null"),
+        pytest.param(lambda s: s.answer(7), id="content is a number"),
+        pytest.param(lambda s: s.answer('{"a":' + "[" * 100_000), id="nested too deeply"),
         pytest.param(lambda s: s.answer('{"tags": []}'), id="no dimensions"),
         pytest.param(lambda s: s.answer('{"dimensions": {}}'), id="no tags"),
         pytest.param(lambda s: s.answer(json.dumps({"dimensions": [1], "tags": []})), id="a list"),
         pytest.param(lambda s: s.answer(reply("x")), id="tags are a string"),
         pytest.param(
-            lambda s: s.send(302, "", {"Location": "http://example.com/"}), id="a redirect"
+            # A valid answer, so only the status can refuse it.
+            lambda s: s.send(
+                302,
+                json.dumps({"message": {"content": reply(mood=("slept badly", 3))}}),
+                {"Location": "http://127.0.0.1:9/"},
+            ),
+            id="a redirect",
         ),
     ],
 )
@@ -193,6 +235,27 @@ def test_ac2_a_slow_model_times_out(stub: Stub) -> None:
     with pytest.raises(SuggestionsUnavailableError):
         suggest(stub, timeout=0.1)
     assert time.monotonic() - started < 0.9
+
+
+def test_a_redirect_is_never_followed_even_to_a_valid_answer(stub: Stub) -> None:
+    """A 307 repeats the POST, so following it would send the text wherever it pointed."""
+    answer = json.dumps({"message": {"content": reply(mood=("slept badly", 3))}}).encode()
+
+    def redirect_once(handler: BaseHTTPRequestHandler) -> None:
+        moved = handler.path == "/api/chat"
+        handler.send_response(307 if moved else 200)
+        if moved:
+            handler.send_header("Location", f"{stub.url}/elsewhere")
+        handler.send_header("Content-Length", "0" if moved else str(len(answer)))
+        handler.end_headers()
+        if not moved:
+            handler.wfile.write(answer)
+
+    stub.reply = redirect_once
+
+    with pytest.raises(SuggestionsUnavailableError):
+        suggest(stub)
+    assert [request["path"] for request in stub.requests] == ["/api/chat"]
 
 
 def test_a_proxy_setting_cannot_carry_the_text_away(

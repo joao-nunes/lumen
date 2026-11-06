@@ -12,6 +12,7 @@ from lumen.suggestions.evaluation import (
     Outcome,
     agreement,
     blind_sheet_entries,
+    labelled_by_owner,
     load_entries,
     measure,
     meets_bar,
@@ -290,3 +291,15 @@ def test_agreement_compares_only_what_both_people_scored() -> None:
         only_owner_scored=1,
         only_labels_scored=1,
     )
+
+
+def test_the_owner_s_scores_replace_the_labels_completely() -> None:
+    labelled = Entry(
+        "a", "test", "en", "terse", "x", {MOOD: 3}, frozenset({"tag"}), frozenset({ENERGY})
+    )
+
+    [theirs] = labelled_by_owner([labelled], {"a": {STRESS: 4}})
+
+    assert theirs.scores == {STRESS: 4}
+    assert theirs.either == frozenset()  # the hint was a judgement in the labels, not the owner's
+    assert (theirs.id, theirs.text, theirs.language) == ("a", "x", "en")
