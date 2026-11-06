@@ -185,4 +185,23 @@ The owner chose the recommendation on all four, and approved downloading the can
 
 ## 7. Added during implementation (for review)
 
-Nothing yet.
+- **Replaces §2.5's schema: the client doesn't use Ollama's `format`.** `gemma4` answers `501 structured output is unavailable` to both a schema and JSON mode, in Ollama 0.40.14, and it's the strongest candidate so far. The prompt asks for JSON, the client reads the first JSON object, and everything is still validated.
+- **Adds a quote check.** For each dimension the model must quote the note's exact words, and code drops any score whose quote isn't in the note. Without it, `qwen3:8b` left unaddressed dimensions blank only 23 to 29% of the time. It discards the quote afterwards.
+- **`trust_env=False` and no redirects,** because a proxy setting or a redirect could carry text off the machine, even with a loopback URL. Both are tested.
+- **Fewer labelled scores than §3 estimated:** 215 on the held-out split, about 108 per language, rather than about 300. A measured 95% is good to about 4 points per language.
+- **`either` in the evaluation set** marks dimensions a note only hints at, where a score and a blank are both fair. They aren't measured.
+- **Distressing entries are left out of the owner's blind sheet.** They're the least ambiguous entries, and the owner doesn't need to read them.
+- **A failed call counts as wrong in every measure,** and a blank on an addressed dimension counts as a miss, so that leaving everything blank can't meet the bar.
+- **Hand check results so far:** a marker sent to real Ollama wasn't in its output or anywhere under `~/.ollama`, its log shows `Ollama cloud disabled: true`, and it listens on `127.0.0.1` only. Not yet checked: a suggestion with the network off.
+- **Results vary slightly between runs,** even at temperature 0 with a fixed seed.
+
+### Tuning split results so far (50 entries, not the measurement)
+
+| Model | Size | Within one (en / pt) | Left blank (en / pt) | Off by 3+ (en / pt) | Slowest 5% |
+|---|---|---|---|---|---|
+| `gemma4:26b`, quote check | 16 GB | 93% / 89% | 96% / 93% | 0% / 0% | about 6 s |
+| `qwen3:8b`, quote check, examples | 5.2 GB | 85% / 78% | 93% / 88% | 0% / 0% | about 6 s |
+| `qwen3:8b`, plain prompt with schema | 5.2 GB | 100% / 97% | 29% / 23% | 0% / 3% | about 2 s |
+| `gemma4:e4b`, quote check | 9.5 GB | 39% / 25% | 99% / 99% | 0% / 0% | about 1.5 s |
+
+`gemma4:26b` peaked at about 23 GB of memory on this 24 GB machine.

@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     # The built frontend (`make run`). None serves the API only.
     web_dist: Path | None = None
 
+    # The local model behind free-text check-ins (spec 006). Must stay on this machine.
+    ollama_url: str = "http://127.0.0.1:11434"
+    ollama_model: str | None = None
+
 
 @lru_cache
 def get_settings() -> Settings:
