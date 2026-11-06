@@ -13,11 +13,10 @@ function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
-function renderLayout() {
+function renderLayout(): QueryClient {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <QueryClientProvider
-      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
-    >
+    <QueryClientProvider client={queryClient}>
       <MemoryRouter>
         <Routes>
           <Route element={<AuthenticatedLayout />}>
@@ -28,6 +27,7 @@ function renderLayout() {
       </MemoryRouter>
     </QueryClientProvider>,
   );
+  return queryClient;
 }
 
 beforeEach(() => {
@@ -47,17 +47,20 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it("says so when logging out fails, and stays on the page", async () => {
-  renderLayout();
+it("says so when logging out fails, and keeps the page and its data", async () => {
+  const queryClient = renderLayout();
 
   await userEvent.click(await screen.findByRole("button", { name: "Log out" }));
 
   expect((await screen.findByRole("alert")).textContent).toBe("Reload the page and try again");
   expect(screen.queryByText("Today screen")).not.toBeNull();
   expect(screen.queryByText("Log in page")).toBeNull();
+  expect(queryClient.getQueryData(["me"])).toBeDefined();
+  // Not refetched: a mounted screen would quietly restore data cleared too early.
+  expect(fetchMock.mock.calls.filter(([url]) => url === "/api/auth/me")).toHaveLength(1);
 });
 
-it("goes to the login page when logging out works", async () => {
+it("goes to the login page and discards the user's data when logging out works", async () => {
   fetchMock.mockImplementation((url) =>
     Promise.resolve(
       url === "/api/auth/me"
@@ -65,10 +68,11 @@ it("goes to the login page when logging out works", async () => {
         : new Response(null, { status: 204 }),
     ),
   );
-  renderLayout();
+  const queryClient = renderLayout();
 
   await userEvent.click(await screen.findByRole("button", { name: "Log out" }));
 
   await screen.findByText("Log in page");
   expect(screen.queryByRole("alert")).toBeNull();
+  expect(queryClient.getQueryData(["me"])).toBeUndefined();
 });

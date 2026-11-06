@@ -330,14 +330,14 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             API + "cookies.py",
             "session cookie readable by JS",
-            "(self.session_name, session_token, True),",
-            "(self.session_name, session_token, False),",
+            "self._set(response, self.session_name, session_token, httponly=True)",
+            "self._set(response, self.session_name, session_token, httponly=False)",
         ),
         Mutant(
             API + "cookies.py",
             "SameSite=Lax instead of Strict",
-            'samesite="strict",\n            )\n',
-            'samesite="lax",\n            )\n',
+            'samesite="strict",\n        )\n',
+            'samesite="lax",\n        )\n',
         ),
         Mutant(
             API + "cookies.py",
