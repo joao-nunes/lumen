@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field, StrictInt
 
 from lumen.api.dependencies import ContainerDep, CurrentUser, UserDb
+from lumen.api.errors import error_responses
 from lumen.db.repository import get_checkin, save_checkin, tag_usage
 from lumen.domain.checkin import Checkin, check_editable, structured_scores
 from lumen.domain.dimensions import DIMENSIONS, Cadence, Dimension, Polarity, dimensions_for
@@ -67,7 +68,7 @@ def _day(local_date: date, checkin: Checkin | None) -> DayOut:
     )
 
 
-@router.get("/dimensions")
+@router.get("/dimensions", responses=error_responses(401))
 def list_dimensions(_user: CurrentUser) -> list[DimensionOut]:
     return [
         DimensionOut(
@@ -81,12 +82,12 @@ def list_dimensions(_user: CurrentUser) -> list[DimensionOut]:
     ]
 
 
-@router.get("/checkins/{local_date}")
+@router.get("/checkins/{local_date}", responses=error_responses(401, 422))
 def read_checkin(local_date: date, user: CurrentUser, db: UserDb) -> DayOut:
     return _day(local_date, get_checkin(db, user.user_id, local_date))
 
 
-@router.put("/checkins/{local_date}")
+@router.put("/checkins/{local_date}", responses=error_responses(401, 403, 415, 422))
 def write_checkin(
     local_date: date, body: CheckinIn, user: CurrentUser, db: UserDb, container: ContainerDep
 ) -> DayOut:
@@ -102,6 +103,6 @@ def write_checkin(
     return _day(local_date, checkin)
 
 
-@router.get("/tags")
+@router.get("/tags", responses=error_responses(401))
 def list_tags(user: CurrentUser, db: UserDb) -> list[TagOut]:
     return [TagOut(name=name, count=count) for name, count in tag_usage(db, user.user_id)]

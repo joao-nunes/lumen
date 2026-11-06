@@ -18,7 +18,6 @@ class Settings(BaseSettings):
     admin_database_url: str = "postgresql+psycopg://lumen:lumen@localhost:5432/lumen"
     # Owner of the test database; tests switch roles with SET LOCAL ROLE.
     test_database_url: str = "postgresql+psycopg://lumen:lumen@localhost:5432/lumen_test"
-    log_level: str = "INFO"
 
     # Sessions (env values accept ISO 8601 durations, e.g. SESSION_IDLE_TIMEOUT=PT12H).
     session_idle_timeout: timedelta = timedelta(hours=12)

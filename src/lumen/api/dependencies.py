@@ -66,7 +66,9 @@ def optional_user(request: Request, container: ContainerDep, db: AuthDb) -> Auth
     if request.method in UNSAFE_METHODS and not container.cookies.csrf_matches(
         token, request.headers.get("x-csrf-token")
     ):
-        raise ApiError(403, "csrf_failed", "Missing or invalid CSRF token")
+        raise ApiError(
+            403, "csrf_failed", "Missing or invalid CSRF token. Reload the page and try again."
+        )
     return Authenticated(user_id=user_id, session_token=token)
 
 

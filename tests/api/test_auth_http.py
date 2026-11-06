@@ -101,6 +101,22 @@ def test_ac5_logging_in_again_invalidates_the_previous_session(new_client: NewCl
     assert error_code(stale.get("/api/auth/me")) == (401, "not_authenticated")
 
 
+def test_registering_ends_the_session_this_browser_had(new_client: NewClient) -> None:
+    client = new_client()
+    register(client)
+    old_token = client.cookies.get(SESSION)
+
+    assert error_code(register(client)) == (409, "email_taken")  # a failure changes nothing
+    assert client.cookies.get(SESSION) == old_token
+    assert client.get("/api/auth/me").json()["email"] == EMAIL
+
+    assert register(client, "second@example.com").status_code == 201
+    assert client.get("/api/auth/me").json()["email"] == "second@example.com"
+    stale = new_client()
+    stale.cookies.set(SESSION, old_token or "")
+    assert error_code(stale.get("/api/auth/me")) == (401, "not_authenticated")
+
+
 # --- sessions ------------------------------------------------------------------------
 
 
@@ -162,6 +178,26 @@ def test_ac9_state_change_without_matching_csrf_token_is_forbidden(
     assert error_code(client.post("/api/auth/logout")) == (403, "csrf_failed")
     assert error_code(client.post("/api/auth/logout", headers=csrf(other))) == (403, "csrf_failed")
     assert client.get("/api/auth/me").status_code == 200  # still logged in
+
+
+def test_reading_me_repairs_a_stale_csrf_cookie(new_client: NewClient) -> None:
+    # What SECRET_KEY rotation does: the session stays valid, but the cookie no longer matches.
+    client = new_client()
+    register(client)
+    valid = client.cookies.get(CSRF)
+    assert CSRF not in set_cookies(client.get("/api/auth/me"))  # nothing to repair
+
+    client.cookies.delete(CSRF)
+    client.cookies.set(CSRF, "stale", domain="testserver.local")
+    stale_headers = {"X-CSRF-Token": "stale"}
+    assert error_code(client.post("/api/auth/logout", headers=stale_headers)) == (
+        403,
+        "csrf_failed",
+    )
+
+    assert client.get("/api/auth/me").status_code == 200
+    assert client.cookies.get(CSRF, domain="testserver.local") == valid
+    assert client.post("/api/auth/logout", headers={"X-CSRF-Token": valid or ""}).status_code == 204
 
 
 def test_ac10_requests_from_other_origins_are_forbidden(new_client: NewClient) -> None:

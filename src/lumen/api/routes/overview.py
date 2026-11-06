@@ -14,6 +14,7 @@ from lumen.analytics.metrics import PeriodStat
 from lumen.analytics.overview import DimensionOverview, overview, overview_start
 from lumen.analytics.series import DateRange
 from lumen.api.dependencies import CurrentUser, UserDb
+from lumen.api.errors import error_responses
 from lumen.db.repository import list_observations
 from lumen.domain.dimensions import Dimension
 
@@ -111,7 +112,7 @@ def _dimension(dimension: Dimension, o: DimensionOverview) -> DimensionOverviewO
     )
 
 
-@router.get("/overview")
+@router.get("/overview", responses=error_responses(401, 422))
 def read_overview(end: date, user: CurrentUser, db: UserDb) -> OverviewOut:
     observations = list_observations(db, user.user_id, overview_start(end), end)
     return OverviewOut(
