@@ -20,6 +20,7 @@ from lumen.domain.checkin import (
     UnknownDimensionError,
 )
 from lumen.domain.dimensions import InvalidScoreError
+from lumen.suggestions.model import SuggestionsUnavailableError
 
 # Domain exception -> (status, code). Supporting a new error is a new row here.
 DOMAIN_ERRORS: dict[type[Exception], tuple[int, str]] = {
@@ -33,6 +34,7 @@ DOMAIN_ERRORS: dict[type[Exception], tuple[int, str]] = {
     InvalidTagError: (422, "invalid_tag"),
     TooManyTagsError: (422, "too_many_tags"),
     DateOutOfRangeError: (422, "date_out_of_range"),
+    SuggestionsUnavailableError: (503, "suggestions_unavailable"),
 }
 
 

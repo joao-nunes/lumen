@@ -8,6 +8,7 @@ import {
   fetchDimensions,
   fetchTags,
   saveDay,
+  suggestScores,
   type TagUsage,
 } from "../api/checkins";
 import { errorMessage } from "../api/client";
@@ -28,6 +29,8 @@ const STARTER_TAGS = [
   "conflict",
   "time_outdoors",
 ];
+
+const MAX_NOTE_LENGTH = 2000;
 
 /** Same rule as the API's, so that a typed tag can find its existing checkbox. */
 function normalizeTag(name: string): string {
@@ -87,11 +90,37 @@ function CheckinForm({
   const [selectedTags, setSelectedTags] = useState<ReadonlySet<string>>(new Set(saved?.tags));
   const [typedTags, setTypedTags] = useState<string[]>([]);
   const [newTag, setNewTag] = useState("");
+  // The note is Tier 0: it lives only in this state, and only the suggestion request sends it.
+  const [note, setNote] = useState("");
+  const [suggestedScores, setSuggestedScores] = useState<Record<string, number>>({});
+  const [suggestedTags, setSuggestedTags] = useState<ReadonlySet<string>>(new Set());
+  const [usedSuggestions, setUsedSuggestions] = useState(false);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
+  const suggest = useMutation({
+    mutationFn: () => suggestScores(day.local_date, note.trim()),
+    gcTime: 0, // Don't keep the request or reply in the mutation cache.
+    onSuccess: ({ scores: suggested, tags: suggestedNames }) => {
+      // Applied to the current answers, so a choice made while waiting is kept.
+      setScores((current) => ({ ...suggested, ...current }));
+      setSuggestedScores(suggested);
+      setTypedTags((current) => [...current, ...suggestedNames]);
+      setSelectedTags((current) => new Set([...current, ...suggestedNames]));
+      setSuggestedTags(new Set(suggestedNames));
+      if (Object.keys(suggested).length > 0 || suggestedNames.length > 0) {
+        setUsedSuggestions(true);
+      }
+    },
+  });
+
   const save = useMutation({
-    mutationFn: () => saveDay(day.local_date, { scores, tags: [...selectedTags] }),
+    mutationFn: () =>
+      saveDay(day.local_date, {
+        scores,
+        tags: [...selectedTags],
+        mode: usedSuggestions ? "free_text" : "structured",
+      }),
     onSuccess: async (result) => {
       // The form reads its answers once: a stale copy would bring back the old ones.
       queryClient.setQueryData(["checkin", day.local_date], result);
@@ -116,6 +145,11 @@ function CheckinForm({
   ];
 
   function setTag(tag: string, selected: boolean) {
+    setSuggestedTags((current) => {
+      const next = new Set(current);
+      next.delete(tag);
+      return next;
+    });
     setSelectedTags((current) => {
       const next = new Set(current);
       if (selected) {
@@ -148,9 +182,59 @@ function CheckinForm({
   return (
     <form className={styles.form} onSubmit={handleSubmit}>
       {saved && <LastSaved recordedAt={saved.recorded_at} />}
+      <section className={styles.group}>
+        <label className={styles.note}>
+          Write about your day
+          <textarea
+            rows={4}
+            maxLength={MAX_NOTE_LENGTH}
+            autoComplete="off"
+            spellCheck={false}
+            value={note}
+            onChange={(event) => {
+              setNote(event.target.value);
+            }}
+          />
+        </label>
+        <button
+          type="button"
+          disabled={note.trim() === "" || suggest.isPending}
+          onClick={() => {
+            suggest.mutate();
+          }}
+        >
+          Suggest scores
+        </button>
+        {suggest.isPending && <p role="status">Suggesting…</p>}
+        {suggest.isSuccess &&
+          Object.keys(suggest.data.scores).length === 0 &&
+          suggest.data.tags.length === 0 && (
+            <p role="status">Nothing to suggest from that. You can fill in the form yourself.</p>
+          )}
+        {suggest.isError && (
+          <p role="alert">
+            Suggestions aren't available right now. You can fill in the form yourself.
+          </p>
+        )}
+        {/* Spec 006 §2.7: always here, because nothing yet responds to what's written. */}
+        <div className={styles.safety}>
+          <p>
+            Lumen only turns this text into suggested scores. No one reads it, and it can't respond
+            to what you write.
+          </p>
+          <p>
+            If you're struggling: SNS 24, 808 24 24 24, option 4 (psychological support, 24 hours).
+          </p>
+          <p>In an emergency, call 112.</p>
+        </div>
+      </section>
       {shown.map((dimension) => (
         <fieldset key={dimension.key} className={styles.group}>
           <legend>{dimension.display_name}</legend>
+          {suggestedScores[dimension.key] !== undefined &&
+            suggestedScores[dimension.key] === scores[dimension.key] && (
+              <p className={styles.suggested}>Suggested, please check</p>
+            )}
           {dimension.anchors.map((anchor, index) => {
             const score = index + 1;
             return (
@@ -163,6 +247,7 @@ function CheckinForm({
                   checked={scores[dimension.key] === score}
                   onChange={() => {
                     setScores((current) => ({ ...current, [dimension.key]: score }));
+                    setSuggestedScores(({ [dimension.key]: _changed, ...rest }) => rest);
                   }}
                 />
                 <span>
@@ -176,6 +261,7 @@ function CheckinForm({
               type="button"
               onClick={() => {
                 setScores(({ [dimension.key]: _removed, ...rest }) => rest);
+                setSuggestedScores(({ [dimension.key]: _changed, ...rest }) => rest);
               }}
             >
               Clear
@@ -197,6 +283,7 @@ function CheckinForm({
                 }}
               />
               {tag}
+              {suggestedTags.has(tag) && <em className={styles.suggested}>(suggested)</em>}
             </label>
           ))}
         </div>

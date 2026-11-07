@@ -1,5 +1,6 @@
 """AC-1 of spec 006. A bug in these sums could report a bar as met when it isn't."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -17,6 +18,7 @@ from lumen.suggestions.evaluation import (
     measure,
     meets_bar,
     read_blind_sheet,
+    record_if_met,
     write_blind_sheet,
 )
 from lumen.suggestions.model import Suggestion
@@ -191,6 +193,56 @@ def test_the_bar_is_met_exactly_at_each_limit() -> None:
 )
 def test_the_bar_fails_past_each_limit(changes: dict[str, float]) -> None:
     assert not meets_bar(with_(**changes))
+
+
+def test_a_held_out_run_that_meets_the_bar_in_both_languages_is_recorded(tmp_path: Path) -> None:
+    path = tmp_path / "measured.json"
+
+    recorded = record_if_met(
+        path,
+        prompt="some_prompt_v2",
+        sha256="abc",
+        model="some-model",
+        split="test",
+        english=with_(),
+        portuguese=with_(),
+    )
+
+    assert recorded is True
+    assert json.loads(path.read_text(encoding="utf-8")) == {
+        "prompt": "some_prompt_v2",
+        "sha256": "abc",
+        "model": "some-model",
+        "split": "test",
+    }
+
+
+@pytest.mark.parametrize(
+    ("split", "english", "portuguese"),
+    [
+        ("dev", with_(), with_()),  # the tuning split is no measurement
+        ("test", with_(coverage=0.74), with_()),
+        ("test", with_(), with_(coverage=0.74)),
+    ],
+)
+def test_anything_else_leaves_the_record_as_it_was(
+    tmp_path: Path, split: str, english: Metrics, portuguese: Metrics
+) -> None:
+    path = tmp_path / "measured.json"
+    path.write_text("the earlier record", encoding="utf-8")
+
+    recorded = record_if_met(
+        path,
+        prompt="some_prompt_v2",
+        sha256="abc",
+        model="some-model",
+        split=split,
+        english=english,
+        portuguese=portuguese,
+    )
+
+    assert recorded is False
+    assert path.read_text(encoding="utf-8") == "the earlier record"
 
 
 def test_the_evaluation_set_is_what_the_spec_says() -> None:

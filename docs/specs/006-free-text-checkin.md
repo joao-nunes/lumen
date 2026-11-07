@@ -201,6 +201,27 @@ The owner chose the recommendation on Q2 to Q4, approved the revised bar on Q1 a
 - **The client reads scores written as text,** such as `"score": "3"`. The first held-out run dropped these, so the two smaller models scored almost nothing. That was a client bug rather than their result. All three models were rerun after the fix, with no change to the prompt, and only the fixed result is reported.
 - **`--against-owner` added,** which judges a model against the owner's blind scores. It has no bar: the bar was set against the labels.
 
+### Second PR: the API and screen
+
+- **The owner chose `gemma4:26b` for now,** the only model that met the bar, and kept `gemma4:e4b` as a fallback. `qwen3:8b` was deleted.
+- **The endpoint also applies the editable-day rule,** giving `422 date_out_of_range`, as saving does.
+- **`mode` is always sent by the web app,** because the generated type requires it. A day edited later without suggestions becomes `structured` again, since saving replaces the whole day.
+- **A person's own tags are offered first,** then the starter tags, each once.
+- **A note that gives nothing to suggest says so,** rather than appearing to do nothing.
+- **The first suggestion after starting Ollama took 25 seconds,** while the model loaded. The bar excludes this, but a person will notice it. The 60-second timeout leaves room for it.
+- **The network check used a sandbox** rather than turning off the owner's network: `sandbox-exec` denied all outbound traffic except to localhost, with a control showing that an outside request failed inside it and worked outside it. A real suggestion through the real app worked, and a marker in the note wasn't in the app's log, Ollama's log, under `~/.ollama`, or in the database's log.
+- **Web faults were run by hand,** as §5 says, because `make mutate` doesn't cover the frontend.
+- **"No session needed" isn't a repeatable mutant,** because it takes two edits and the runner applies one. It was checked once by hand, and went red.
+
+### Prompt moved out of the code (the owner's review of the second PR)
+
+- **The wording is now in `src/lumen/suggestions/prompts/checkin_extraction_v1.txt`,** one file per version, with the rendering in `lumen.suggestions.prompt`. The owner raised this, and also PostgreSQL and Langfuse as places for it. The owner agreed to a file in git for now: an editable row could run a prompt nobody measured, the parser must change together with the prompt, and Langfuse's tracing would store Tier 0 text. Langfuse can be reconsidered for hosted agents, which only see redacted data, in its own spec.
+- **The results below still apply.** The prompt hasn't changed since they were measured, and the move was checked byte for byte with all dimensions and starter tags, a subset, and no tags.
+- **`evals/extraction/measured_prompt.json` records the measured prompt's SHA-256,** and a test fails if the prompt changes. The hash covers the rendered prompt rather than the file, so changing an anchor or a starter tag also needs a new measurement. A held-out run updates it only if the bar is met in both languages.
+- **The record doesn't cover the model.** It names `gemma4:26b`, but `OLLAMA_MODEL` in `.env` can still select one that was never measured.
+- **Rendering now happens outside the client's error handling,** so a broken template shows as a crash rather than as "the local model is unavailable". The hash test fails on a broken template first, so this has no test of its own.
+- **No test for `$` in a tag:** tags can only match `^[a-z][a-z0-9_]{0,39}$`, and `Template` doesn't substitute into values anyway. The byte comparison included such values once.
+
 ### Held-out results (100 entries)
 
 Each cell is English / Portuguese.
@@ -232,5 +253,6 @@ Too few notes to judge precisely: one note moves off-by-3 by about 3 points.
 - **The labels and the notes have the same author, Claude,** which flatters language models. `gemma4:26b` beats the owner on those labels, and falls below the labels' own result against the owner's scores on left blank. The second table is the more independent one, and it's small.
 - **The held-out notes are easier than the tuning ones,** because they were deliberately written to mention more dimensions: `gemma4:26b` has 99.1% / 93.4% coverage on them, against 90.2% / 88.9% on the tuning split.
 - **All of it is synthetic.** Accuracy on real notes is unmeasured.
+- **The evaluation asks for all seven dimensions at once, and the app asks for about five,** depending on the day, along with the person's own tags. So the app's prompt isn't exactly the measured one, and the effect hasn't been measured.
 - **`gemma4:26b` peaks at about 23.5 GB of memory on this 24 GB machine.**
 - **The held-out split has now been used,** and its results were read. Any future prompt change needs new held-out notes to be measured fairly.

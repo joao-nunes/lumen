@@ -78,3 +78,68 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
 
   expect(policyViolations).toEqual([]);
 });
+
+// AC-15 (spec 006): a free-text note to a confirmed check-in, through the real client and API.
+test("write a note, correct a suggestion, save it, and find no trace of the note", async ({
+  page,
+}) => {
+  const policyViolations: string[] = [];
+  const sentBodies: string[] = [];
+  page.on("console", (message) => {
+    if (/content security policy/i.test(message.text())) policyViolations.push(message.text());
+  });
+  page.on("pageerror", (error) => {
+    policyViolations.push(error.message);
+  });
+  page.on("request", (request) => {
+    if (!request.url().endsWith("/suggestion")) sentBodies.push(request.postData() ?? "");
+  });
+
+  await page.goto("/register");
+  await page.getByLabel("Email").fill(`e2e-note-${String(Date.now())}@example.com`);
+  await page.getByLabel("Password").fill("correct horse battery staple");
+  await page.getByRole("button", { name: "Create an account" }).click();
+  await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+
+  // The safety text is there before anything is typed.
+  await expect(page.getByText("SNS 24, 808 24 24 24, option 4")).toBeVisible();
+  await expect(page.getByText("In an emergency, call 112.")).toBeVisible();
+
+  const note = "stressful meeting, ok evening";
+  await page.getByRole("textbox", { name: "Write about your day" }).fill(note);
+  await page.getByRole("button", { name: "Suggest scores" }).click();
+
+  // Suggested, marked, and not saved. Energy's quote isn't in the note, so it stays blank.
+  const stress = page.getByRole("group", { name: "Stress" });
+  const mood = page.getByRole("group", { name: "Mood" });
+  const energy = page.getByRole("group", { name: "Energy" });
+  await expect(stress.getByText("Suggested, please check")).toBeVisible();
+  await expect(stress.getByRole("radio").nth(3)).toBeChecked();
+  await expect(mood.getByRole("radio").nth(2)).toBeChecked();
+  for (const radio of await energy.getByRole("radio").all()) {
+    await expect(radio).not.toBeChecked();
+  }
+  await expect(page.getByRole("checkbox", { name: /workday/ })).toBeChecked();
+  await expect(page.getByText("a_tag_nobody_offered")).toHaveCount(0);
+
+  // Correct a suggestion, answer the rest, and save.
+  await stress.getByRole("radio").nth(1).check();
+  await expect(stress.getByText("Suggested, please check")).toHaveCount(0);
+  await energy.getByRole("radio").nth(2).check();
+  await page.getByRole("button", { name: "Save check-in" }).click();
+  await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
+
+  // Back on Today: the corrected value is what was saved, and the note is gone.
+  await page.getByRole("link", { name: "Today" }).click();
+  await expect(stress.getByRole("radio").nth(1)).toBeChecked();
+  await expect(mood.getByRole("radio").nth(2)).toBeChecked();
+  await expect(page.getByRole("textbox", { name: "Write about your day" })).toHaveValue("");
+
+  expect(sentBodies.filter((body) => body.includes("stressful meeting"))).toEqual([]);
+  const stored = await page.evaluate(() =>
+    JSON.stringify([Object.entries(localStorage), Object.entries(sessionStorage)]),
+  );
+  expect(stored).not.toContain("stressful meeting");
+  expect(page.url()).not.toContain("stressful");
+  expect(policyViolations).toEqual([]);
+});

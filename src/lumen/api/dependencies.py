@@ -15,6 +15,7 @@ from lumen.api.middleware import UNSAFE_METHODS
 from lumen.auth.rate_limit import LoginRateLimiter, PasswordChangeRateLimiter
 from lumen.auth.service import AuthService
 from lumen.db.scope import user_transaction
+from lumen.suggestions.model import SuggestionModel
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +29,7 @@ class Container:
     cookies: CookieManager
     app_sessions: sessionmaker[Session]  # lumen_app: user data through RLS
     auth_sessions: sessionmaker[Session]  # lumen_auth: users and the auth schema
+    suggestions: SuggestionModel | None  # None: no local model configured
 
 
 @dataclass(frozen=True, slots=True)

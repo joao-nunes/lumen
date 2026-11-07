@@ -49,6 +49,7 @@ EXPECTED_ERRORS = {
     ("get", "/api/dimensions"): {401},
     ("get", "/api/checkins/{local_date}"): {401, 422},
     ("put", "/api/checkins/{local_date}"): {401, 403, 415, 422},
+    ("post", "/api/checkins/{local_date}/suggestion"): {401, 403, 415, 422, 503},
     ("get", "/api/tags"): {401},
     ("get", "/api/overview"): {401, 422},
 }

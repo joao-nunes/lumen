@@ -36,8 +36,13 @@ interface Day {
 
 let days: Record<string, Day>;
 let tags: { name: string; count: number }[];
-let puts: { url: string; body: { scores: Record<string, number>; tags: string[] } }[];
+let puts: {
+  url: string;
+  body: { scores: Record<string, number>; tags: string[]; mode?: string };
+}[];
 let putResponse: () => Response;
+let suggestions: { url: string; body: string }[];
+let suggestionResponse: () => Promise<Response>;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
@@ -49,6 +54,10 @@ function emptyDay(date: string): Day {
 
 const fakeFetch = vi.fn<typeof fetch>((input, init) => {
   const url = input as string;
+  if (url.endsWith("/suggestion")) {
+    suggestions.push({ url, body: init?.body as string });
+    return suggestionResponse();
+  }
   if (url === "/api/dimensions") return Promise.resolve(json(DIMENSIONS));
   if (url === "/api/tags") return Promise.resolve(json(tags));
   const date = url.replace("/api/checkins/", "");
@@ -143,7 +152,11 @@ describe("a new day", () => {
     expect(puts).toEqual([
       {
         url: `/api/checkins/${TODAY}`,
-        body: { scores: { mood: 4, energy: 3, stress: 2, sleep_quality: 5 }, tags: ["workday"] },
+        body: {
+          scores: { mood: 4, energy: 3, stress: 2, sleep_quality: 5 },
+          tags: ["workday"],
+          mode: "structured",
+        },
       },
     ]);
   });
@@ -172,7 +185,11 @@ describe("a new day", () => {
     await save();
 
     await screen.findByText("overview screen");
-    expect(puts[0]?.body).toEqual({ scores: { mood: 4, energy: 3, stress: 2 }, tags: [] });
+    expect(puts[0]?.body).toEqual({
+      scores: { mood: 4, energy: 3, stress: 2 },
+      tags: [],
+      mode: "structured",
+    });
   });
 });
 
@@ -214,6 +231,7 @@ describe("a day that already has a check-in", () => {
     expect(puts[0]?.body).toEqual({
       scores: { mood: 3, energy: 3, stress: 4, social_connection: 5 },
       tags: ["exercise", "old_tag"],
+      mode: "structured",
     });
   });
 });
@@ -387,5 +405,273 @@ describe("when saving fails", () => {
     expect((await screen.findByRole("alert")).textContent).toBe("Invalid tag: use letters");
     expect(screen.queryByText("overview screen")).toBeNull();
     expect(chosen("mood")).toBe("4");
+  });
+});
+
+describe("free text", () => {
+  const NOTE = "marker_note slept badly, stressful meeting";
+  const SAFETY = [
+    "Lumen only turns this text into suggested scores. No one reads it, and it can't respond to what you write.",
+    "If you're struggling: SNS 24, 808 24 24 24, option 4 (psychological support, 24 hours).",
+    "In an emergency, call 112.",
+  ];
+
+  function reply(scores: Record<string, number>, suggestedTags: string[] = []) {
+    return () => Promise.resolve(json({ scores, tags: suggestedTags }));
+  }
+
+  function box(): HTMLTextAreaElement {
+    return screen.getByRole<HTMLTextAreaElement>("textbox", { name: "Write about your day" });
+  }
+
+  function suggestButton(): HTMLButtonElement {
+    return screen.getByRole<HTMLButtonElement>("button", { name: "Suggest scores" });
+  }
+
+  async function write(note = NOTE): Promise<void> {
+    await userEvent.type(
+      await screen.findByRole("textbox", { name: "Write about your day" }),
+      note,
+    );
+  }
+
+  async function writeAndSuggest(note = NOTE): Promise<void> {
+    await write(note);
+    await userEvent.click(suggestButton());
+  }
+
+  function expectSafetyTextVisible(): void {
+    for (const line of SAFETY) {
+      expect(screen.getByText(line).closest("[hidden]")).toBeNull();
+    }
+  }
+
+  beforeEach(() => {
+    suggestions = [];
+    suggestionResponse = reply({});
+  });
+
+  it("AC-14: shows the safety text before anything is typed, and while loading or failed", async () => {
+    let finish: (response: Response) => void = () => undefined;
+    suggestionResponse = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    renderScreen();
+    await screen.findByRole("textbox", { name: "Write about your day" });
+    expectSafetyTextVisible();
+
+    await writeAndSuggest();
+    expectSafetyTextVisible();
+    expect(suggestButton().disabled || screen.queryByRole("status") !== null).toBe(true);
+
+    finish(json({ error: { code: "suggestions_unavailable", message: "x" } }, 503));
+    await screen.findByRole("alert");
+    expectSafetyTextVisible();
+  });
+
+  it("AC-11: fills blank fields and tags, marks them as suggested, and saves nothing", async () => {
+    suggestionResponse = reply({ mood: 2, stress: 4 }, ["poor_sleep"]);
+    renderScreen();
+
+    await writeAndSuggest();
+
+    await waitFor(() => {
+      expect(chosen("mood")).toBe("2");
+    });
+    expect(chosen("stress")).toBe("4");
+    expect(chosen("energy")).toBeUndefined();
+    expect(within(group("mood")).getByText("Suggested, please check")).toBeTruthy();
+    expect(within(group("energy")).queryByText("Suggested, please check")).toBeNull();
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: /poor_sleep/ }).checked).toBe(
+      true,
+    );
+    expect(screen.getByText("(suggested)")).toBeTruthy();
+    expect(puts).toEqual([]);
+    expect(suggestions[0]?.url).toBe(`/api/checkins/${TODAY}/suggestion`);
+    expect(JSON.parse(suggestions[0]?.body ?? "")).toEqual({ text: NOTE });
+  });
+
+  it("AC-11: never overwrites a choice, even one made while waiting for the model", async () => {
+    let finish: (response: Response) => void = () => undefined;
+    suggestionResponse = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    renderScreen();
+    await write();
+    await choose("mood", 5);
+    await userEvent.click(suggestButton());
+    await choose("stress", 1); // while the model is thinking
+
+    finish(json({ scores: { mood: 1, stress: 5, energy: 3 }, tags: [] }));
+
+    await waitFor(() => {
+      expect(chosen("energy")).toBe("3");
+    });
+    expect(chosen("mood")).toBe("5");
+    expect(chosen("stress")).toBe("1");
+    expect(within(group("mood")).queryByText("Suggested, please check")).toBeNull();
+    expect(within(group("energy")).getByText("Suggested, please check")).toBeTruthy();
+  });
+
+  it("AC-11: doesn't overwrite a score already saved for the day", async () => {
+    days[TODAY] = {
+      ...emptyDay(TODAY),
+      checkin: {
+        scores: { mood: 5, energy: 5, stress: 1 },
+        tags: [],
+        recorded_at: "2026-11-03T08:00:00Z",
+      },
+    };
+    suggestionResponse = reply({ mood: 1 });
+    renderScreen();
+
+    await writeAndSuggest();
+
+    await waitFor(() => {
+      expect(suggestions).toHaveLength(1);
+    });
+    expect(chosen("mood")).toBe("5");
+  });
+
+  it("AC-11: changing a suggestion removes its mark", async () => {
+    suggestionResponse = reply({ mood: 2 }, ["poor_sleep"]);
+    renderScreen();
+    await writeAndSuggest();
+    await within(group("mood")).findByText("Suggested, please check");
+
+    await choose("mood", 3);
+    await choose("mood", 2); // back to the same value: this time it's the person's own choice
+    await choose("mood", 3);
+    expect(within(group("mood")).queryByText("Suggested, please check")).toBeNull();
+    await choose("mood", 2);
+    expect(within(group("mood")).queryByText("Suggested, please check")).toBeNull();
+    await choose("mood", 3);
+    await userEvent.click(screen.getByRole("checkbox", { name: /poor_sleep/ }));
+
+    expect(chosen("mood")).toBe("3");
+    expect(within(group("mood")).queryByText("Suggested, please check")).toBeNull();
+    expect(screen.queryByText("(suggested)")).toBeNull();
+    expect(screen.getByRole<HTMLInputElement>("checkbox", { name: /poor_sleep/ }).checked).toBe(
+      false,
+    );
+  });
+
+  it("AC-11: offers a suggested tag that isn't on the form yet", async () => {
+    tags = [];
+    suggestionResponse = reply({}, ["a_tag_of_mine"]);
+    renderScreen();
+
+    await writeAndSuggest();
+
+    const tag = await screen.findByRole<HTMLInputElement>("checkbox", { name: /a_tag_of_mine/ });
+    expect(tag.checked).toBe(true);
+  });
+
+  it("says so when the note gives nothing to suggest", async () => {
+    renderScreen();
+    await writeAndSuggest();
+    expect(
+      await screen.findByText("Nothing to suggest from that. You can fill in the form yourself."),
+    ).toBeTruthy();
+  });
+
+  it("AC-12: a failure shows a message, keeps the text, and the form still saves", async () => {
+    suggestionResponse = () =>
+      Promise.resolve(json({ error: { code: "suggestions_unavailable", message: "x" } }, 503));
+    renderScreen();
+    await writeAndSuggest();
+
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      "Suggestions aren't available right now. You can fill in the form yourself.",
+    );
+    expect(box().value).toBe(NOTE);
+
+    await chooseCore();
+    await save();
+    await screen.findByText("overview screen");
+    expect(puts[0]?.body.mode).toBe("structured");
+  });
+
+  it("AC-13: the save holds no free text, and clears the box", async () => {
+    suggestionResponse = reply({ mood: 2, energy: 3, stress: 4 });
+    renderScreen();
+    await writeAndSuggest();
+    await waitFor(() => {
+      expect(chosen("mood")).toBe("2");
+    });
+
+    await save();
+    await screen.findByText("overview screen");
+
+    expect(puts[0]?.body).toEqual({
+      scores: { mood: 2, energy: 3, stress: 4 },
+      tags: [],
+      mode: "free_text",
+    });
+    expect(JSON.stringify(puts)).not.toContain("marker_note");
+    expect(localStorage).toHaveLength(0);
+    expect(sessionStorage).toHaveLength(0);
+    expect(window.location.href).not.toContain("marker_note");
+
+    await userEvent.click(screen.getByRole("link", { name: "back" }));
+    expect(
+      (await screen.findByRole<HTMLTextAreaElement>("textbox", { name: "Write about your day" }))
+        .value,
+    ).toBe("");
+  });
+
+  it("AC-13: a form used without suggestions stays a structured check-in", async () => {
+    suggestionResponse = reply({});
+    renderScreen();
+    await writeAndSuggest();
+    await screen.findByText(/^Nothing to suggest/);
+
+    await chooseCore();
+    await save();
+    await screen.findByText("overview screen");
+
+    expect(puts[0]?.body.mode).toBe("structured");
+    expect(JSON.stringify(puts)).not.toContain("marker_note");
+  });
+
+  it("keeps the browser from storing or sending the text elsewhere", async () => {
+    renderScreen();
+    await write("x");
+    expect(box().getAttribute("autocomplete")).toBe("off");
+    expect(box().getAttribute("spellcheck")).toBe("false");
+    expect(box().maxLength).toBe(2000);
+  });
+
+  it("can't suggest from an empty box, or twice at once", async () => {
+    let finish: (response: Response) => void = () => undefined;
+    suggestionResponse = () =>
+      new Promise((resolve) => {
+        finish = resolve;
+      });
+    renderScreen();
+    await screen.findByRole("textbox", { name: "Write about your day" });
+    expect(suggestButton().disabled).toBe(true);
+    await write("   ");
+    expect(suggestButton().disabled).toBe(true);
+    await userEvent.clear(box());
+
+    await writeAndSuggest();
+    expect(suggestButton().disabled).toBe(true);
+    await userEvent.click(suggestButton());
+    expect(suggestions).toHaveLength(1);
+    finish(json({ scores: {}, tags: [] }));
+    await screen.findByText(/^Nothing to suggest/);
+  });
+
+  it("doesn't carry the note to another day", async () => {
+    renderScreen();
+    await write();
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "Day" }), "2026-11-02");
+
+    await waitFor(() => {
+      expect(box().value).toBe("");
+    });
   });
 });

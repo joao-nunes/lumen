@@ -128,6 +128,7 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 | `GET /api/tags` | `200 [{name, count}]` | Most used first. Unused tags are left out. |
 | `GET /api/checkins/{date}` | `200` | Any date. `checkin` is `null` if none was saved. |
 | `PUT /api/checkins/{date}` | `200` | See below. |
+| `POST /api/checkins/{date}/suggestion` | `200` | `{"text": "..."}`, 1 to 2,000 characters. Returns suggested `scores` and `tags`. Saves nothing, and never keeps the text (spec 006). |
 | `GET /api/overview?end={date}` | `200` | See below. `end` is required and has no limit, so future dates work. |
 
 ### Contracts
@@ -174,6 +175,7 @@ Every failure from the app has this shape.
 | 422 | `missing_core_dimension`, `unknown_dimension`, `invalid_score`, `invalid_tag`, `too_many_tags`, `date_out_of_range` | Check-in rules |
 | 422 | `invalid_request` | The request didn't match the schema |
 | 429 | `too_many_attempts` | Login or password change lockout |
+| 503 | `suggestions_unavailable` | No local model configured, Ollama not running, a timeout, or a reply that can't be used |
 | 500 | `internal_error` | Unhandled exception; the log has a `crash` line with the same `X-Request-ID` |
 
 ## Use the analytics from Python
@@ -290,7 +292,17 @@ Dimensions are defined in `lumen/domain/dimensions.py`, and the web app picks th
   ```
 
   Don't raise in `downgrade()`: the test fixture downgrades to base on every run, so that would break all integration tests.
+- **A new dimension changes the suggestions prompt,** so it has to be measured again. See [Change a prompt](#change-a-prompt).
 - **A fifth rotating dimension breaks the schedule.** `rotating_dimensions_for` works with four, which gives two alternating pairs, and a test requires every dimension to be asked within two days. `prompted` is computed from the date rather than stored, so changing the schedule also changes what past days report.
+
+### Change a prompt
+
+The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the starter tags and the code that renders them. To change it:
+
+1. Add `src/lumen/suggestions/prompts/<name>_v2.txt`, and point `PROMPT_NAME` in `lumen.suggestions.prompt` at it. Keep the old file: it's what the recorded results refer to until they're replaced. Change the parser in the same commit if the reply's shape changes.
+2. Tune on the `dev` split.
+3. Add new held-out notes to `evals/extraction/entries.jsonl`, because the current ones have been read.
+4. Run `make eval-extraction MODEL=x SPLIT=test`. It updates `measured_prompt.json` only if the bar is met in both languages. Commit that file with the results.
 
 ### Change the frontend
 
@@ -301,15 +313,17 @@ Dimensions are defined in `lumen/domain/dimensions.py`, and the web app picks th
 
 ## Run a local model
 
-Free-text check-ins (spec 006) use a model on this machine through Ollama. The API and screen aren't built yet, so for now this is only for measuring models.
+Free-text check-ins (spec 006) use a model on this machine through Ollama. It's optional: without `OLLAMA_MODEL`, or with Ollama stopped, the box reports that suggestions aren't available and the form works as usual. Nothing is saved until the person presses save, and the note itself is never saved.
 
 ```bash
 brew install ollama
 printf '{\n  "disable_ollama_cloud": true\n}\n' > ~/.ollama/server.json   # after the first run creates ~/.ollama
 ollama serve                                                              # its log should say "Ollama cloud disabled: true"
 ollama pull gemma4:26b
-make eval-extraction MODEL=gemma4:26b
+make eval-extraction MODEL=gemma4:26b                                     # optional: measure it
 ```
+
+To use it in the app, add `OLLAMA_MODEL=gemma4:26b` to `.env`, and start `ollama serve` before or after the app. The first suggestion after starting Ollama takes about 25 seconds, while the model loads, and it uses about 23 GB of memory.
 
 Text must never leave the machine, so the app refuses an `OLLAMA_URL` that isn't a loopback address, and any cloud `OLLAMA_MODEL`. Don't turn on `OLLAMA_DEBUG`. The evaluation set is in `evals/extraction/`: it's public, so never add real check-in text to it.
 
@@ -347,6 +361,7 @@ To log something new, add a typed argument to `EventLog` and record the field in
 | `ValueError: WEB_DIST has no index.html` | Empty or wrong `WEB_DIST`. Leave it unset unless you need it; `make run` sets it. |
 | `500 internal_error` | Unhandled exception. Find the `crash` line in the terminal by the response's `X-Request-ID`. It has the exception classes and Lumen's frames, never the message, so reproduce the failure in a test to see more. |
 | `403 csrf_failed` on every write, while reads work | `SECRET_KEY` changed. Reload the page, or call `GET /api/auth/me` from a client, to get a new CSRF cookie. |
+| `503 suggestions_unavailable` | Is `ollama serve` running, is the model pulled, and is `OLLAMA_MODEL` set in `.env`? |
 | `403 forbidden_origin` | The client's origin isn't in `ALLOWED_ORIGINS`, for example Vite on another port. |
 | `KeyError: 'lumen_csrf'` in a Python client | The server has Secure cookies on. Set `COOKIE_SECURE=false`. |
 | Can't stay logged in on Safari | Safari rejects Secure cookies on `http://localhost`. Set `COOKIE_SECURE=false`. |

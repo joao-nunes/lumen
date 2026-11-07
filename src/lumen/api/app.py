@@ -24,13 +24,23 @@ from lumen.auth.rate_limit import LoginRateLimiter, PasswordChangeRateLimiter
 from lumen.auth.service import AuthService
 from lumen.config import Settings
 from lumen.db.session import make_engine, make_session_factory
-from lumen.suggestions.ollama import check_local_only
+from lumen.suggestions.model import SuggestionModel
+from lumen.suggestions.ollama import OllamaSuggestionModel, check_local_only
 
 MIN_SECRET_KEY_BYTES = 32
 
 
+def _configured_model(settings: Settings) -> SuggestionModel | None:
+    if settings.ollama_model is None:
+        return None
+    return OllamaSuggestionModel(settings.ollama_url, settings.ollama_model)
+
+
 def create_app(
-    settings: Settings, clock: Clock = system_clock, log: EventLog | None = None
+    settings: Settings,
+    clock: Clock = system_clock,
+    log: EventLog | None = None,
+    suggestions: SuggestionModel | None = None,
 ) -> FastAPI:
     secret = settings.secret_key.get_secret_value().encode() if settings.secret_key else b""
     if len(secret) < MIN_SECRET_KEY_BYTES:
@@ -51,6 +61,7 @@ def create_app(
         ),
         app_sessions=make_session_factory(app_engine),
         auth_sessions=make_session_factory(auth_engine),
+        suggestions=_configured_model(settings) if suggestions is None else suggestions,
     )
 
     @asynccontextmanager

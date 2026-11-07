@@ -145,6 +145,24 @@ def meets_bar(metrics: Metrics) -> bool:
     )
 
 
+def record_if_met(
+    path: Path,
+    *,
+    prompt: str,
+    sha256: str,
+    model: str,
+    split: str,
+    english: Metrics,
+    portuguese: Metrics,
+) -> bool:
+    """Records the prompt only for a held-out run that meets the bar in both languages."""
+    if split != "test" or not (meets_bar(english) and meets_bar(portuguese)):
+        return False
+    record = {"prompt": prompt, "sha256": sha256, "model": model, "split": split}
+    path.write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
+    return True
+
+
 @dataclass(frozen=True, slots=True)
 class Agreement:
     """How the owner's blind scores compare with the labels: the ceiling for any model (Q3)."""

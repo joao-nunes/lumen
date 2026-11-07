@@ -4,18 +4,22 @@ from datetime import UTC, date, datetime
 from typing import Annotated
 
 from fastapi import APIRouter
-from pydantic import BaseModel, Field, StrictInt
+from pydantic import BaseModel, Field, StrictInt, StringConstraints
 
 from lumen.api.dependencies import ContainerDep, CurrentUser, UserDb
 from lumen.api.errors import error_responses
 from lumen.db.repository import get_checkin, save_checkin, tag_usage
-from lumen.domain.checkin import Checkin, check_editable, structured_scores
+from lumen.db.scope import user_transaction
+from lumen.domain.checkin import Checkin, CheckinMode, check_editable, structured_scores
 from lumen.domain.dimensions import DIMENSIONS, Cadence, Dimension, Polarity, dimensions_for
+from lumen.suggestions.model import STARTER_TAGS, SuggestionsUnavailableError, keep_valid
 
 router = APIRouter(prefix="/api")
 
 # Bounds on request size only; the domain applies the real limits (e.g. 20 tags).
 ShortText = Annotated[str, Field(max_length=100)]
+# Tier 0: never stored or logged, and never repeated in an error (spec 006 §2.4).
+NoteText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
 
 
 class AnchorOut(BaseModel):
@@ -34,6 +38,16 @@ class DimensionOut(BaseModel):
 class CheckinIn(BaseModel):
     scores: dict[ShortText, StrictInt] = Field(max_length=len(Dimension) * 2)
     tags: list[ShortText] = Field(default_factory=list, max_length=100)
+    mode: CheckinMode = CheckinMode.STRUCTURED
+
+
+class SuggestionIn(BaseModel):
+    text: NoteText
+
+
+class SuggestionOut(BaseModel):
+    scores: dict[Dimension, int]
+    tags: list[str]
 
 
 class CheckinOut(BaseModel):
@@ -98,9 +112,35 @@ def write_checkin(
         local_date=local_date,
         scores=structured_scores(body.scores),
         tags=frozenset(body.tags),
+        mode=body.mode,
     )
     save_checkin(db, user.user_id, checkin)
     return _day(local_date, checkin)
+
+
+@router.post(
+    "/checkins/{local_date}/suggestion", responses=error_responses(401, 403, 415, 422, 503)
+)
+def suggest_checkin(
+    local_date: date, body: SuggestionIn, user: CurrentUser, container: ContainerDep
+) -> SuggestionOut:
+    """Suggested scores and tags from the local model. Saves nothing, and keeps nothing."""
+    check_editable(local_date, container.clock())
+    if container.suggestions is None:
+        raise SuggestionsUnavailableError
+    # A short transaction, not UserDb: a model call can take many seconds.
+    with user_transaction(container.app_sessions, user.user_id) as db:
+        used = [name for name, _ in tag_usage(db, user.user_id)]
+    asked = dimensions_for(local_date)
+    offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))
+    reply = container.suggestions.suggest(body.text, asked, offered)
+    valid = keep_valid(
+        {dimension.value: score for dimension, score in reply.scores.items()},
+        reply.tags,
+        asked,
+        offered,
+    )
+    return SuggestionOut(scores=dict(valid.scores), tags=sorted(valid.tags))
 
 
 @router.get("/tags", responses=error_responses(401))
