@@ -47,6 +47,7 @@ Write the minimum number of tests; every test must mitigate a real production ri
 - SOLID, without abstraction for its own sake. Inject collaborators (e.g. `AuthService` takes `Passwords` and `SessionPolicy`), and add a `Protocol` only for a real seam.
 - Type-check with mypy in strict mode, not ty. Avoid `type: ignore`; type the code properly instead.
 - Analytics are deterministic code. LLMs may interpret computed results but never produce them.
+- Prompt wording lives in `src/lumen/suggestions/prompts/`, one file per version, not in code. Changing a prompt, anchor or starter tag fails a test until it's measured again (`evals/extraction/measured_prompt.json`).
 
 ## Database and security invariants
 

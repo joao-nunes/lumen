@@ -23,16 +23,19 @@ from lumen.suggestions.evaluation import (
     measure,
     meets_bar,
     read_blind_sheet,
+    record_if_met,
     write_blind_sheet,
 )
 from lumen.suggestions.model import STARTER_TAGS, SuggestionsUnavailableError
 from lumen.suggestions.ollama import OllamaSuggestionModel
+from lumen.suggestions.prompt import PROMPT_NAME, prompt_fingerprint
 
 FOLDER = Path(__file__).parents[1] / "evals" / "extraction"
-ENTRIES, SHEET, SCORED = (
+ENTRIES, SHEET, SCORED, MEASURED = (
     FOLDER / "entries.jsonl",
     FOLDER / "blind_sheet.csv",
     FOLDER / "owner_scores.csv",
+    FOLDER / "measured_prompt.json",
 )
 
 
@@ -88,9 +91,23 @@ def evaluate(model_name: str, split: str, misses: bool) -> None:
     model = OllamaSuggestionModel(url, model_name, timeout_seconds=120)
     outcomes = run(model, [e for e in load_entries(ENTRIES) if e.split == split])
 
-    print(f"{model_name}, {split} split")
-    for language in ("en", "pt"):
-        report(language, measure([o for o in outcomes if o.entry.language == language]))
+    fingerprint = prompt_fingerprint()
+    print(f"{model_name}, {split} split, {PROMPT_NAME} ({fingerprint[:12]})")
+    english, portuguese = (
+        measure([o for o in outcomes if o.entry.language == language]) for language in ("en", "pt")
+    )
+    report("en", english)
+    report("pt", portuguese)
+    if record_if_met(
+        MEASURED,
+        prompt=PROMPT_NAME,
+        sha256=fingerprint,
+        model=model_name,
+        split=split,
+        english=english,
+        portuguese=portuguese,
+    ):
+        print(f"\nRecorded in {MEASURED.name}")
     if misses:
         print("\nMisses:")
         show_misses(outcomes)

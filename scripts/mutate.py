@@ -51,6 +51,9 @@ OLLAMA = "src/lumen/suggestions/ollama.py"
 ROUTES_CHECKINS = API + "routes/checkins.py"
 SUGGESTION = "src/lumen/suggestions/model.py"
 EVALUATION = "src/lumen/suggestions/evaluation.py"
+PROMPT = "src/lumen/suggestions/prompt.py"
+PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v1.txt"
+DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
 )
@@ -956,6 +959,43 @@ GROUPS: dict[str, list[Mutant]] = {
             "unlisted tags kept",
             "if isinstance(tag, str) and tag in offered",
             "if isinstance(tag, str)",
+        ),
+        Mutant(PROMPT_TEXT, "prompt wording changed unmeasured", " Never give advice.", ""),
+        Mutant(
+            DIMENSION_ANCHORS,
+            "anchor wording changed unmeasured",
+            "Deep, sustained focus",
+            "Deep focus",
+        ),
+        Mutant(
+            PROMPT,
+            "polarity wording changed unmeasured",
+            "Higher means MORE of it, which is worse.",
+            "Higher is worse.",
+        ),
+        Mutant(
+            OLLAMA,
+            "client sends a different prompt from the measured one",
+            "system = checkin_extraction_prompt(dimensions, tags)",
+            "system = checkin_extraction_prompt(dimensions, ())",
+        ),
+        Mutant(
+            EVALUATION,
+            "tuning run recorded as the measurement",
+            'if split != "test" or not (',
+            "if not (",
+        ),
+        Mutant(
+            EVALUATION,
+            "recorded though Portuguese missed the bar",
+            "meets_bar(english) and meets_bar(portuguese)",
+            "meets_bar(english)",
+        ),
+        Mutant(
+            EVALUATION,
+            "recorded though English missed the bar",
+            "meets_bar(english) and meets_bar(portuguese)",
+            "meets_bar(portuguese)",
         ),
         Mutant(
             EVALUATION,

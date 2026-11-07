@@ -11,6 +11,8 @@ make eval-extraction MODEL=some-model              # the tuning split, with its 
 make eval-extraction MODEL=some-model SPLIT=test   # the held-out split, metrics only
 ```
 
+A held-out run that meets the bar in both languages records the prompt's hash in `measured_prompt.json`, and a test fails if the prompt then changes. The developer guide explains how to change one.
+
 ## Scoring the blind sheet
 
 `blind_sheet.csv` has 30 held-out entries, without their labels. The distressing entries are left out.

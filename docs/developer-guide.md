@@ -292,7 +292,17 @@ Dimensions are defined in `lumen/domain/dimensions.py`, and the web app picks th
   ```
 
   Don't raise in `downgrade()`: the test fixture downgrades to base on every run, so that would break all integration tests.
+- **A new dimension changes the suggestions prompt,** so it has to be measured again. See [Change a prompt](#change-a-prompt).
 - **A fifth rotating dimension breaks the schedule.** `rotating_dimensions_for` works with four, which gives two alternating pairs, and a test requires every dimension to be asked within two days. `prompted` is computed from the date rather than stored, so changing the schedule also changes what past days report.
+
+### Change a prompt
+
+The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the starter tags and the code that renders them. To change it:
+
+1. Add `src/lumen/suggestions/prompts/<name>_v2.txt`, and point `PROMPT_NAME` in `lumen.suggestions.prompt` at it. Keep the old file: it's what the recorded results refer to until they're replaced. Change the parser in the same commit if the reply's shape changes.
+2. Tune on the `dev` split.
+3. Add new held-out notes to `evals/extraction/entries.jsonl`, because the current ones have been read.
+4. Run `make eval-extraction MODEL=x SPLIT=test`. It updates `measured_prompt.json` only if the bar is met in both languages. Commit that file with the results.
 
 ### Change the frontend
 
