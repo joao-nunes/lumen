@@ -1,6 +1,6 @@
 # Spec 007: Measure the prompt the app really sends
 
-**Status:** Proposed, awaiting the owner's decisions in §6
+**Status:** Approved (decisions in §6)
 **Builds on:** spec 006 (free-text check-ins, its bar and evaluation set)
 
 ## 1. Goal
@@ -44,7 +44,7 @@ A dimension that wasn't asked isn't in the prompt, and the app drops any score f
 
 The evaluation offers a fixed list of invented tags first, then the starter tags, in the same order the app uses. No label uses an invented tag, so choosing one counts against precision. Real tags can't be used, because this repository is public.
 
-The route and the evaluation share one function for this order, so they can't drift apart. How many tags to invent is Q1.
+The route and the evaluation share one function for this order, so they can't drift apart. There are 12 (Q1).
 
 ### 2.4 The existing held-out notes can be used
 
@@ -96,10 +96,12 @@ Add to the `suggestions` group:
 1. This spec.
 2. One implementation PR, with the failing tests first, then the real run. Its results go in this spec's "Added during implementation" section, including any result that's worse than spec 006's.
 
-## 6. Open questions for the owner
+## 6. Decisions
 
-| # | Question | Recommendation |
+The owner approved every recommendation.
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | **How many invented tags?** This should resemble real use, and I haven't looked at your data. Roughly how many different tags have you used? | **12,** unless you've used many more or fewer. Tell me a rough number, not the tags. |
-| Q2 | **Keep spec 006's bar, per language across both day types?** | **Yes.** It was set before any model saw the held-out split, and changing it now, with results already known, would weaken it. |
-| Q3 | **If the bar is missed, should suggestions stay on until you decide?** The feature is on `master`, only for you, and every suggestion is marked for you to check before saving. | **Yes, keep them on.** A miss would be a measurement to act on, and nothing is saved without your confirmation. |
+| Q1 | How many invented tags? | **12.** |
+| Q2 | Keep spec 006's bar, per language across both day types? | **Yes.** It was set before any model saw the held-out split, and changing it with results known would weaken it. |
+| Q3 | If the bar is missed, should suggestions stay on until the owner decides? | **Yes.** The feature is only used by the owner, and nothing is saved without their confirmation. |
