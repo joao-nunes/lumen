@@ -69,7 +69,13 @@ def save_checkin(session: Session, user_id: uuid.UUID, checkin: Checkin) -> uuid
     session.execute(
         insert(models.CheckinScore).values(
             [
-                {"checkin_id": checkin_id, "user_id": user_id, "dimension": d, "value": v}
+                {
+                    "checkin_id": checkin_id,
+                    "user_id": user_id,
+                    "dimension": d,
+                    "value": v,
+                    "volunteered": d in checkin.volunteered,
+                }
                 for d, v in checkin.scores.items()
             ]
         )
@@ -101,6 +107,7 @@ def get_checkin(session: Session, user_id: uuid.UUID, local_date: date) -> Check
         scores={s.dimension: s.value for s in row.scores},
         tags=frozenset(t.tag.name for t in row.tags),
         mode=row.mode,
+        volunteered=frozenset(s.dimension for s in row.scores if s.volunteered),
     )
 
 
@@ -123,13 +130,18 @@ def tag_usage(session: Session, user_id: uuid.UUID) -> list[tuple[str, int]]:
 def list_observations(
     session: Session, user_id: uuid.UUID, start: date, end: date
 ) -> list[Observation]:
-    """All scores for a user between `start` and `end` (inclusive), by local date."""
+    """The asked scores for a user between `start` and `end` (inclusive), by local date.
+
+    Volunteered scores are left out: they lean towards days that stood out, so statistics on them
+    would be biased (spec 008 §2.4). Spec 009 decides how to show them.
+    """
     rows = session.execute(
         select(models.Checkin.local_date, models.CheckinScore.dimension, models.CheckinScore.value)
         .join(models.CheckinScore.checkin)
         .where(
             models.Checkin.user_id == user_id,
             models.Checkin.local_date.between(start, end),
+            models.CheckinScore.volunteered.is_(False),
         )
         .order_by(models.Checkin.local_date, models.Checkin.recorded_at)
     )

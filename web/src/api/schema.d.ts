@@ -236,6 +236,8 @@ export interface components {
             };
             /** Tags */
             tags: string[];
+            /** Volunteered */
+            volunteered: components["schemas"]["Dimension"][];
         };
         /** Credentials */
         Credentials: {

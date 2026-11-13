@@ -123,3 +123,16 @@ The owner approved every recommendation.
 | Q2 | Volunteered scores saved but not in the overview until spec 009? | **Yes, acceptable.** |
 | Q3 | Label existing scores from today's schedule? | **Yes.** |
 | Q4 | What to call them on the form? | **"Not asked today".** |
+
+## 7. Added during implementation (for review)
+
+### First PR: storage, API, analytics and the form
+
+- **`Checkin.volunteered` is a required keyword field,** so every way of making a check-in has to decide it: `volunteered_for(day, scores)` for a new one, the stored labels for a saved one. The synthetic personas only score what each day asks, so they volunteer nothing.
+- **The column has no default after the migration,** so an insert that forgets the label fails rather than calling the score asked.
+- **The migration's schedule is SQL with the rotating order written out,** and its test runs it on every day of 2026 and 2027 against `dimensions_for`. The test downgrades to the previous revision, adds data, upgrades, and always upgrades back to head.
+- **The form labels a row "Not asked today" from the day's `prompted` list,** not the stored labels, so a row added by hand is marked before it's saved. They can only differ if the schedule changes.
+- **In the end-to-end test, the dimension is chosen with Playwright's `selectOption`,** not the keyboard: on macOS Chromium, ArrowDown opens the menu instead of choosing.
+- **One form fault survived at first:** the "add another dimension" control left on screen with nothing to choose. The test now checks that the control is gone.
+- **After pulling this, run `uv run alembic upgrade head`,** or saving a check-in returns `500` on an existing database. The migration labels existing scores.
+- **Not tested separately:** a domain check that only scored dimensions can be volunteered, since every caller builds the labels from the scores. RLS and grants are unchanged, and the existing test that every user-owned table is protected still covers `checkin_scores` (AC-5).
