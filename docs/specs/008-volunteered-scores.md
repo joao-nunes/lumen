@@ -136,3 +136,48 @@ The owner approved every recommendation.
 - **One form fault survived at first:** the "add another dimension" control left on screen with nothing to choose. The test now checks that the control is gone.
 - **After pulling this, run `uv run alembic upgrade head`,** or saving a check-in returns `500` on an existing database. The migration labels existing scores.
 - **Not tested separately:** a domain check that only scored dimensions can be volunteered, since every caller builds the labels from the scores. RLS and grants are unchanged, and the existing test that every user-owned table is protected still covers `checkin_scores` (AC-5).
+
+### Second PR: suggestions for all seven dimensions
+
+- **New held-out notes were written and committed before any suggestion code,** in `a6229b5`: 100, half per language, with 100 English labels and 101 Portuguese across all seven dimensions, and only starter tags. They're new scenarios, and the Portuguese ones aren't translations. Spec 007's held-out notes became `test_v2`.
+- **The code was committed before the measurement,** in `d5e2035`. That's prompt v1's wording, untuned, as decided in Q1. The rendering for v2's unasked list is gone, because nothing uses it; the v2 file stays as the record of spec 007.
+- **The schedule's day types are gone from the evaluation:** every note is asked once, about all seven dimensions, as the app now does.
+- **A bug the form test found:** a suggested score for a dimension that wasn't on the form would have been saved without ever being shown. It now gets its own row, marked "Not asked today" and "Suggested, please check". That's the existing mark for a suggested score; the spec's "(suggested)" is the mark for tags.
+
+- **Mutation check:** 76 of 77 `suggestions` and `checkins` mutants were caught. The one that survived, "each note asked for every dimension", is now equivalent to the code, because every note is asked about all seven, so it was removed. "Measured for the day's dimensions, not all seven" covers the same risk. The form fault, a suggested volunteered score getting no row, went red by hand.
+
+### The first held-out run was invalid
+
+Ollama stopped partway through the first run: about 35 English calls worked, then every call failed. The run reported that outage as results: Portuguese at 0%, every call failed. I don't know why it stopped; the owner's Ollama had been running, and my command only stopped it at the end. The run printed only totals, swamped by failures, and no note-level results.
+
+- **`collect` now stops after three failed calls in a row** (`RunAbortedError`), with a test and two mutants. It was committed in `eb8dc7d`, without changing the prompt or the route.
+- **The same frozen code was then measured again,** on the same notes. That's a second attempt at the measurement, after the first measured only the outage. Nothing was tuned between them.
+- **My command also stopped all of Ollama when it finished,** including the copy the owner had started. I restarted it afterwards, and from now on I'll only stop processes I started.
+
+### Results: prompt v1, all seven dimensions, meets the bar
+
+One valid run, on the new held-out notes. Each cell is English / Portuguese.
+
+| | Bar | Result |
+|---|---|---|
+| Suggestions within one | ≥95% | 99.0 / 100 |
+| Coverage | ≥75% | 96.0 / 98.0 |
+| Left blank | ≥90% | 96.4 / 95.6 |
+| Off by 3+ | ≤1% | 0 / 0 |
+| Slowest 5% | <10 s | 4.3 / 5.5 s |
+| Failed calls on distressing notes | 0 | 0 / 0 |
+
+Exact match was 72.0 / 78.2%. **Tag precision fell to 61.1 / 66.7%,** against 85.7 / 90.6% for v2. With all seven dimensions to fill in, the model also picks more tags, and the invented tags are offered too. Tags still have no bar, and this is worth deciding.
+
+Against the owner's blind scores, which have no bar:
+
+| | Within one | Coverage | Left blank | Off by 3+ |
+|---|---|---|---|---|
+| Spec 007, v2 | 92.2 / 94.9 | 86.4 / 86.7 | 86.8 / 81.9 | 3.4 / 4.4 |
+| This, v1 for all seven | 93.5 / 96.3 | 86.1 / 90.0 | 91.3 / 85.3 | 2.8 / 3.3 |
+
+### How far to trust this
+
+- **The new notes may be easier than real ones:** coverage is 96 / 98%. I wrote them knowing the earlier sets' weak spots.
+- **The notes, labels and prompt all have one author, Claude.** The owner's scores are the more independent check, and v1 for all seven does best there of anything measured so far, though still below the bar.
+- **Still synthetic,** so accuracy on real notes is unmeasured. A person's real tags still differ from the invented ones, and the record doesn't cover the model.

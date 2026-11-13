@@ -557,6 +557,27 @@ describe("free text", () => {
     expect(JSON.parse(suggestions[0]?.body ?? "")).toEqual({ text: NOTE });
   });
 
+  it("spec 008 AC-11: a suggested score the day didn't ask for gets its own row", async () => {
+    suggestionResponse = reply({ mood: 4, energy: 3, stress: 2, concentration: 1 });
+    renderScreen();
+
+    await writeAndSuggest();
+
+    const concentration = await screen.findByRole("group", { name: "concentration" });
+    expect(chosen("concentration")).toBe("1");
+    expect(within(concentration).getByText("Not asked today")).toBeTruthy();
+    expect(within(concentration).getByText("Suggested, please check")).toBeTruthy();
+    expect(within(group("mood")).queryByText("Not asked today")).toBeNull();
+    await save();
+
+    await screen.findByText("overview screen");
+    expect(puts[0]?.body).toEqual({
+      scores: { mood: 4, energy: 3, stress: 2, concentration: 1 },
+      tags: [],
+      mode: "free_text",
+    });
+  });
+
   it("AC-11: never overwrites a choice, even one made while waiting for the model", async () => {
     let finish: (response: Response) => void = () => undefined;
     suggestionResponse = () =>
