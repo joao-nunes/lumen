@@ -88,6 +88,15 @@ def load_entries(path: Path) -> list[Entry]:
     return entries
 
 
+# More failures in a row than a model ever gave in a working run: Ollama has stopped, and the
+# rest of the run would only report failures (spec 008 §7).
+MAX_FAILURES_IN_A_ROW = 3
+
+
+class RunAbortedError(Exception):
+    """The run stopped rather than report results that only measure an outage."""
+
+
 def collect(
     model: SuggestionModel,
     entries: Iterable[Entry],
@@ -96,6 +105,7 @@ def collect(
 ) -> list[Outcome]:
     """Asks about every note as the app would, under each kind of day (spec 007 §2.1)."""
     outcomes: list[Outcome] = []
+    failures_in_a_row = 0
     for entry in entries:
         for asked, tags in measured_requests():
             started = clock()
@@ -104,6 +114,9 @@ def collect(
             except SuggestionsUnavailableError:
                 suggestion = None
             outcomes.append(Outcome(entry, suggestion, clock() - started, asked))
+            failures_in_a_row = failures_in_a_row + 1 if suggestion is None else 0
+            if failures_in_a_row >= MAX_FAILURES_IN_A_ROW:
+                raise RunAbortedError(f"{MAX_FAILURES_IN_A_ROW} failed calls in a row")
     return outcomes
 
 

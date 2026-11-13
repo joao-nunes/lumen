@@ -13,6 +13,7 @@ from lumen.suggestions.evaluation import (
     Entry,
     Metrics,
     Outcome,
+    RunAbortedError,
     agreement,
     blind_sheet_entries,
     collect,
@@ -243,6 +244,14 @@ def test_every_note_is_asked_about_all_seven_dimensions_with_the_app_s_tags() ->
         ("fails", every, 1.0),
     ]
     assert [o.suggestion is None for o in outcomes] == [False, True]
+
+
+def test_a_run_stops_after_three_failed_calls_in_a_row_rather_than_reporting_them() -> None:
+    fails, fine = replace(entry({MOOD: 3}), text="fails"), replace(entry({MOOD: 3}), text="fine")
+
+    assert len(collect(RecordingModel(), [fails, fails, fine, fails, fails])) == 5
+    with pytest.raises(RunAbortedError):
+        collect(RecordingModel(), [fine, fails, fails, fails, fine])
 
 
 def test_a_person_s_own_tags_are_offered_first_and_each_tag_once() -> None:
