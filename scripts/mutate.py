@@ -783,11 +783,11 @@ GROUPS: dict[str, list[Mutant]] = {
             "a transaction stays open during the model call",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
             "    asked = dimensions_for(local_date)\n"
-            "    offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))\n"
+            "    offered = offered_tags(used)\n"
             "    reply = container.suggestions.suggest(body.text, asked, offered)\n",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
             "        asked = dimensions_for(local_date)\n"
-            "        offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))\n"
+            "        offered = offered_tags(used)\n"
             "        reply = container.suggestions.suggest(body.text, asked, offered)\n",
         ),
         Mutant(
@@ -805,11 +805,17 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             ROUTES_CHECKINS,
             "the person's own tags not offered",
-            "tuple(dict.fromkeys([*used, *STARTER_TAGS]))",
-            "tuple(dict.fromkeys(STARTER_TAGS))",
+            "offered = offered_tags(used)",
+            "offered = offered_tags(())",
         ),
         Mutant(
             ROUTES_CHECKINS,
+            "the route builds its own tag order",
+            "offered = offered_tags(used)",
+            "offered = tuple(dict.fromkeys([*offered_tags(()), *used]))",
+        ),
+        Mutant(
+            SUGGESTION,
             "a tag offered twice",
             "tuple(dict.fromkeys([*used, *STARTER_TAGS]))",
             "(*used, *STARTER_TAGS)",
@@ -978,6 +984,48 @@ GROUPS: dict[str, list[Mutant]] = {
             "client sends a different prompt from the measured one",
             "system = checkin_extraction_prompt(dimensions, tags)",
             "system = checkin_extraction_prompt(dimensions, ())",
+        ),
+        Mutant(
+            EVALUATION,
+            "dimensions not asked still measured",
+            "for dimension in outcome.asked:",
+            "for dimension in Dimension:",
+        ),
+        Mutant(
+            EVALUATION,
+            "each note asked for every dimension",
+            "model.suggest(entry.text, asked, tags)",
+            "model.suggest(entry.text, tuple(Dimension), tags)",
+        ),
+        Mutant(
+            PROMPT,
+            "only one day type measured",
+            "for asked in day_types())",
+            "for asked in day_types()[:1])",
+        ),
+        Mutant(
+            PROMPT,
+            "the schedule read for too few days",
+            "_SCHEDULE_DAYS = 14",
+            "_SCHEDULE_DAYS = 1",
+        ),
+        Mutant(
+            PROMPT,
+            "invented tags not offered",
+            "tags = offered_tags(INVENTED_TAGS)",
+            "tags = offered_tags(())",
+        ),
+        Mutant(
+            PROMPT,
+            "hash ignores the second day type",
+            "for request in measured_requests())",
+            "for request in measured_requests()[:1])",
+        ),
+        Mutant(
+            SUGGESTION,
+            "a person's own tags offered last",
+            "[*used, *STARTER_TAGS]",
+            "[*STARTER_TAGS, *used]",
         ),
         Mutant(
             EVALUATION,

@@ -2,11 +2,14 @@
 
 The wording lives in `prompts/`, and each version is a new file: the accuracy bar was met by one
 exact prompt, and `evals/extraction/measured_prompt.json` records which one.
+
+The app sends a day's dimensions and a person's own tags, so that's what gets measured (spec 007).
 """
 
 import hashlib
 import json
 from collections.abc import Collection
+from datetime import date, timedelta
 from importlib.resources import files
 from string import Template
 
@@ -16,10 +19,31 @@ from lumen.domain.dimensions import (
     SCALE_MIN,
     Dimension,
     Polarity,
+    dimensions_for,
 )
-from lumen.suggestions.model import STARTER_TAGS
+from lumen.suggestions.model import offered_tags
 
 PROMPT_NAME = "checkin_extraction_v1"
+
+# Stand in for a person's own tags, which can't go in a public repository. No note mentions these
+# and no label uses them, so choosing one always counts against precision.
+INVENTED_TAGS = (
+    "piano_practice",
+    "dog_walk",
+    "board_games",
+    "volunteering",
+    "pottery",
+    "language_class",
+    "knitting",
+    "birdwatching",
+    "chess",
+    "baking",
+    "museum_visit",
+    "choir",
+)
+
+_SCHEDULE_START = date(2026, 1, 1)
+_SCHEDULE_DAYS = 14  # A test checks that this sees every day type the schedule can produce.
 
 # Read at import, so that a missing file stops the app from starting rather than failing later.
 _TEMPLATE = Template(
@@ -57,7 +81,19 @@ def checkin_extraction_prompt(dimensions: Collection[Dimension], tags: Collectio
     )
 
 
+def day_types() -> tuple[tuple[Dimension, ...], ...]:
+    """The different sets of dimensions the schedule asks about, read from the schedule itself."""
+    days = (_SCHEDULE_START + timedelta(days=i) for i in range(_SCHEDULE_DAYS))
+    return tuple(dict.fromkeys(dimensions_for(day) for day in days))
+
+
+def measured_requests() -> tuple[tuple[tuple[Dimension, ...], tuple[str, ...]], ...]:
+    """What the evaluation asks the model for, once per note."""
+    tags = offered_tags(INVENTED_TAGS)
+    return tuple((asked, tags) for asked in day_types())
+
+
 def prompt_fingerprint() -> str:
-    """The hash of the prompt as the evaluation sends it, so anchors and starter tags count too."""
-    rendered = checkin_extraction_prompt(tuple(Dimension), STARTER_TAGS)
+    """The hash of every prompt the evaluation sends, so anchors and tags count too."""
+    rendered = "\n".join(checkin_extraction_prompt(*request) for request in measured_requests())
     return hashlib.sha256(rendered.encode()).hexdigest()

@@ -1,9 +1,10 @@
 # Evaluation set for free-text check-ins (spec 006)
 
-`entries.jsonl` holds 150 synthetic check-ins, in English and European Portuguese, with their labels. **Everything here is invented. This repository is public, so no real check-in text ever goes in it.**
+`entries.jsonl` holds 250 synthetic check-ins, in English and European Portuguese, with their labels. **Everything here is invented. This repository is public, so no real check-in text ever goes in it.**
 
 - `dev` (50 entries) is for tuning prompts.
-- `test` (100 entries) is held out, and the result reported on it is the measurement.
+- `test` (100 entries) is held out for the current prompt, and the result reported on it is the measurement. Spec 007 added these, before prompt v2 was written.
+- `test_v1` (100 entries) was prompt v1's held-out split. Its results have been read, so it's never tuned on or measured against again. The owner's blind scores are for 30 of these notes, so `--against-owner` still uses them.
 - `either` lists dimensions a note only hints at, where a score and a blank are both fair. They aren't measured.
 
 ```bash
@@ -15,7 +16,7 @@ A held-out run that meets the bar in both languages records the prompt's hash in
 
 ## Scoring the blind sheet
 
-`blind_sheet.csv` has 30 held-out entries, without their labels. The distressing entries are left out.
+`blind_sheet.csv` has 30 entries from `test_v1`, without their labels. The distressing entries are left out.
 
 1. Copy it to `owner_scores.csv` and open it in a spreadsheet.
 2. For each note, score only the dimensions it addresses, from 1 to 5, using the descriptions below.
