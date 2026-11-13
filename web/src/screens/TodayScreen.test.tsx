@@ -276,6 +276,38 @@ describe("a dimension the day didn't ask about (spec 008)", () => {
     ]);
   });
 
+  it("removes a row the day didn't ask for when it's cleared, and offers it again", async () => {
+    days[TODAY] = {
+      ...emptyDay(TODAY),
+      checkin: {
+        scores: { mood: 2, energy: 3, stress: 4, social_connection: 5 },
+        tags: [],
+        recorded_at: "2026-11-03T20:00:00Z",
+      },
+    };
+    renderScreen();
+    await screen.findByRole("group", { name: "social_connection" });
+
+    await userEvent.click(
+      within(group("social_connection")).getByRole("button", { name: "Clear" }),
+    );
+    expect(screen.queryByRole("group", { name: "social_connection" })).toBeNull();
+    expect(addable()).toEqual(["concentration", "social_connection"]);
+
+    await add("concentration");
+    await choose("concentration", 2);
+    await userEvent.click(within(group("concentration")).getByRole("button", { name: "Clear" }));
+    expect(screen.queryByRole("group", { name: "concentration" })).toBeNull();
+
+    await choose("sleep_quality", 4);
+    await userEvent.click(within(group("sleep_quality")).getByRole("button", { name: "Clear" }));
+    expect(chosen("sleep_quality")).toBeUndefined(); // asked today, so it stays
+    await save();
+
+    await screen.findByText("overview screen");
+    expect(puts[0]?.body.scores).toEqual({ mood: 2, energy: 3, stress: 4 });
+  });
+
   it("AC-8: adds one, saves it, and offers only the rest", async () => {
     renderScreen();
     await screen.findByRole("group", { name: "mood" });
