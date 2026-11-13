@@ -26,7 +26,9 @@ const DIMENSIONS = [
   dimensionInfo("mood", "Mood", "higher_is_better"),
   dimensionInfo("energy", "Energy", "higher_is_better"),
   dimensionInfo("stress", "Stress", "higher_is_worse"),
+  dimensionInfo("sleep_quality", "Sleep quality", "higher_is_better"),
 ];
+const MENTIONED_DAY = "2026-11-02";
 
 function noData(dimension: string) {
   const period = { start: "2026-10-07", end: TODAY, mean: null, n: 0 };
@@ -54,6 +56,7 @@ function noData(dimension: string) {
     },
     daily: [],
     rolling_7: [],
+    volunteered: [] as { date: string; value: number }[],
   };
 }
 
@@ -81,7 +84,11 @@ const STRESS = {
   },
   daily: [{ date: TODAY, mean: 4 }],
   rolling_7: [{ date: TODAY, mean: 3.25, n: 5 }],
+  volunteered: [],
 };
+
+// Only volunteered: one score the day didn't ask for (spec 009).
+const SLEEP = { ...noData("sleep_quality"), volunteered: [{ date: MENTIONED_DAY, value: 1 }] };
 
 let overview: () => unknown;
 let overviewReady: Promise<void>;
@@ -118,7 +125,7 @@ beforeEach(() => {
   overviewReady = Promise.resolve();
   overview = () => ({
     end: TODAY,
-    dimensions: [noData("mood"), noData("energy"), STRESS],
+    dimensions: [noData("mood"), noData("energy"), STRESS, SLEEP],
   });
 });
 
@@ -154,13 +161,60 @@ function Nav() {
 
 const card = (name: string) => screen.findByRole("region", { name });
 
+describe("volunteered scores (spec 009)", () => {
+  it("AC-9, AC-10: each day of the 84 has a heatmap cell, coloured by outlook, volunteered marked", async () => {
+    renderScreen();
+    const lately = await screen.findByRole("region", { name: "Lately" });
+    const calendar = (name: string) => within(lately).getByRole("list", { name });
+
+    const stress = within(calendar("Stress")).getAllByRole("listitem", { name: /./ });
+    expect(stress).toHaveLength(84);
+    const today = within(calendar("Stress")).getByRole("listitem", {
+      name: `${formatDay(TODAY)}: 4, Stress 4`,
+    });
+    expect(today.dataset.step).toBe("2"); // high stress is the bad end
+    expect(today.dataset.volunteered).toBeUndefined();
+
+    const mentioned = within(calendar("Sleep quality")).getByRole("listitem", {
+      name: `${formatDay(MENTIONED_DAY)}: 1, Sleep quality 1, mentioned, not asked`,
+    });
+    expect(mentioned.dataset.step).toBe("1");
+    expect(mentioned.dataset.volunteered).toBe("true");
+
+    const empty = within(calendar("Mood")).getByRole("listitem", {
+      name: `${formatDay(TODAY)}: no score`,
+    });
+    expect(empty.dataset.step).toBeUndefined();
+  });
+
+  it("AC-5, AC-6, AC-7: the legend, the count, and the table name them, and only where they are", async () => {
+    renderScreen();
+    const sleep = await card("Sleep quality");
+
+    expect(screen.getAllByText("Mentioned, not asked").length).toBeGreaterThan(0);
+    expect(within(sleep).getByText("Also mentioned on 1 day without being asked")).toBeTruthy();
+    expect(within(await card("Mood")).queryByText(/Also mentioned/)).toBeNull();
+    // Q4: only volunteered scores still get a chart; the statistics say there isn't enough data.
+    expect(await within(sleep).findByRole("group", { name: /Sleep quality chart/ })).toBeTruthy();
+
+    await userEvent.click(within(sleep).getByText("Numbers"));
+    const row = within(sleep).getByRole("row", { name: new RegExp(formatDay(MENTIONED_DAY)) });
+    expect(
+      within(row)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual(["–", "–", "1"]);
+    expect(within(sleep).getByRole("columnheader", { name: "Mentioned, not asked" })).toBeTruthy();
+  });
+});
+
 describe("overview screen", () => {
   it("gives each dimension its own card, in the API's order, with no combined score", async () => {
     renderScreen();
     await card("Mood");
     expect(
-      screen.getAllByRole("region").map((c) => within(c).getByRole("heading").textContent),
-    ).toEqual(["Mood", "Energy", "Stress"]);
+      screen.getAllByRole("region").map((c) => within(c).getAllByRole("heading")[0]?.textContent),
+    ).toEqual(["Lately", "Mood", "Energy", "Stress", "Sleep quality"]); // the heatmap, then cards
   });
 
   it("leads with the two plain-language lines, and keeps the axis note for higher-is-worse", async () => {
@@ -200,8 +254,8 @@ describe("overview screen", () => {
     const table = within(await card("Stress")).getByRole("table", { hidden: true });
     const rows = within(table).getAllByRole("row", { hidden: true });
     expect(rows.map((row) => row.textContent)).toEqual([
-      "DayDaily7-day average",
-      `${formatDay(TODAY)}43.25`,
+      "DayDaily7-day averageMentioned, not asked",
+      `${formatDay(TODAY)}43.25–`,
     ]);
   });
 

@@ -99,3 +99,25 @@ The chart faults are run by hand: volunteered points drawn filled, joined to the
 | Q7 | Where does it go? | **A "Lately" section at the top of the overview,** one small calendar per dimension side by side. Each dimension's card keeps its line chart. |
 | Q8 | How are volunteered cells marked? | **A small dot in the cell,** explained in the legend. |
 | Q9 | How far back? | **The same 12 weeks as the charts,** one column per week, Monday at the top, the newest week on the right. |
+
+## 7. Added during implementation (for review)
+
+- **The heatmap palette,** chosen with the dataviz skill's validator across all pairs. Score 1 to 5, for a dimension where higher is better:
+
+  | Mode | Colours | Colour-blind ΔE, worst pair | Normal-vision floor |
+  |---|---|---|---|
+  | Light, on `#fcfaf6` | `#5f2309` `#e1713c` `#e9e5e0` `#a4d48a` `#16673a` | 11.0 (target ≥ 8) | 15.1 (≥ 15) |
+  | Dark, on `#262524` | `#e76937` `#9e4827` `#3d3a36` `#81cc92` `#cef4bd` | 12.0 | 15.0 |
+
+  - **Found by searching lightness and chroma** with green and red-orange hues held, as in Q6. Each bad step is darker than its matching good step, the neutral middle sits closest to the background, and each extreme stands out more than its milder neighbour.
+  - **A plain green-to-red first try collapsed for deuteranopia,** with ΔE 2 to 6.
+  - **The validator's lightness-band and chroma checks fail by design:** they're for categorical palettes, and a grey middle can't pass them.
+  - **Some steps are under 3:1 against the background,** so the relief the validator asks for is in place: every cell is named and has a tooltip, and Numbers lists every value.
+- **Cells are coloured through `data-step` and CSS tokens** (`--heat-1` to `--heat-5`), never inline styles, so the Content-Security-Policy is unchanged. The end-to-end test checks the policy is never violated.
+- **The heatmap's legend says "Harder" and "Better"** around the five steps, plus "No score" and "Mentioned, not asked". The anchor labels differ per dimension, so they're in each cell's name instead, for example "2 November: 1, Very poor, mentioned, not asked". This replaces §2.4's "legend shows the five steps with their anchor labels".
+- **A day with no score is an outlined, empty cell,** distinct from the filled grey of a 3. Days outside the 84 aren't drawn; they only keep the week columns aligned.
+- **`weekday` was added to `web/src/lib/dates.ts`,** so weekdays come from the calendar day without any timezone conversion, as `CLAUDE.md` requires.
+- **A broken end-to-end check, caught during fault injection:** my first check that volunteered points are never joined matched no element, because Recharts doesn't nest the dots inside the line's group, so it passed without checking anything. It now counts drawn lines: exactly one, the 7-day average's. With only one volunteered day in the end-to-end test there's nothing to join, so the "joined" fault was checked by hand with three volunteered days: one line with the correct code, two with the fault.
+- **Faults injected by hand,** all red: colour by raw score instead of outlook, a day with no score filled in, volunteered cells unmarked, volunteered scores left out of the heatmap, volunteered scores missing from the table, no count line, no chart for a dimension with only volunteered scores, and hollow points drawn filled.
+- **Two stale mutants were updated:** the volunteered flag ignored, and the end date ignored. **Five were added:** statistics from volunteered scores only, the route computing with volunteered scores, asked scores listed as volunteered, scores outside the window, and scores under every dimension.
+- **Not from this spec:** the last date label on the charts is still cut off at the right edge.

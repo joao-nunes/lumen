@@ -15,7 +15,8 @@ from lumen.analytics.metrics import PeriodStat, rolling_mean
 from lumen.analytics.series import DateRange, daily_means, restrict
 from lumen.analytics.summary import summarize_all
 from lumen.db.repository import save_checkin
-from lumen.domain.dimensions import DIMENSIONS, dimensions_for
+from lumen.domain.checkin import Checkin, volunteered_for
+from lumen.domain.dimensions import DIMENSIONS, Dimension, dimensions_for
 from lumen.domain.observation import Observation
 from lumen.synthetic.personas import PERSONAS, generate
 from tests.api.client import NewClient, csrf, error_code, register
@@ -123,13 +124,41 @@ def test_spec008_ac2_the_client_can_t_label_a_score(user: TestClient) -> None:
     assert user.get(f"/api/checkins/{TODAY}").json()["checkin"]["volunteered"] == ["concentration"]
 
 
-def test_spec008_ac6_the_overview_leaves_volunteered_scores_out(user: TestClient) -> None:
+def test_spec009_ac1_ac4_volunteered_scores_are_listed_and_never_computed_with(
+    user: TestClient,
+) -> None:
     save(user, TODAY, {**CORE, "sleep_quality": 5})  # asked
     save(user, YESTERDAY, {**CORE, "sleep_quality": 1})  # volunteered
 
-    sleep = overview(user)["sleep_quality"]
-    assert sleep["daily"] == [{"date": "2026-10-31", "mean": 5.0}]
-    assert sleep["change"]["current"]["n"] == 1
+    asked = [
+        Observation(day, Dimension(key), value)
+        for day in (TODAY, YESTERDAY)
+        for key, value in CORE.items()
+    ] + [Observation(TODAY, Dimension.SLEEP_QUALITY, 5)]
+    volunteered = [Observation(YESTERDAY, Dimension.SLEEP_QUALITY, 1)]
+    assert overview(user) == expected_overview(asked, TODAY, volunteered)
+    assert overview(user)["sleep_quality"]["volunteered"] == [{"date": "2026-10-30", "value": 1}]
+    assert overview(user)["mood"]["volunteered"] == []  # core: always asked
+
+
+def test_spec009_ac2_ac3_only_the_window_and_only_your_own(
+    user: TestClient, new_client: NewClient, clean_db: Engine
+) -> None:
+    user_id = uuid.UUID(user.get("/api/auth/me").json()["user_id"])
+    other = new_client()
+    other_id = uuid.UUID(register(other, "other@example.com").json()["user_id"])
+    first_day = TODAY - timedelta(days=83)  # the 84-day trend window
+    days = (first_day - timedelta(days=1), first_day, TODAY)
+    with Session(clean_db) as owner, owner.begin():
+        for person, day in [(user_id, d) for d in days] + [(other_id, TODAY - timedelta(days=2))]:
+            unasked = next(d for d in Dimension if d not in dimensions_for(day))
+            scores = {Dimension.MOOD: 3, unasked: 2}
+            at = datetime.combine(day, datetime.min.time(), tzinfo=UTC)
+            checkin = Checkin(at, day, scores, volunteered=volunteered_for(day, scores))
+            save_checkin(owner, person, checkin)
+
+    listed = sorted(p["date"] for d in overview(user).values() for p in d["volunteered"])
+    assert listed == [str(first_day), str(TODAY)]
 
 
 @pytest.mark.parametrize(
@@ -176,8 +205,15 @@ def _period(period: DateRange, stat: PeriodStat) -> dict[str, Any]:
     return {"start": str(period.start), "end": str(period.end), "mean": stat.mean, "n": stat.n}
 
 
-def expected_overview(observations: Sequence[Observation], end: date) -> dict[str, Any]:
-    """The overview computed directly with lumen.analytics: the API must add nothing."""
+def expected_overview(
+    observations: Sequence[Observation],
+    end: date,
+    volunteered: Sequence[Observation] = (),
+) -> dict[str, Any]:
+    """The overview computed directly with lumen.analytics: the API must add nothing.
+
+    Volunteered scores are only listed, inside the trend window, never computed with (spec 009).
+    """
     summaries = summarize_all(observations, end)
     result: dict[str, Any] = {}
     for dimension in DIMENSIONS:
@@ -214,6 +250,11 @@ def expected_overview(observations: Sequence[Observation], end: date) -> dict[st
                 {"date": str(day), "mean": stat.mean, "n": stat.n}
                 for day, stat in rolling.items()
                 if stat.mean is not None
+            ],
+            "volunteered": [
+                {"date": str(o.day), "value": o.value}
+                for o in sorted(volunteered, key=lambda o: o.day)
+                if o.dimension == dimension and s.trend_period.start <= o.day <= s.trend_period.end
             ],
         }
     return result

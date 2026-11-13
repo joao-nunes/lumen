@@ -1248,8 +1248,8 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             "src/lumen/api/routes/overview.py",
             "overview ignores the requested end date",
-            "dimensions=[_dimension(d, o) for d, o in overview(observations, end).items()],",
-            "dimensions=[_dimension(d, o) for d, o in overview(observations, end.replace(day=1)).items()],",
+            "_dimension(d, o, volunteered) for d, o in overview(observations, end).items()",
+            "_dimension(d, o, volunteered) for d, o in overview(observations, end.replace(day=1)).items()",
         ),
         Mutant(
             REPOSITORY,
@@ -1328,8 +1328,39 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REPOSITORY,
             "volunteered scores included in observations",
-            "            models.CheckinScore.volunteered.is_(False),\n",
+            "            models.CheckinScore.volunteered.is_(volunteered),\n",
             "",
+        ),
+        Mutant(
+            REPOSITORY,
+            "statistics computed from volunteered scores only",
+            "return _scores(session, user_id, start, end, volunteered=False)",
+            "return _scores(session, user_id, start, end, volunteered=True)",
+        ),
+        # Spec 009: volunteered scores in the overview.
+        Mutant(
+            REPOSITORY,
+            "asked scores listed as volunteered",
+            "return _scores(session, user_id, start, end, volunteered=True)",
+            "return _scores(session, user_id, start, end, volunteered=False)",
+        ),
+        Mutant(
+            "src/lumen/api/routes/overview.py",
+            "volunteered scores listed outside the trend window",
+            "if v.dimension == dimension and s.trend_period.start <= v.day <= s.trend_period.end",
+            "if v.dimension == dimension",
+        ),
+        Mutant(
+            "src/lumen/api/routes/overview.py",
+            "volunteered scores listed under every dimension",
+            "if v.dimension == dimension and s.trend_period.start <= v.day <= s.trend_period.end",
+            "if s.trend_period.start <= v.day <= s.trend_period.end",
+        ),
+        Mutant(
+            "src/lumen/api/routes/overview.py",
+            "volunteered scores computed with",
+            "observations = list_observations(db, user.user_id, overview_start(end), end)",
+            "observations = list_observations(db, user.user_id, overview_start(end), end) + list_volunteered(db, user.user_id, overview_start(end), end)",
         ),
         Mutant(
             VOLUNTEERED_MIGRATION,

@@ -132,16 +132,30 @@ def list_observations(
 ) -> list[Observation]:
     """The asked scores for a user between `start` and `end` (inclusive), by local date.
 
-    Volunteered scores are left out: they lean towards days that stood out, so statistics on them
-    would be biased (spec 008 §2.4). Spec 009 decides how to show them.
+    Only these feed statistics. Volunteered scores lean towards days that stood out, so statistics
+    on them would be biased (spec 008 §2.4).
     """
+    return _scores(session, user_id, start, end, volunteered=False)
+
+
+def list_volunteered(
+    session: Session, user_id: uuid.UUID, start: date, end: date
+) -> list[Observation]:
+    """The volunteered scores between `start` and `end`, by local date: for showing, never for
+    computing with (spec 009)."""
+    return _scores(session, user_id, start, end, volunteered=True)
+
+
+def _scores(
+    session: Session, user_id: uuid.UUID, start: date, end: date, *, volunteered: bool
+) -> list[Observation]:
     rows = session.execute(
         select(models.Checkin.local_date, models.CheckinScore.dimension, models.CheckinScore.value)
         .join(models.CheckinScore.checkin)
         .where(
             models.Checkin.user_id == user_id,
             models.Checkin.local_date.between(start, end),
-            models.CheckinScore.volunteered.is_(False),
+            models.CheckinScore.volunteered.is_(volunteered),
         )
         .order_by(models.Checkin.local_date, models.Checkin.recorded_at)
     )

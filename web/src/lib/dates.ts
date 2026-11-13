@@ -48,3 +48,8 @@ export function daysBack(day: string, count: number): string[] {
     return date.toISOString().slice(0, 10);
   });
 }
+
+/** The calendar day's weekday, Monday 0 to Sunday 6, without converting it to any timezone. */
+export function weekday(day: string): number {
+  return (new Date(day).getUTCDay() + 6) % 7; // midnight UTC, as in formatDay
+}
