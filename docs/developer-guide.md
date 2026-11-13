@@ -128,7 +128,7 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 | `GET /api/tags` | `200 [{name, count}]` | Most used first. Unused tags are left out. |
 | `GET /api/checkins/{date}` | `200` | Any date. `checkin` is `null` if none was saved. |
 | `PUT /api/checkins/{date}` | `200` | See below. |
-| `POST /api/checkins/{date}/suggestion` | `200` | `{"text": "..."}`, 1 to 2,000 characters. Returns suggested `scores` and `tags`. Saves nothing, and never keeps the text (spec 006). |
+| `POST /api/checkins/{date}/suggestion` | `200` | `{"text": "..."}`, 1 to 2,000 characters. Returns suggested `scores` and `tags`. The model is asked about all seven dimensions, so a score can be for one the day didn't ask about (spec 008). Saves nothing, and never keeps the text (spec 006). |
 | `GET /api/overview?end={date}` | `200` | See below. `end` is required and has no limit, so future dates work. |
 
 ### Contracts
@@ -299,9 +299,9 @@ Dimensions are defined in `lumen/domain/dimensions.py`, and the web app picks th
 
 ### Change a prompt
 
-The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the schedule's day types, the starter and invented tags, and the code that renders them. The evaluation asks about each note as the app would, once per day type (spec 007). To change it:
+The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the starter and invented tags, and the code that renders them. The evaluation asks about each note as the app does: all seven dimensions, with the invented tags (`measured_requests`, specs 007 and 008). A run stops after three failed calls in a row, so an outage can't be reported as results. To change it:
 
-1. **Write new held-out notes first,** before the new prompt, and commit them. In `evals/extraction/entries.jsonl`, rename the current `test` split to `test_vN` and add it to `SPLITS`: its results have been read, so it's never tuned on or measured again. Keep `test_v1`, which holds the notes the owner scored blind.
+1. **Write new held-out notes first,** before the new prompt, and commit them. In `evals/extraction/entries.jsonl`, rename the current `test` split to the next `test_vN` and add it to `SPLITS`: its results have been read, so it's never tuned on or measured again. Keep `test_v1`, which holds the notes the owner scored blind.
 2. Add `src/lumen/suggestions/prompts/<name>_vN.txt`, and point `PROMPT_NAME` in `lumen.suggestions.prompt` at it. Keep the old files. Change the parser in the same commit if the reply's shape changes.
 3. Tune on the `dev` split only, saving the whole output. Don't put wording from a held-out note in the prompt.
 4. Commit the prompt, then run `make eval-extraction MODEL=x SPLIT=test` once. It updates `measured_prompt.json` only if the bar is met in both languages. Commit that file with the results, and report them whether or not the bar is met.

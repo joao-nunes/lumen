@@ -53,7 +53,7 @@ ROUTES_CHECKINS = API + "routes/checkins.py"
 SUGGESTION = "src/lumen/suggestions/model.py"
 EVALUATION = "src/lumen/suggestions/evaluation.py"
 PROMPT = "src/lumen/suggestions/prompt.py"
-PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v2.txt"
+PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v1.txt"
 DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
@@ -783,11 +783,12 @@ GROUPS: dict[str, list[Mutant]] = {
             ROUTES_CHECKINS,
             "a transaction stays open during the model call",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
-            "    asked = dimensions_for(local_date)\n"
+            "    # All seven, whatever the day asks: a score the day didn't ask for is volunteered (spec 008).\n"
+            "    asked = tuple(Dimension)\n"
             "    offered = offered_tags(used)\n"
             "    reply = container.suggestions.suggest(body.text, asked, offered)\n",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
-            "        asked = dimensions_for(local_date)\n"
+            "        asked = tuple(Dimension)\n"
             "        offered = offered_tags(used)\n"
             "        reply = container.suggestions.suggest(body.text, asked, offered)\n",
         ),
@@ -799,9 +800,9 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             ROUTES_CHECKINS,
-            "every dimension asked, whatever the day",
-            "    asked = dimensions_for(local_date)\n",
+            "only the day's dimensions asked (spec 008)",
             "    asked = tuple(Dimension)\n",
+            "    asked = dimensions_for(local_date)\n",
         ),
         Mutant(
             ROUTES_CHECKINS,
@@ -993,46 +994,34 @@ GROUPS: dict[str, list[Mutant]] = {
             "for dimension in Dimension:",
         ),
         Mutant(
-            EVALUATION,
-            "each note asked for every dimension",
-            "model.suggest(entry.text, asked, tags)",
-            "model.suggest(entry.text, tuple(Dimension), tags)",
-        ),
-        Mutant(
             PROMPT,
-            "dimensions not asked aren't named",
-            'not_asked="\\n".join(_outline(d) for d in Dimension if d not in dimensions) or "(none)"',
-            'not_asked="(none)"',
-        ),
-        Mutant(
-            PROMPT,
-            "prompt v1 used again",
-            'PROMPT_NAME = "checkin_extraction_v2"',
+            "prompt v2 used again",
             'PROMPT_NAME = "checkin_extraction_v1"',
+            'PROMPT_NAME = "checkin_extraction_v2"',
         ),
         Mutant(
             PROMPT,
-            "only one day type measured",
-            "for asked in day_types())",
-            "for asked in day_types()[:1])",
-        ),
-        Mutant(
-            PROMPT,
-            "the schedule read for too few days",
-            "_SCHEDULE_DAYS = 14",
-            "_SCHEDULE_DAYS = 1",
+            "measured for the day's dimensions, not all seven",
+            "return ((tuple(Dimension), offered_tags(INVENTED_TAGS)),)",
+            "return ((tuple(Dimension)[:5], offered_tags(INVENTED_TAGS)),)",
         ),
         Mutant(
             PROMPT,
             "invented tags not offered",
-            "tags = offered_tags(INVENTED_TAGS)",
-            "tags = offered_tags(())",
+            "return ((tuple(Dimension), offered_tags(INVENTED_TAGS)),)",
+            "return ((tuple(Dimension), offered_tags(())),)",
         ),
         Mutant(
-            PROMPT,
-            "hash ignores the second day type",
-            "for request in measured_requests())",
-            "for request in measured_requests()[:1])",
+            EVALUATION,
+            "a run never stops on failures",
+            "if failures_in_a_row >= MAX_FAILURES_IN_A_ROW:",
+            "if failures_in_a_row >= MAX_FAILURES_IN_A_ROW * 99:",
+        ),
+        Mutant(
+            EVALUATION,
+            "a success doesn't reset the failure count",
+            "failures_in_a_row = failures_in_a_row + 1 if suggestion is None else 0",
+            "failures_in_a_row = failures_in_a_row + 1 if suggestion is None else failures_in_a_row",
         ),
         Mutant(
             SUGGESTION,
