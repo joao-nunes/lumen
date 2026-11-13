@@ -95,6 +95,8 @@ function CheckinForm({
   const [suggestedScores, setSuggestedScores] = useState<Record<string, number>>({});
   const [suggestedTags, setSuggestedTags] = useState<ReadonlySet<string>>(new Set());
   const [usedSuggestions, setUsedSuggestions] = useState(false);
+  // Dimensions the day didn't ask about, added by hand (spec 008): the server labels them volunteered.
+  const [added, setAdded] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -133,8 +135,10 @@ function CheckinForm({
   // Saving replaces the whole day, so anything already answered stays on the form,
   // even if it isn't prompted today: otherwise saving would silently delete it.
   const shown = dimensions.filter(
-    ({ key }) => day.prompted.includes(key) || saved?.scores[key] !== undefined,
+    ({ key }) =>
+      day.prompted.includes(key) || saved?.scores[key] !== undefined || added.includes(key),
   );
+  const addable = dimensions.filter((dimension) => !shown.includes(dimension));
   const tagChoices = [
     ...new Set([
       ...usage.map(({ name }) => name),
@@ -231,6 +235,9 @@ function CheckinForm({
       {shown.map((dimension) => (
         <fieldset key={dimension.key} className={styles.group}>
           <legend>{dimension.display_name}</legend>
+          {!day.prompted.includes(dimension.key) && (
+            <p className={styles.notAsked}>Not asked today</p>
+          )}
           {suggestedScores[dimension.key] !== undefined &&
             suggestedScores[dimension.key] === scores[dimension.key] && (
               <p className={styles.suggested}>Suggested, please check</p>
@@ -269,6 +276,25 @@ function CheckinForm({
           )}
         </fieldset>
       ))}
+      {addable.length > 0 && (
+        <label className={styles.addDimension}>
+          Add another dimension
+          <select
+            value=""
+            onChange={(event) => {
+              const key = event.target.value;
+              if (key) setAdded((current) => [...current, key]);
+            }}
+          >
+            <option value="">Choose one</option>
+            {addable.map((dimension) => (
+              <option key={dimension.key} value={dimension.key}>
+                {dimension.display_name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <fieldset className={styles.group}>
         <legend>Tags</legend>
         <div className={styles.tags}>

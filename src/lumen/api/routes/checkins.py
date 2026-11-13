@@ -10,7 +10,13 @@ from lumen.api.dependencies import ContainerDep, CurrentUser, UserDb
 from lumen.api.errors import error_responses
 from lumen.db.repository import get_checkin, save_checkin, tag_usage
 from lumen.db.scope import user_transaction
-from lumen.domain.checkin import Checkin, CheckinMode, check_editable, structured_scores
+from lumen.domain.checkin import (
+    Checkin,
+    CheckinMode,
+    check_editable,
+    structured_scores,
+    volunteered_for,
+)
 from lumen.domain.dimensions import DIMENSIONS, Cadence, Dimension, Polarity, dimensions_for
 from lumen.suggestions.model import SuggestionsUnavailableError, keep_valid, offered_tags
 
@@ -54,6 +60,8 @@ class CheckinOut(BaseModel):
     scores: dict[Dimension, int]
     tags: list[str]
     recorded_at: datetime
+    # Scored dimensions the day didn't ask about (spec 008). Set by the server, never the client.
+    volunteered: list[Dimension]
 
 
 class DayOut(BaseModel):
@@ -78,6 +86,7 @@ def _day(local_date: date, checkin: Checkin | None) -> DayOut:
             scores=checkin.scores,
             tags=sorted(checkin.tags),
             recorded_at=checkin.recorded_at.astimezone(UTC),
+            volunteered=sorted(checkin.volunteered),
         ),
     )
 
@@ -107,12 +116,14 @@ def write_checkin(
 ) -> DayOut:
     now = container.clock()
     check_editable(local_date, now)
+    scores = structured_scores(body.scores)
     checkin = Checkin(
         recorded_at=now,
         local_date=local_date,
-        scores=structured_scores(body.scores),
+        scores=scores,
         tags=frozenset(body.tags),
         mode=body.mode,
+        volunteered=volunteered_for(local_date, scores),
     )
     save_checkin(db, user.user_id, checkin)
     return _day(local_date, checkin)

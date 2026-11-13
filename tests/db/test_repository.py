@@ -10,7 +10,7 @@ from lumen.auth.models import AuthSession, PasswordCredential
 from lumen.db import models
 from lumen.db.repository import list_observations, save_checkin
 from lumen.db.scope import scope_to_user
-from lumen.domain.checkin import Checkin
+from lumen.domain.checkin import Checkin, volunteered_for
 from lumen.domain.dimensions import Dimension
 from tests.db.factories import new_user
 from tests.db.roles import APP, act_as, act_as_owner
@@ -19,12 +19,32 @@ DAY = date(2026, 10, 23)
 
 
 def make_checkin(day: date = DAY, tags: frozenset[str] = frozenset(), **scores: int) -> Checkin:
+    chosen = {Dimension(k): v for k, v in (scores or {"mood": 3}).items()}
     return Checkin(
         recorded_at=datetime.combine(day, datetime.min.time(), tzinfo=UTC) + timedelta(hours=21),
         local_date=day,
-        scores={Dimension(k): v for k, v in (scores or {"mood": 3}).items()},
+        scores=chosen,
         tags=tags,
+        volunteered=volunteered_for(day, chosen),
     )
+
+
+def test_spec008_ac1_only_the_volunteered_row_is_labelled(session: Session) -> None:
+    user = new_user(session)
+    act_as(session, APP, user)
+    # 23 October asks sleep quality and motivation, not concentration.
+    save_checkin(session, user, make_checkin(mood=3, concentration=2, sleep_quality=4))
+
+    rows = session.execute(
+        select(models.CheckinScore.dimension, models.CheckinScore.volunteered).order_by(
+            models.CheckinScore.dimension
+        )
+    ).all()
+    assert sorted((d.value, v) for d, v in rows) == [
+        ("concentration", True),
+        ("mood", False),
+        ("sleep_quality", False),
+    ]
 
 
 def test_saved_checkins_are_listed_in_date_order_within_the_requested_range(

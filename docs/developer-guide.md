@@ -136,12 +136,14 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 **Check-ins**
 - There's one per day per user. `PUT` **replaces the whole day**, so a score or tag you leave out is deleted.
 - `mood`, `energy` and `stress` are required. Any other known dimension is accepted, whether or not `prompted` lists it.
+- A score for a dimension the day didn't ask about is **volunteered** (spec 008). The server labels it when the day is saved, from the day's schedule, and `checkin.volunteered` lists them. Clients can't set it. It's stored rather than worked out later, so a schedule change can't relabel past days.
 - Scores are JSON integers from 1 to 5; `true`, `"4"` and `4.0` are rejected.
 - Tags are normalized (`"Time outdoors"` becomes `time_outdoors`). At most 20, and each must match `^[a-z][a-z0-9_]{0,39}$` after normalizing.
 - `{date}` is the user's calendar day, chosen by the client. The server doesn't know their timezone, so it accepts from 8 days before the UTC date to 1 day after. The web app offers only today and the 7 days before it, in local time.
 - `recorded_at` is the server's time in UTC. Saving again overwrites it.
 
 **Overview**
+- Volunteered scores are left out, because they lean towards days that stood out (spec 008 §2.4). Spec 009 decides how to show them.
 - Each dimension has `change` (last 28 days against the 28 before) and `trend` (a slope over 84 days). `daily` and `rolling_7` cover the 84 days.
 - A day missing from `daily` or `rolling_7` is a gap. Don't join across it. The rolling mean needs at least 3 days in its 7-day window.
 - `direction` is what the numbers did: `increasing`, `decreasing`, `flat`, `unclear` or `insufficient_data`. `outlook` applies polarity, so rising stress is `worsening`. Use `outlook` for good or bad, and never compare `direction` across dimensions.

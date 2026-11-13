@@ -11,6 +11,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     CheckConstraint,
     Date,
     DateTime,
@@ -106,6 +107,9 @@ class CheckinScore(Base):
     dimension: Mapped[Dimension] = mapped_column(_enum(Dimension, "dimension"), primary_key=True)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True))
     value: Mapped[int] = mapped_column(SmallInteger)
+    # True when the day didn't ask about this dimension (spec 008). Set when saved, never derived
+    # later, so that changing the schedule can't relabel the past.
+    volunteered: Mapped[bool] = mapped_column(Boolean)
 
     checkin: Mapped[Checkin] = relationship(back_populates="scores")
 

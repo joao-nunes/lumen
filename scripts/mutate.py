@@ -44,6 +44,7 @@ RLS_MIGRATION = (
 API = "src/lumen/api/"
 REPOSITORY = "src/lumen/db/repository.py"
 CHECKIN = "src/lumen/domain/checkin.py"
+VOLUNTEERED_MIGRATION = "migrations/versions/2026_11_13_1200-a15cf43a3feb_volunteered_scores.py"
 CHANGE_LIMIT = "src/lumen/auth/password_change.py"
 EVENT_LOG = API + "event_log.py"
 MIDDLEWARE = API + "middleware.py"
@@ -1218,6 +1219,55 @@ GROUPS: dict[str, list[Mutant]] = {
             "tags ordered by name only",
             "        .order_by(uses.desc(), models.Tag.name)",
             "        .order_by(models.Tag.name)",
+        ),
+        # Spec 008: volunteered scores.
+        Mutant(
+            ROUTES_CHECKINS,
+            "every score labelled asked",
+            "volunteered=volunteered_for(local_date, scores)",
+            "volunteered=frozenset()",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "labelled by today's schedule, not the check-in's day",
+            "volunteered=volunteered_for(local_date, scores)",
+            "volunteered=volunteered_for(now.date(), scores)",
+        ),
+        Mutant(
+            CHECKIN,
+            "asked scores labelled volunteered",
+            "frozenset(d for d in scores if d not in asked)",
+            "frozenset(d for d in scores if d in asked)",
+        ),
+        Mutant(
+            REPOSITORY,
+            "every score stored as volunteered",
+            '"volunteered": d in checkin.volunteered,',
+            '"volunteered": True,',
+        ),
+        Mutant(
+            REPOSITORY,
+            "stored labels not read back",
+            "volunteered=frozenset(s.dimension for s in row.scores if s.volunteered),",
+            "volunteered=frozenset(),",
+        ),
+        Mutant(
+            REPOSITORY,
+            "volunteered scores included in observations",
+            "            models.CheckinScore.volunteered.is_(False),\n",
+            "",
+        ),
+        Mutant(
+            VOLUNTEERED_MIGRATION,
+            "migration's schedule shifted by a day",
+            "(c.local_date - DATE '0001-01-01' + 1)",
+            "(c.local_date - DATE '0001-01-01' + 2)",
+        ),
+        Mutant(
+            VOLUNTEERED_MIGRATION,
+            "migration labels nothing",
+            "    op.execute(LABEL_EXISTING)\n",
+            "",
         ),
     ],
     "analytics": [
