@@ -81,6 +81,17 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
   }
   await expect(page.getByText("Not asked today")).toHaveCount(1); // saved, and still marked
 
+  // 4b. Dark mode is chosen from the footer and survives a reload; the page starts light.
+  const html = page.locator("html");
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Dark mode" }).click();
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Dark mode" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+
   // 5. Logging out returns to Log in.
   await page.getByRole("button", { name: "Log out" }).click();
   await expect(page.getByRole("button", { name: "Log in" })).toBeVisible();

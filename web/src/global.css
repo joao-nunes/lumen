@@ -1,7 +1,7 @@
 :root {
   /*
-   * Light by default, whatever the system prefers. light-dark() follows this property, so the
-   * dark values below stay ready for a theme switch.
+   * Light by default, whatever the system prefers. The footer's switch sets data-theme="dark"
+   * (lib/theme.ts), and light-dark() follows color-scheme, so every colour below switches with it.
    */
   color-scheme: light;
   /*
@@ -24,6 +24,10 @@
   accent-color: var(--text);
   font-family: system-ui, sans-serif;
   line-height: 1.5;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 * {
