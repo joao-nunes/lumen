@@ -1,0 +1,13 @@
+/* Quieter than the main buttons: an outline in the text colour. */
+.toggle {
+  padding: 0.125rem 0.625rem;
+  border-color: var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.toggle[aria-pressed="true"] {
+  border-color: var(--muted);
+  color: var(--text);
+}
