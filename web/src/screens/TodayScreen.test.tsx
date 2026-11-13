@@ -578,6 +578,25 @@ describe("free text", () => {
     });
   });
 
+  it("keeps a suggested row the day didn't ask for when its score is changed", async () => {
+    suggestionResponse = reply({ mood: 4, energy: 3, stress: 2, sleep_quality: 4 });
+    days[TODAY] = { ...emptyDay(TODAY), prompted: CORE };
+    renderScreen();
+    await writeAndSuggest();
+    await screen.findByRole("group", { name: "sleep_quality" });
+
+    await choose("sleep_quality", 2); // the person disagrees with the model
+
+    const sleep = screen.getByRole("group", { name: "sleep_quality" });
+    expect(chosen("sleep_quality")).toBe("2");
+    expect(within(sleep).getByText("Not asked today")).toBeTruthy();
+    expect(within(sleep).queryByText("Suggested, please check")).toBeNull();
+    await save();
+
+    await screen.findByText("overview screen");
+    expect(puts[0]?.body.scores).toEqual({ mood: 4, energy: 3, stress: 2, sleep_quality: 2 });
+  });
+
   it("AC-11: never overwrites a choice, even one made while waiting for the model", async () => {
     let finish: (response: Response) => void = () => undefined;
     suggestionResponse = () =>
