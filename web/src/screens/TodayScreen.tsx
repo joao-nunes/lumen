@@ -11,6 +11,7 @@ import {
   suggestScores,
   type TagUsage,
 } from "../api/checkins";
+import { fetchContext } from "../api/context";
 import { errorMessage } from "../api/client";
 import { daysBack, formatDay, formatInstant, today as localToday } from "../lib/dates";
 import styles from "./TodayScreen.module.css";
@@ -99,6 +100,8 @@ function CheckinForm({
   const [added, setAdded] = useState<string[]>([]);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  // Only to say it's used (spec 010): the server reads the context itself when suggesting.
+  const personalContext = useQuery({ queryKey: ["context"], queryFn: fetchContext });
 
   const suggest = useMutation({
     mutationFn: () => suggestScores(day.local_date, note.trim()),
@@ -209,6 +212,9 @@ function CheckinForm({
         >
           Suggest scores
         </button>
+        {personalContext.data?.text && (
+          <p className={styles.suggested}>Using your personal context</p>
+        )}
         {suggest.isPending && <p role="status">Suggesting…</p>}
         {suggest.isSuccess &&
           Object.keys(suggest.data.scores).length === 0 &&
