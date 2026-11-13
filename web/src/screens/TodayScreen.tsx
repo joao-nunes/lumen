@@ -132,15 +132,11 @@ function CheckinForm({
     },
   });
 
-  // Saving replaces the whole day, so anything already answered stays on the form, even if it
-  // isn't prompted today: otherwise saving would silently delete it. Any score that will be saved
-  // has a row, however it got there (suggested, then perhaps changed), so nothing is saved unseen.
+  // Every score that will be saved has a row, however it got there (saved, suggested, changed),
+  // so nothing is saved unseen. Saving replaces the whole day, so a saved answer the day didn't ask
+  // for shows until it's cleared; clearing it removes the row and, on save, the score.
   const shown = dimensions.filter(
-    ({ key }) =>
-      day.prompted.includes(key) ||
-      saved?.scores[key] !== undefined ||
-      added.includes(key) ||
-      scores[key] !== undefined,
+    ({ key }) => day.prompted.includes(key) || added.includes(key) || scores[key] !== undefined,
   );
   const addable = dimensions.filter((dimension) => !shown.includes(dimension));
   const tagChoices = [
@@ -273,6 +269,7 @@ function CheckinForm({
               onClick={() => {
                 setScores(({ [dimension.key]: _removed, ...rest }) => rest);
                 setSuggestedScores(({ [dimension.key]: _changed, ...rest }) => rest);
+                setAdded((current) => current.filter((key) => key !== dimension.key));
               }}
             >
               Clear
