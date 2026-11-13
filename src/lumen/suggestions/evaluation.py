@@ -14,8 +14,8 @@ from lumen.suggestions.prompt import measured_requests
 
 # "test" is the held-out split for the current measurement. The others held earlier ones and have
 # been read, so they're never tuned on or measured against again: "test_v1" (spec 006, which keeps
-# the owner's blind scores) and "test_v2" (spec 007).
-SPLITS = frozenset({"dev", "test", "test_v1", "test_v2"})
+# the owner's blind scores), "test_v2" (spec 007) and "test_v3" (spec 008).
+SPLITS = frozenset({"dev", "test", "test_v1", "test_v2", "test_v3"})
 BLIND_SPLIT = "test_v1"
 LANGUAGES = frozenset({"en", "pt"})
 
@@ -38,6 +38,8 @@ class Entry:
     tags: frozenset[str] = frozenset()
     # Dimensions the text only hints at: a score or a blank are both fair, so neither is measured.
     either: frozenset[Dimension] = frozenset()
+    # An invented personal context the labels take into account (spec 010), or "" for none.
+    context: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +85,7 @@ def load_entries(path: Path) -> list[Entry]:
                 scores=scores,
                 tags=frozenset(raw["tags"]),
                 either=frozenset(Dimension(key) for key in raw.get("either", [])),
+                context=raw.get("context", ""),
             )
         )
     return entries

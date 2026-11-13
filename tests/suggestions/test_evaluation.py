@@ -321,11 +321,12 @@ def test_anything_else_leaves_the_record_as_it_was(
 def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(ENTRIES)
 
-    assert len(entries) == 350
-    assert len({e.id for e in entries}) == 350
-    assert len({e.text for e in entries}) == 350
+    assert len(entries) == 466
+    assert len({e.id for e in entries}) == 466
+    assert len({e.text for e in entries}) == 466
     for language in ("en", "pt"):
-        for split, count in (("dev", 25), ("test", 50), ("test_v1", 50), ("test_v2", 50)):
+        splits = (("dev", 33), ("test", 50), ("test_v1", 50), ("test_v2", 50), ("test_v3", 50))
+        for split, count in splits:
             assert len([e for e in entries if (e.language, e.split) == (language, split)]) == count
         # Enough of each awkward kind in both splits, or a weakness could go unmeasured.
         for split in ("dev", "test"):
@@ -345,9 +346,12 @@ def test_the_evaluation_set_is_what_the_spec_says() -> None:
     irrelevant = [e for e in entries if e.category == "irrelevant"]
     assert irrelevant and all(not e.scores for e in irrelevant)
     # About 100 per language, which is good to roughly 4 points either way (spec 006 §7, 007, 008).
+    # Spec 010: about half of the held-out notes, and some tuning notes, have a personal context.
     for language in ("en", "pt"):
         held_out = [e for e in entries if (e.language, e.split) == (language, "test")]
         assert sum(len(e.scores) for e in held_out) >= 100
+        assert 25 <= sum(1 for e in held_out if e.context) <= 35
+        assert any(e.context for e in entries if (e.language, e.split) == (language, "dev"))
 
 
 def test_loading_refuses_a_bad_entry(tmp_path: Path) -> None:
