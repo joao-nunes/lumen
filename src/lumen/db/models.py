@@ -21,6 +21,7 @@ from sqlalchemy import (
     MetaData,
     SmallInteger,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -28,6 +29,7 @@ from sqlalchemy.dialects.postgresql import CITEXT, UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from lumen.domain.checkin import CheckinMode
+from lumen.domain.context import MAX_CONTEXT_LENGTH
 from lumen.domain.dimensions import SCALE_MAX, SCALE_MIN, Dimension
 
 # Deterministic constraint names, so Alembic migrations are stable and readable.
@@ -64,6 +66,23 @@ class User(Base):
     # defeated by capitalisation.
     email: Mapped[str] = mapped_column(CITEXT, unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class PersonalContext(Base):
+    """A person's own normal, in their words (spec 010). Tier 0: only the local model sees it."""
+
+    __tablename__ = "personal_context"
+    __table_args__ = (
+        CheckConstraint(
+            f"char_length(text) BETWEEN 1 AND {MAX_CONTEXT_LENGTH}", name="text_length"
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    text: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class Checkin(Base):

@@ -115,3 +115,13 @@ Add to the `suggestions` and `checkins` groups, or a new `context` group:
 | Q3 | Show "Using your personal context" by the Suggest button? | **Yes.** |
 | Q4 | What bar for tags? | **Precision at least 85% per language,** and recall reported without a bar. |
 | Q5 | Should the context ever reach a hosted model? | **No, never.** |
+
+## 7. Added during implementation (for review)
+
+### First PR: storage, API and the page
+
+- **The table has a database check on the length,** 1 to 750 characters, so empty text can't be stored by mistake; the repository deletes the row instead.
+- **The limit lives in one place,** `lumen.domain.context.MAX_CONTEXT_LENGTH`, used by the API and the table. The migration writes 750 out, as migrations shouldn't depend on code that can change.
+- **The text box has spellcheck off,** like the free-text note, because some browsers send text to an online spelling service.
+- **Added a repository test** that `get_context` filters by user even without RLS. RLS alone would have hidden a missing filter, as the existing test for observations already guards.
+- **Not tested end to end:** the page uses nothing the Content-Security-Policy would block, such as inline styles, and the unit tests cover its behaviour.

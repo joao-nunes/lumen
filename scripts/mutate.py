@@ -44,12 +44,15 @@ RLS_MIGRATION = (
 API = "src/lumen/api/"
 REPOSITORY = "src/lumen/db/repository.py"
 CHECKIN = "src/lumen/domain/checkin.py"
+CONTEXT = "src/lumen/domain/context.py"
+CONTEXT_MIGRATION = "migrations/versions/2026_11_13_1500-0b5d619b7c88_personal_context.py"
 VOLUNTEERED_MIGRATION = "migrations/versions/2026_11_13_1200-a15cf43a3feb_volunteered_scores.py"
 CHANGE_LIMIT = "src/lumen/auth/password_change.py"
 EVENT_LOG = API + "event_log.py"
 MIDDLEWARE = API + "middleware.py"
 OLLAMA = "src/lumen/suggestions/ollama.py"
 ROUTES_CHECKINS = API + "routes/checkins.py"
+ROUTES_CONTEXT = API + "routes/context.py"
 SUGGESTION = "src/lumen/suggestions/model.py"
 EVALUATION = "src/lumen/suggestions/evaluation.py"
 PROMPT = "src/lumen/suggestions/prompt.py"
@@ -1208,6 +1211,43 @@ GROUPS: dict[str, list[Mutant]] = {
             "tags ordered by name only",
             "        .order_by(uses.desc(), models.Tag.name)",
             "        .order_by(models.Tag.name)",
+        ),
+        # Spec 010: personal context.
+        Mutant(
+            ROUTES_CONTEXT,
+            "context saved untrimmed",
+            "StringConstraints(strip_whitespace=True, max_length=MAX_CONTEXT_LENGTH)",
+            "StringConstraints(strip_whitespace=False, max_length=MAX_CONTEXT_LENGTH)",
+        ),
+        Mutant(
+            CONTEXT,
+            "context limit one longer",
+            "MAX_CONTEXT_LENGTH = 750",
+            "MAX_CONTEXT_LENGTH = 751",
+        ),
+        Mutant(
+            REPOSITORY,
+            "empty context saved instead of deleted",
+            "    if not value:\n",
+            "    if False:\n",
+        ),
+        Mutant(
+            REPOSITORY,
+            "context read without the user filter",
+            "select(models.PersonalContext.text).where(models.PersonalContext.user_id == user_id)",
+            "select(models.PersonalContext.text).limit(1)",
+        ),
+        Mutant(
+            CONTEXT_MIGRATION,
+            "context table without forced RLS",
+            '    op.execute("ALTER TABLE personal_context FORCE ROW LEVEL SECURITY")\n',
+            "",
+        ),
+        Mutant(
+            CONTEXT_MIGRATION,
+            "context table without the app's grants",
+            'op.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON personal_context TO {APP_ROLE}")',
+            'op.execute(f"GRANT SELECT ON personal_context TO {APP_ROLE}")',
         ),
         # Spec 008: volunteered scores.
         Mutant(
