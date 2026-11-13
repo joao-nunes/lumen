@@ -1,6 +1,6 @@
 # Spec 009: Volunteered scores in the overview
 
-**Status:** Proposed. The owner answered Q1 to Q5 (§6.1); the heatmap's questions are open (§6.2)
+**Status:** Proposed. The owner has answered everything except Q7, where the heatmap goes (§6.2)
 **Builds on:** spec 002 (overview), spec 008 (volunteered scores)
 
 ## 1. Goal
@@ -97,12 +97,12 @@ The chart faults are run by hand: volunteered points drawn filled, joined to the
 | Q3 | Show "Also mentioned on N days without being asked"? | **Yes.** |
 | Q4 | A dimension with only volunteered scores? | **Show the points,** with "Not enough data yet" for the statistics. |
 | Q5 | Record the notice in `PROJECT.MD` now? | **Not yet.** Whether the notice is deterministic or an agent will be discussed after this spec. |
+| Q6 | Which colours? | **Green for good, and for bad a red-orange that's also much darker,** tuned until both pass the colour-blindness checker in light and dark mode. The hue changes only if they can't. |
+| Q8 | How are volunteered cells marked? | **A small dot in the cell,** explained in the legend. |
+| Q9 | How far back? | **The same 12 weeks as the charts,** one column per week, Monday at the top, the newest week on the right. |
 
 ### 6.2 Open questions about the heatmap
 
 | # | Question | Recommendation |
 |---|---|---|
-| Q6 | **Which colours?** You asked for green to red, but red and green are what red-green colour blindness, the most common kind, can't tell apart. | **Keep green for good, but make bad a red-orange that's also much darker than the green,** so lightness separates them even without colour vision. I'd tune both until they pass the checker, and change the hue only if they can't. |
 | Q7 | **Where does it go?** | **One "Lately" section at the top of the overview,** with one small calendar per dimension side by side, so you see all seven at once. Each dimension's card keeps its line chart. |
-| Q8 | **How are volunteered cells marked?** | **A small dot in the cell,** explained in the legend. Changing the colour would mix two meanings. |
-| Q9 | **How far back?** | **The same 12 weeks as the charts,** one column per week, Monday at the top, the newest week on the right. |
