@@ -278,7 +278,10 @@ def test_ac15_data_endpoints_get_a_session_scoped_to_the_logged_in_user(
                 owner,
                 uuid.UUID(user_id),
                 Checkin(
-                    datetime(2026, 10, 23, 21, tzinfo=UTC), date(2026, 10, 23), {Dimension.MOOD: 3}
+                    datetime(2026, 10, 23, 21, tzinfo=UTC),
+                    date(2026, 10, 23),
+                    {Dimension.MOOD: 3},
+                    volunteered=frozenset(),
                 ),
             )
 

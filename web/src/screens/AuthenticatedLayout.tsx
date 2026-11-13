@@ -36,6 +36,7 @@ export function AuthenticatedLayout() {
         <nav className={styles.nav}>
           <NavLink to="/">Today</NavLink>
           <NavLink to="/overview">Overview</NavLink>
+          <NavLink to="/context">Personal context</NavLink>
         </nav>
         <span className={styles.account}>
           {me.data.email}

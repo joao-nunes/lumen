@@ -44,11 +44,15 @@ RLS_MIGRATION = (
 API = "src/lumen/api/"
 REPOSITORY = "src/lumen/db/repository.py"
 CHECKIN = "src/lumen/domain/checkin.py"
+CONTEXT = "src/lumen/domain/context.py"
+CONTEXT_MIGRATION = "migrations/versions/2026_11_13_1500-0b5d619b7c88_personal_context.py"
+VOLUNTEERED_MIGRATION = "migrations/versions/2026_11_13_1200-a15cf43a3feb_volunteered_scores.py"
 CHANGE_LIMIT = "src/lumen/auth/password_change.py"
 EVENT_LOG = API + "event_log.py"
 MIDDLEWARE = API + "middleware.py"
 OLLAMA = "src/lumen/suggestions/ollama.py"
 ROUTES_CHECKINS = API + "routes/checkins.py"
+ROUTES_CONTEXT = API + "routes/context.py"
 SUGGESTION = "src/lumen/suggestions/model.py"
 EVALUATION = "src/lumen/suggestions/evaluation.py"
 PROMPT = "src/lumen/suggestions/prompt.py"
@@ -782,12 +786,13 @@ GROUPS: dict[str, list[Mutant]] = {
             ROUTES_CHECKINS,
             "a transaction stays open during the model call",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
-            "    asked = dimensions_for(local_date)\n"
-            "    offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))\n"
+            "    # All seven, whatever the day asks: a score the day didn't ask for is volunteered (spec 008).\n"
+            "    asked = tuple(Dimension)\n"
+            "    offered = offered_tags(used)\n"
             "    reply = container.suggestions.suggest(body.text, asked, offered)\n",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
-            "        asked = dimensions_for(local_date)\n"
-            "        offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))\n"
+            "        asked = tuple(Dimension)\n"
+            "        offered = offered_tags(used)\n"
             "        reply = container.suggestions.suggest(body.text, asked, offered)\n",
         ),
         Mutant(
@@ -798,18 +803,24 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             ROUTES_CHECKINS,
-            "every dimension asked, whatever the day",
-            "    asked = dimensions_for(local_date)\n",
+            "only the day's dimensions asked (spec 008)",
             "    asked = tuple(Dimension)\n",
+            "    asked = dimensions_for(local_date)\n",
         ),
         Mutant(
             ROUTES_CHECKINS,
             "the person's own tags not offered",
-            "tuple(dict.fromkeys([*used, *STARTER_TAGS]))",
-            "tuple(dict.fromkeys(STARTER_TAGS))",
+            "offered = offered_tags(used)",
+            "offered = offered_tags(())",
         ),
         Mutant(
             ROUTES_CHECKINS,
+            "the route builds its own tag order",
+            "offered = offered_tags(used)",
+            "offered = tuple(dict.fromkeys([*offered_tags(()), *used]))",
+        ),
+        Mutant(
+            SUGGESTION,
             "a tag offered twice",
             "tuple(dict.fromkeys([*used, *STARTER_TAGS]))",
             "(*used, *STARTER_TAGS)",
@@ -978,6 +989,48 @@ GROUPS: dict[str, list[Mutant]] = {
             "client sends a different prompt from the measured one",
             "system = checkin_extraction_prompt(dimensions, tags)",
             "system = checkin_extraction_prompt(dimensions, ())",
+        ),
+        Mutant(
+            EVALUATION,
+            "dimensions not asked still measured",
+            "for dimension in outcome.asked:",
+            "for dimension in Dimension:",
+        ),
+        Mutant(
+            PROMPT,
+            "prompt v2 used again",
+            'PROMPT_NAME = "checkin_extraction_v1"',
+            'PROMPT_NAME = "checkin_extraction_v2"',
+        ),
+        Mutant(
+            PROMPT,
+            "measured for the day's dimensions, not all seven",
+            "return ((tuple(Dimension), offered_tags(INVENTED_TAGS)),)",
+            "return ((tuple(Dimension)[:5], offered_tags(INVENTED_TAGS)),)",
+        ),
+        Mutant(
+            PROMPT,
+            "invented tags not offered",
+            "return ((tuple(Dimension), offered_tags(INVENTED_TAGS)),)",
+            "return ((tuple(Dimension), offered_tags(())),)",
+        ),
+        Mutant(
+            EVALUATION,
+            "a run never stops on failures",
+            "if failures_in_a_row >= MAX_FAILURES_IN_A_ROW:",
+            "if failures_in_a_row >= MAX_FAILURES_IN_A_ROW * 99:",
+        ),
+        Mutant(
+            EVALUATION,
+            "a success doesn't reset the failure count",
+            "failures_in_a_row = failures_in_a_row + 1 if suggestion is None else 0",
+            "failures_in_a_row = failures_in_a_row + 1 if suggestion is None else failures_in_a_row",
+        ),
+        Mutant(
+            SUGGESTION,
+            "a person's own tags offered last",
+            "[*used, *STARTER_TAGS]",
+            "[*STARTER_TAGS, *used]",
         ),
         Mutant(
             EVALUATION,
@@ -1158,6 +1211,92 @@ GROUPS: dict[str, list[Mutant]] = {
             "tags ordered by name only",
             "        .order_by(uses.desc(), models.Tag.name)",
             "        .order_by(models.Tag.name)",
+        ),
+        # Spec 010: personal context.
+        Mutant(
+            ROUTES_CONTEXT,
+            "context saved untrimmed",
+            "StringConstraints(strip_whitespace=True, max_length=MAX_CONTEXT_LENGTH)",
+            "StringConstraints(strip_whitespace=False, max_length=MAX_CONTEXT_LENGTH)",
+        ),
+        Mutant(
+            CONTEXT,
+            "context limit one longer",
+            "MAX_CONTEXT_LENGTH = 750",
+            "MAX_CONTEXT_LENGTH = 751",
+        ),
+        Mutant(
+            REPOSITORY,
+            "empty context saved instead of deleted",
+            "    if not value:\n",
+            "    if False:\n",
+        ),
+        Mutant(
+            REPOSITORY,
+            "context read without the user filter",
+            "select(models.PersonalContext.text).where(models.PersonalContext.user_id == user_id)",
+            "select(models.PersonalContext.text).limit(1)",
+        ),
+        Mutant(
+            CONTEXT_MIGRATION,
+            "context table without forced RLS",
+            '    op.execute("ALTER TABLE personal_context FORCE ROW LEVEL SECURITY")\n',
+            "",
+        ),
+        Mutant(
+            CONTEXT_MIGRATION,
+            "context table without the app's grants",
+            'op.execute(f"GRANT SELECT, INSERT, UPDATE, DELETE ON personal_context TO {APP_ROLE}")',
+            'op.execute(f"GRANT SELECT ON personal_context TO {APP_ROLE}")',
+        ),
+        # Spec 008: volunteered scores.
+        Mutant(
+            ROUTES_CHECKINS,
+            "every score labelled asked",
+            "volunteered=volunteered_for(local_date, scores)",
+            "volunteered=frozenset()",
+        ),
+        Mutant(
+            ROUTES_CHECKINS,
+            "labelled by today's schedule, not the check-in's day",
+            "volunteered=volunteered_for(local_date, scores)",
+            "volunteered=volunteered_for(now.date(), scores)",
+        ),
+        Mutant(
+            CHECKIN,
+            "asked scores labelled volunteered",
+            "frozenset(d for d in scores if d not in asked)",
+            "frozenset(d for d in scores if d in asked)",
+        ),
+        Mutant(
+            REPOSITORY,
+            "every score stored as volunteered",
+            '"volunteered": d in checkin.volunteered,',
+            '"volunteered": True,',
+        ),
+        Mutant(
+            REPOSITORY,
+            "stored labels not read back",
+            "volunteered=frozenset(s.dimension for s in row.scores if s.volunteered),",
+            "volunteered=frozenset(),",
+        ),
+        Mutant(
+            REPOSITORY,
+            "volunteered scores included in observations",
+            "            models.CheckinScore.volunteered.is_(False),\n",
+            "",
+        ),
+        Mutant(
+            VOLUNTEERED_MIGRATION,
+            "migration's schedule shifted by a day",
+            "(c.local_date - DATE '0001-01-01' + 1)",
+            "(c.local_date - DATE '0001-01-01' + 2)",
+        ),
+        Mutant(
+            VOLUNTEERED_MIGRATION,
+            "migration labels nothing",
+            "    op.execute(LABEL_EXISTING)\n",
+            "",
         ),
     ],
     "analytics": [
