@@ -1,8 +1,12 @@
 :root {
-  color-scheme: light dark;
+  /*
+   * Light by default, whatever the system prefers. light-dark() follows this property, so the
+   * dark values below stay ready for a theme switch.
+   */
+  color-scheme: light;
   /*
    * A warm, minimal palette: off-white #fcfaf6, greige #e4dcd7, stone #e1ddd2 and charcoal
-   * #383838, with dark mode derived from the same colours. Text pairs meet WCAG AA: text 11.3:1
+   * #383838, with a dark variant derived from the same colours. Text pairs meet WCAG AA: text 11.3:1
    * and muted 6.0:1 on the light background, 12.4:1 and 6.8:1 on the dark one.
    */
   --text: light-dark(#383838, #ece6e0);
