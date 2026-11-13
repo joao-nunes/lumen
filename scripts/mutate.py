@@ -52,7 +52,7 @@ ROUTES_CHECKINS = API + "routes/checkins.py"
 SUGGESTION = "src/lumen/suggestions/model.py"
 EVALUATION = "src/lumen/suggestions/evaluation.py"
 PROMPT = "src/lumen/suggestions/prompt.py"
-PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v1.txt"
+PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v2.txt"
 DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
@@ -996,6 +996,18 @@ GROUPS: dict[str, list[Mutant]] = {
             "each note asked for every dimension",
             "model.suggest(entry.text, asked, tags)",
             "model.suggest(entry.text, tuple(Dimension), tags)",
+        ),
+        Mutant(
+            PROMPT,
+            "dimensions not asked aren't named",
+            'not_asked="\\n".join(_outline(d) for d in Dimension if d not in dimensions) or "(none)"',
+            'not_asked="(none)"',
+        ),
+        Mutant(
+            PROMPT,
+            "prompt v1 used again",
+            'PROMPT_NAME = "checkin_extraction_v2"',
+            'PROMPT_NAME = "checkin_extraction_v1"',
         ),
         Mutant(
             PROMPT,

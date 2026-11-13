@@ -1,6 +1,6 @@
 {
-  "prompt": "checkin_extraction_v1",
-  "sha256": "5236fd0394950005ad22ed75248e9938e154180a2b6523f1b2ad0a6c52d852da",
+  "prompt": "checkin_extraction_v2",
+  "sha256": "3c5811d8292ee016d809e3819aa86a8e9bc83309fe1916ad564253c9110a816f",
   "model": "gemma4:26b",
   "split": "test"
 }
