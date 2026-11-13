@@ -23,7 +23,7 @@ from lumen.domain.dimensions import (
 )
 from lumen.suggestions.model import offered_tags
 
-PROMPT_NAME = "checkin_extraction_v1"
+PROMPT_NAME = "checkin_extraction_v2"
 
 # Stand in for a person's own tags, which can't go in a public repository. No note mentions these
 # and no label uses them, so choosing one always counts against precision.
@@ -65,6 +65,12 @@ def _describe(dimension: Dimension) -> str:
     return f"{dimension.value} ({spec.display_name}). {direction}\n{anchors}"
 
 
+def _outline(dimension: Dimension) -> str:
+    spec = DIMENSIONS[dimension]
+    lowest, highest = spec.anchors[0].description, spec.anchors[-1].description
+    return f'- {dimension.value} ({spec.display_name}): from "{lowest}" to "{highest}"'
+
+
 def checkin_extraction_prompt(dimensions: Collection[Dimension], tags: Collection[str]) -> str:
     shape = {
         "dimensions": {
@@ -76,6 +82,8 @@ def checkin_extraction_prompt(dimensions: Collection[Dimension], tags: Collectio
         scale_min=SCALE_MIN,
         scale_max=SCALE_MAX,
         described="\n\n".join(_describe(d) for d in dimensions),
+        # v2: naming what isn't asked stops the model moving it onto what is (spec 007).
+        not_asked="\n".join(_outline(d) for d in Dimension if d not in dimensions) or "(none)",
         offered=", ".join(tags) if tags else "(none)",
         shape=json.dumps(shape),
     )

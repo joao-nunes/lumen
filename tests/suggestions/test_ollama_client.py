@@ -105,7 +105,10 @@ def test_ac2_the_prompt_uses_the_anchors_the_form_shows(stub: Stub) -> None:
     assert system["role"] == "system"
     assert "Struggling to feel anything positive" in system["content"]  # mood 1
     assert "Feels like too much to cope with" in system["content"]  # stress 5
-    assert "Hard to get through basic tasks" not in system["content"]  # energy wasn't asked
+    # Energy wasn't asked: it's outlined, so the model knows not to move it, but not scored.
+    assert "Running on reserves" not in system["content"]  # energy 2
+    assert '- energy (Energy): from "Hard to get through basic tasks"' in system["content"]
+    assert '"energy"' not in system["content"]  # not in the reply's shape
     assert "poor_sleep, exercise" in system["content"]
     assert TEXT not in system["content"]
 
