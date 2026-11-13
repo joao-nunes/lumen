@@ -1,6 +1,6 @@
 # Spec 009: Volunteered scores in the overview
 
-**Status:** Proposed. The owner has answered everything except Q7, where the heatmap goes (§6.2)
+**Status:** Approved (decisions in §6)
 **Builds on:** spec 002 (overview), spec 008 (volunteered scores)
 
 ## 1. Goal
@@ -86,9 +86,7 @@ The chart faults are run by hand: volunteered points drawn filled, joined to the
 1. This spec.
 2. One implementation PR, with its tests failing first, fault injection, and an "Added during implementation" section here.
 
-## 6. Decisions and open questions
-
-### 6.1 Decisions
+## 6. Decisions
 
 | # | Question | Decision |
 |---|---|---|
@@ -99,10 +97,5 @@ The chart faults are run by hand: volunteered points drawn filled, joined to the
 | Q5 | Record the notice in `PROJECT.MD` now? | **Not yet.** Whether the notice is deterministic or an agent will be discussed after this spec. |
 | Q6 | Which colours? | **Green for good, and for bad a red-orange that's also much darker,** tuned until both pass the colour-blindness checker in light and dark mode. The hue changes only if they can't. |
 | Q8 | How are volunteered cells marked? | **A small dot in the cell,** explained in the legend. |
+| Q7 | Where does it go? | **A "Lately" section at the top of the overview,** one small calendar per dimension side by side. Each dimension's card keeps its line chart. |
 | Q9 | How far back? | **The same 12 weeks as the charts,** one column per week, Monday at the top, the newest week on the right. |
-
-### 6.2 Open questions about the heatmap
-
-| # | Question | Recommendation |
-|---|---|---|
-| Q7 | **Where does it go?** | **One "Lately" section at the top of the overview,** with one small calendar per dimension side by side, so you see all seven at once. Each dimension's card keeps its line chart. |
