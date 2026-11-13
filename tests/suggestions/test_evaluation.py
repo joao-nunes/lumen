@@ -31,7 +31,7 @@ from lumen.suggestions.model import (
     SuggestionsUnavailableError,
     offered_tags,
 )
-from lumen.suggestions.prompt import INVENTED_TAGS, measured_requests
+from lumen.suggestions.prompt import INVENTED_TAGS, MEASURED_CONTEXT, measured_requests
 
 MOOD, ENERGY, STRESS = Dimension.MOOD, Dimension.ENERGY, Dimension.STRESS
 ENTRIES = Path(__file__).parents[2] / "evals" / "extraction" / "entries.jsonl"
@@ -173,7 +173,7 @@ GOOD = Metrics(
     off_by_three=0.01,
     unaddressed=300,
     left_blank=0.90,
-    tag_precision=0.5,
+    tag_precision=0.85,
     tag_recall=0.5,
     p95_seconds=9.99,
     failures=0,
@@ -198,6 +198,7 @@ def test_the_bar_is_met_exactly_at_each_limit() -> None:
         {"off_by_three": 0.0101},
         {"p95_seconds": 10.0},
         {"distress_failures": 1},
+        {"tag_precision": 0.849},  # spec 010 Q4
         {"addressed": 0},
         {"unaddressed": 0},
     ],
@@ -218,12 +219,16 @@ def test_only_the_dimensions_asked_are_measured() -> None:
 
 class RecordingModel:
     def __init__(self) -> None:
-        self.calls: list[tuple[str, tuple[Dimension, ...], tuple[str, ...]]] = []
+        self.calls: list[tuple[str, tuple[Dimension, ...], tuple[str, ...], str]] = []
 
     def suggest(
-        self, text: str, dimensions: Collection[Dimension], tags: Collection[str]
+        self,
+        text: str,
+        dimensions: Collection[Dimension],
+        tags: Collection[str],
+        context: str = "",
     ) -> Suggestion:
-        self.calls.append((text, tuple(dimensions), tuple(tags)))
+        self.calls.append((text, tuple(dimensions), tuple(tags), context))
         if text == "fails":
             raise SuggestionsUnavailableError
         return Suggestion(scores={MOOD: 3})
@@ -231,14 +236,21 @@ class RecordingModel:
 
 def test_every_note_is_asked_about_all_seven_dimensions_with_the_app_s_tags() -> None:
     model = RecordingModel()
-    notes = [replace(entry({MOOD: 3}), text="fine"), replace(entry({MOOD: 3}), text="fails")]
+    notes = [
+        replace(entry({MOOD: 3}), text="fine", context="Waking at night is normal."),
+        replace(entry({MOOD: 3}), text="fails"),
+    ]
     ticks = iter(range(100))
 
     outcomes = collect(model, notes, clock=lambda: float(next(ticks)))
 
     every, tags = tuple(Dimension), (*INVENTED_TAGS, *STARTER_TAGS)
-    assert measured_requests() == ((every, tags),)  # spec 008 AC-12: one request per note
-    assert model.calls == [("fine", every, tags), ("fails", every, tags)]
+    # Spec 010 AC-9: the hash covers a prompt without a context and one with.
+    assert measured_requests() == ((every, tags, ""), (every, tags, MEASURED_CONTEXT))
+    assert model.calls == [  # each note with its own context, once
+        ("fine", every, tags, "Waking at night is normal."),
+        ("fails", every, tags, ""),
+    ]
     assert [(o.entry.text, o.asked, o.seconds) for o in outcomes] == [
         ("fine", every, 1.0),
         ("fails", every, 1.0),

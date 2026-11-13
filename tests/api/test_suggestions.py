@@ -56,7 +56,8 @@ def test_ac4_a_suggestion_is_returned_and_nothing_is_saved(
     assert row_count(engine, "checkins") == 0
     assert row_count(engine, "tags") == 0
 
-    [(note, dimensions, offered)] = suggestion_model.calls
+    [(note, dimensions, offered, context)] = suggestion_model.calls
+    assert context == ""  # spec 010: none saved
     assert note == NOTE
     assert dimensions == tuple(Dimension)  # spec 008: all seven, whatever the day asks
     assert offered == STARTER_TAGS
@@ -106,6 +107,23 @@ def test_ac5_the_text_leaves_no_trace(
         for table in tables:
             rows = conn.execute(text(f"SELECT t::text FROM {table} t")).scalars()  # noqa: S608
             assert not [row for row in rows if MARKER in row], table
+
+
+def test_spec010_ac6_the_saved_personal_context_goes_to_the_model(
+    client: TestClient, new_client: NewClient, suggestion_model: FakeSuggestionModel
+) -> None:
+    other = new_client()
+    assert register(other, "other@example.com").status_code == 201
+    saved = client.put(
+        "/api/context", json={"text": "Waking at night is normal for me."}, headers=csrf(client)
+    )
+    assert saved.status_code == 200
+
+    assert suggest(client).status_code == 200
+    assert suggest(other).status_code == 200
+
+    contexts = [call[3] for call in suggestion_model.calls]
+    assert contexts == ["Waking at night is normal for me.", ""]  # never another person's
 
 
 def test_ac6_invalid_values_are_removed_and_a_volunteered_score_is_kept(

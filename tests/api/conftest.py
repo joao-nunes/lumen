@@ -77,13 +77,17 @@ class FakeSuggestionModel:
     def __init__(self) -> None:
         self.reply = Suggestion()
         self.error: Exception | None = None
-        self.calls: list[tuple[str, tuple[Dimension, ...], tuple[str, ...]]] = []
+        self.calls: list[tuple[str, tuple[Dimension, ...], tuple[str, ...], str]] = []
         self.during_call: Callable[[], None] = lambda: None
 
     def suggest(
-        self, text: str, dimensions: Collection[Dimension], tags: Collection[str]
+        self,
+        text: str,
+        dimensions: Collection[Dimension],
+        tags: Collection[str],
+        context: str = "",
     ) -> Suggestion:
-        self.calls.append((text, tuple(dimensions), tuple(tags)))
+        self.calls.append((text, tuple(dimensions), tuple(tags), context))
         self.during_call()
         if self.error is not None:
             raise self.error

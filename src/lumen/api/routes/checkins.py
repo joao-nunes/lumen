@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, StrictInt, StringConstraints
 
 from lumen.api.dependencies import ContainerDep, CurrentUser, UserDb
 from lumen.api.errors import error_responses
-from lumen.db.repository import get_checkin, save_checkin, tag_usage
+from lumen.db.repository import get_checkin, get_context, save_checkin, tag_usage
 from lumen.db.scope import user_transaction
 from lumen.domain.checkin import (
     Checkin,
@@ -142,10 +142,11 @@ def suggest_checkin(
     # A short transaction, not UserDb: a model call can take many seconds.
     with user_transaction(container.app_sessions, user.user_id) as db:
         used = [name for name, _ in tag_usage(db, user.user_id)]
+        context = get_context(db, user.user_id)  # spec 010; Tier 0, so only the local model sees it
     # All seven, whatever the day asks: a score the day didn't ask for is volunteered (spec 008).
     asked = tuple(Dimension)
     offered = offered_tags(used)
-    reply = container.suggestions.suggest(body.text, asked, offered)
+    reply = container.suggestions.suggest(body.text, asked, offered, context)
     valid = keep_valid(
         {dimension.value: score for dimension, score in reply.scores.items()},
         reply.tags,
