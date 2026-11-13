@@ -26,6 +26,7 @@ def checkin(mood: int) -> Checkin:
         DAY,
         {Dimension.MOOD: mood},
         frozenset({"exercise"}),
+        volunteered=frozenset(),
     )
 
 

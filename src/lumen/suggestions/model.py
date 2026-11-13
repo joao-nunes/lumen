@@ -1,6 +1,6 @@
 """What a suggestion is, and the seam any model sits behind (spec 006 §2.5)."""
 
-from collections.abc import Collection, Mapping
+from collections.abc import Collection, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -18,6 +18,11 @@ STARTER_TAGS = (
     "conflict",
     "time_outdoors",
 )
+
+
+def offered_tags(used: Iterable[str]) -> tuple[str, ...]:
+    """What the model may choose: a person's own tags first, then the starter tags, once each."""
+    return tuple(dict.fromkeys([*used, *STARTER_TAGS]))
 
 
 class SuggestionsUnavailableError(Exception):

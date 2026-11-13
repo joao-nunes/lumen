@@ -1,16 +1,33 @@
 :root {
-  color-scheme: light dark;
-  --text: light-dark(#1f2328, #e6e8eb);
-  --muted: light-dark(#59636e, #9aa4af);
-  --border: light-dark(#d1d9e0, #3d444d);
-  --background: light-dark(#ffffff, #15191e);
-  /* Validated with the dataviz palette checker against these two backgrounds. */
-  --chart-line: light-dark(#2a78d6, #3987e5);
-  --chart-grid: light-dark(#e6e8eb, #2a3037);
+  /*
+   * Light by default, whatever the system prefers. The footer's switch sets data-theme="dark"
+   * (lib/theme.ts), and light-dark() follows color-scheme, so every colour below switches with it.
+   */
+  color-scheme: light;
+  /*
+   * A warm, minimal palette: off-white #fcfaf6, greige #e4dcd7, stone #e1ddd2 and charcoal
+   * #383838, with a dark variant derived from the same colours. Text pairs meet WCAG AA: text 11.3:1
+   * and muted 6.0:1 on the light background, 12.4:1 and 6.8:1 on the dark one.
+   */
+  --text: light-dark(#383838, #ece6e0);
+  --muted: light-dark(#66605a, #b3aca5);
+  --border: light-dark(#d8d0c8, #45423f);
+  --background: light-dark(#fcfaf6, #262524);
+  --button: light-dark(#383838, #e1ddd2);
+  --button-text: light-dark(#fcfaf6, #262524);
+  --chart-line: light-dark(#383838, #e4dcd7);
+  --chart-grid: light-dark(#e1ddd2, #3a3835);
+  /* Outlook keeps its own hues: the palette has no pair that tells better from harder apart. */
   --outlook-better: light-dark(#1baf7a, #199e70);
   --outlook-harder: light-dark(#6250d6, #9085e9);
+  /* Checked radios and checkboxes in the palette, not the system blue. */
+  accent-color: var(--text);
   font-family: system-ui, sans-serif;
   line-height: 1.5;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 * {
@@ -21,4 +38,29 @@ body {
   margin: 0;
   background: var(--background);
   color: var(--text);
+}
+
+a {
+  color: var(--text);
+  text-underline-offset: 0.2em;
+}
+
+button {
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--button);
+  border-radius: 0.375rem;
+  background: var(--button);
+  color: var(--button-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
 }
