@@ -328,11 +328,11 @@ def test_anything_else_leaves_the_record_as_it_was(
 def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(ENTRIES)
 
-    assert len(entries) == 250
-    assert len({e.id for e in entries}) == 250
-    assert len({e.text for e in entries}) == 250
+    assert len(entries) == 350
+    assert len({e.id for e in entries}) == 350
+    assert len({e.text for e in entries}) == 350
     for language in ("en", "pt"):
-        for split, count in (("dev", 25), ("test", 50), ("test_v1", 50)):
+        for split, count in (("dev", 25), ("test", 50), ("test_v1", 50), ("test_v2", 50)):
             assert len([e for e in entries if (e.language, e.split) == (language, split)]) == count
         # Enough of each awkward kind in both splits, or a weakness could go unmeasured.
         for split in ("dev", "test"):
@@ -351,7 +351,7 @@ def test_the_evaluation_set_is_what_the_spec_says() -> None:
         assert not set(e.scores) & set(e.either), e.id
     irrelevant = [e for e in entries if e.category == "irrelevant"]
     assert irrelevant and all(not e.scores for e in irrelevant)
-    # About 100 per language, which is good to roughly 4 points either way (spec 006 §7, 007).
+    # About 100 per language, which is good to roughly 4 points either way (spec 006 §7, 007, 008).
     for language in ("en", "pt"):
         held_out = [e for e in entries if (e.language, e.split) == (language, "test")]
         assert sum(len(e.scores) for e in held_out) >= 100

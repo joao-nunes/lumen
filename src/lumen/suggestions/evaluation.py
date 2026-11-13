@@ -12,9 +12,10 @@ from lumen.domain.dimensions import SCALE_MAX, SCALE_MIN, Dimension
 from lumen.suggestions.model import Suggestion, SuggestionModel, SuggestionsUnavailableError
 from lumen.suggestions.prompt import measured_requests
 
-# "test" is the held-out split for the current prompt. "test_v1" held prompt v1's: it has been read,
-# so it's never tuned on or measured against again, and keeps only the owner's blind scores.
-SPLITS = frozenset({"dev", "test", "test_v1"})
+# "test" is the held-out split for the current measurement. The others held earlier ones and have
+# been read, so they're never tuned on or measured against again: "test_v1" (spec 006, which keeps
+# the owner's blind scores) and "test_v2" (spec 007).
+SPLITS = frozenset({"dev", "test", "test_v1", "test_v2"})
 BLIND_SPLIT = "test_v1"
 LANGUAGES = frozenset({"en", "pt"})
 
