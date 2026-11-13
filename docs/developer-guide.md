@@ -297,12 +297,12 @@ Dimensions are defined in `lumen/domain/dimensions.py`, and the web app picks th
 
 ### Change a prompt
 
-The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the starter tags and the code that renders them. To change it:
+The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the schedule's day types, the starter and invented tags, and the code that renders them. The evaluation asks about each note as the app would, once per day type (spec 007). To change it:
 
-1. Add `src/lumen/suggestions/prompts/<name>_v2.txt`, and point `PROMPT_NAME` in `lumen.suggestions.prompt` at it. Keep the old file: it's what the recorded results refer to until they're replaced. Change the parser in the same commit if the reply's shape changes.
-2. Tune on the `dev` split.
-3. Add new held-out notes to `evals/extraction/entries.jsonl`, because the current ones have been read.
-4. Run `make eval-extraction MODEL=x SPLIT=test`. It updates `measured_prompt.json` only if the bar is met in both languages. Commit that file with the results.
+1. **Write new held-out notes first,** before the new prompt, and commit them. In `evals/extraction/entries.jsonl`, rename the current `test` split to `test_vN` and add it to `SPLITS`: its results have been read, so it's never tuned on or measured again. Keep `test_v1`, which holds the notes the owner scored blind.
+2. Add `src/lumen/suggestions/prompts/<name>_vN.txt`, and point `PROMPT_NAME` in `lumen.suggestions.prompt` at it. Keep the old files. Change the parser in the same commit if the reply's shape changes.
+3. Tune on the `dev` split only, saving the whole output. Don't put wording from a held-out note in the prompt.
+4. Commit the prompt, then run `make eval-extraction MODEL=x SPLIT=test` once. It updates `measured_prompt.json` only if the bar is met in both languages. Commit that file with the results, and report them whether or not the bar is met.
 
 ### Change the frontend
 

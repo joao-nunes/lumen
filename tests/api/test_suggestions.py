@@ -268,7 +268,7 @@ def test_ac9_the_model_is_offered_only_the_caller_s_tags(
     assert suggest(second).status_code == 200
 
     offered_first, offered_second = (call[2] for call in suggestion_model.calls)
-    assert "only_first_has_this" in offered_first
+    assert set(offered_first[:2]) == {"only_first_has_this", "exercise"}  # theirs come first
     assert offered_first.count("exercise") == 1  # in both lists, offered once
     assert set(offered_first) >= set(STARTER_TAGS)
     assert offered_second == STARTER_TAGS

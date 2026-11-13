@@ -12,7 +12,7 @@ from lumen.db.repository import get_checkin, save_checkin, tag_usage
 from lumen.db.scope import user_transaction
 from lumen.domain.checkin import Checkin, CheckinMode, check_editable, structured_scores
 from lumen.domain.dimensions import DIMENSIONS, Cadence, Dimension, Polarity, dimensions_for
-from lumen.suggestions.model import STARTER_TAGS, SuggestionsUnavailableError, keep_valid
+from lumen.suggestions.model import SuggestionsUnavailableError, keep_valid, offered_tags
 
 router = APIRouter(prefix="/api")
 
@@ -132,7 +132,7 @@ def suggest_checkin(
     with user_transaction(container.app_sessions, user.user_id) as db:
         used = [name for name, _ in tag_usage(db, user.user_id)]
     asked = dimensions_for(local_date)
-    offered = tuple(dict.fromkeys([*used, *STARTER_TAGS]))
+    offered = offered_tags(used)
     reply = container.suggestions.suggest(body.text, asked, offered)
     valid = keep_valid(
         {dimension.value: score for dimension, score in reply.scores.items()},

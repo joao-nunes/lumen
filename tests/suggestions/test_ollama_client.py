@@ -15,9 +15,9 @@ from pydantic import SecretStr
 from lumen.api.app import create_app
 from lumen.config import Settings
 from lumen.domain.dimensions import Dimension
-from lumen.suggestions.model import STARTER_TAGS, Suggestion, SuggestionsUnavailableError
+from lumen.suggestions.model import Suggestion, SuggestionsUnavailableError
 from lumen.suggestions.ollama import OllamaSuggestionModel, check_local_only
-from lumen.suggestions.prompt import prompt_fingerprint
+from lumen.suggestions.prompt import measured_requests, prompt_fingerprint
 
 TEXT = "marker_private_text slept badly"
 ASKED = (Dimension.MOOD, Dimension.STRESS)
@@ -105,16 +105,22 @@ def test_ac2_the_prompt_uses_the_anchors_the_form_shows(stub: Stub) -> None:
     assert system["role"] == "system"
     assert "Struggling to feel anything positive" in system["content"]  # mood 1
     assert "Feels like too much to cope with" in system["content"]  # stress 5
-    assert "Hard to get through basic tasks" not in system["content"]  # energy wasn't asked
+    # Energy wasn't asked: it's outlined, so the model knows not to move it, but not scored.
+    assert "Running on reserves" not in system["content"]  # energy 2
+    assert '- energy (Energy): from "Hard to get through basic tasks"' in system["content"]
+    assert '"energy"' not in system["content"]  # not in the reply's shape
     assert "poor_sleep, exercise" in system["content"]
     assert TEXT not in system["content"]
 
 
 def test_the_client_sends_the_prompt_that_was_measured(stub: Stub) -> None:
     stub.answer(reply())
-    OllamaSuggestionModel(stub.url, "some-model").suggest(TEXT, tuple(Dimension), STARTER_TAGS)
+    model = OllamaSuggestionModel(stub.url, "some-model")
+    for dimensions, tags in measured_requests():
+        model.suggest(TEXT, dimensions, tags)
 
-    sent = stub.requests[0]["body"]["messages"][0]["content"]
+    sent = "\n".join(r["body"]["messages"][0]["content"] for r in stub.requests)
+    assert len(stub.requests) == 2
     assert hashlib.sha256(sent.encode()).hexdigest() == prompt_fingerprint()
 
 

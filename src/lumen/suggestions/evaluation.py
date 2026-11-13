@@ -1,16 +1,21 @@
-"""Measures a model against the evaluation set (spec 006 §3). Deterministic, with no model calls."""
+"""Measures a model against the evaluation set (spec 006 §3, spec 007). Only `collect` calls it."""
 
 import csv
 import json
 import math
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
 from lumen.domain.dimensions import SCALE_MAX, SCALE_MIN, Dimension
-from lumen.suggestions.model import Suggestion
+from lumen.suggestions.model import Suggestion, SuggestionModel, SuggestionsUnavailableError
+from lumen.suggestions.prompt import measured_requests
 
-SPLITS = frozenset({"dev", "test"})
+# "test" is the held-out split for the current prompt. "test_v1" held prompt v1's: it has been read,
+# so it's never tuned on or measured against again, and keeps only the owner's blind scores.
+SPLITS = frozenset({"dev", "test", "test_v1"})
+BLIND_SPLIT = "test_v1"
 LANGUAGES = frozenset({"en", "pt"})
 
 WITHIN_ONE_BAR = 0.95
@@ -39,6 +44,7 @@ class Outcome:
     entry: Entry
     suggestion: Suggestion | None  # None: the call failed
     seconds: float = 0.0
+    asked: tuple[Dimension, ...] = tuple(Dimension)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,6 +87,25 @@ def load_entries(path: Path) -> list[Entry]:
     return entries
 
 
+def collect(
+    model: SuggestionModel,
+    entries: Iterable[Entry],
+    *,
+    clock: Callable[[], float] = time.perf_counter,
+) -> list[Outcome]:
+    """Asks about every note as the app would, under each kind of day (spec 007 §2.1)."""
+    outcomes: list[Outcome] = []
+    for entry in entries:
+        for asked, tags in measured_requests():
+            started = clock()
+            try:
+                suggestion: Suggestion | None = model.suggest(entry.text, asked, tags)
+            except SuggestionsUnavailableError:
+                suggestion = None
+            outcomes.append(Outcome(entry, suggestion, clock() - started, asked))
+    return outcomes
+
+
 def _ratio(part: int, whole: int, *, empty: float = 0.0) -> float:
     return part / whole if whole else empty
 
@@ -92,7 +117,7 @@ def measure(outcomes: list[Outcome]) -> Metrics:
 
     for outcome in outcomes:
         entry, suggestion = outcome.entry, outcome.suggestion
-        for dimension in Dimension:
+        for dimension in outcome.asked:
             if dimension in entry.either:
                 continue
             guess = None if suggestion is None else suggestion.scores.get(dimension)
@@ -175,13 +200,13 @@ class Agreement:
 
 
 def blind_sheet_entries(entries: list[Entry]) -> list[Entry]:
-    """15 held-out entries per language, evenly spread, without the distressing ones."""
+    """The 15 entries per language the owner scored, evenly spread, without distressing ones."""
     chosen = []
     for language in sorted(LANGUAGES):
         pool = [
             e
             for e in entries
-            if e.split == "test" and e.language == language and e.category != "distress"
+            if e.split == BLIND_SPLIT and e.language == language and e.category != "distress"
         ]
         chosen += [pool[i * len(pool) // BLIND_PER_LANGUAGE] for i in range(BLIND_PER_LANGUAGE)]
     return chosen
