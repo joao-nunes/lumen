@@ -236,6 +236,71 @@ describe("a day that already has a check-in", () => {
   });
 });
 
+describe("a dimension the day didn't ask about (spec 008)", () => {
+  function addable(): string[] {
+    const control = screen.queryByRole<HTMLSelectElement>("combobox", {
+      name: "Add another dimension",
+    });
+    return control ? [...control.options].slice(1).map((option) => option.value) : [];
+  }
+
+  async function add(key: string): Promise<void> {
+    await userEvent.selectOptions(
+      screen.getByRole("combobox", { name: "Add another dimension" }),
+      key,
+    );
+  }
+
+  function notAsked(name: string): boolean {
+    return within(group(name)).queryByText("Not asked today") !== null;
+  }
+
+  it("AC-7: marks a saved answer the day didn't ask for", async () => {
+    days[TODAY] = {
+      ...emptyDay(TODAY),
+      checkin: {
+        scores: { mood: 2, energy: 3, stress: 4, social_connection: 5 },
+        tags: [],
+        recorded_at: "2026-11-03T20:00:00Z",
+      },
+    };
+    renderScreen();
+    await screen.findByRole("group", { name: "mood" });
+
+    expect([...CORE, "sleep_quality", "social_connection"].map(notAsked)).toEqual([
+      false,
+      false,
+      false,
+      false,
+      true,
+    ]);
+  });
+
+  it("AC-8: adds one, saves it, and offers only the rest", async () => {
+    renderScreen();
+    await screen.findByRole("group", { name: "mood" });
+    expect(addable()).toEqual(["concentration", "social_connection"]);
+
+    await add("concentration");
+    expect(notAsked("concentration")).toBe(true);
+    expect(chosen("concentration")).toBeUndefined();
+    expect(addable()).toEqual(["social_connection"]);
+
+    await add("social_connection"); // added but left blank: not saved
+    expect(screen.queryByRole("combobox", { name: "Add another dimension" })).toBeNull();
+    await chooseCore();
+    await choose("concentration", 2);
+    await save();
+
+    await screen.findByText("overview screen");
+    expect(puts[0]?.body).toEqual({
+      scores: { mood: 4, energy: 3, stress: 2, concentration: 2 },
+      tags: [],
+      mode: "structured",
+    });
+  });
+});
+
 describe("coming back after saving", () => {
   it("shows what was saved, so that saving again can't undo it", async () => {
     days[TODAY] = {
@@ -490,6 +555,46 @@ describe("free text", () => {
     expect(puts).toEqual([]);
     expect(suggestions[0]?.url).toBe(`/api/checkins/${TODAY}/suggestion`);
     expect(JSON.parse(suggestions[0]?.body ?? "")).toEqual({ text: NOTE });
+  });
+
+  it("spec 008 AC-11: a suggested score the day didn't ask for gets its own row", async () => {
+    suggestionResponse = reply({ mood: 4, energy: 3, stress: 2, concentration: 1 });
+    renderScreen();
+
+    await writeAndSuggest();
+
+    const concentration = await screen.findByRole("group", { name: "concentration" });
+    expect(chosen("concentration")).toBe("1");
+    expect(within(concentration).getByText("Not asked today")).toBeTruthy();
+    expect(within(concentration).getByText("Suggested, please check")).toBeTruthy();
+    expect(within(group("mood")).queryByText("Not asked today")).toBeNull();
+    await save();
+
+    await screen.findByText("overview screen");
+    expect(puts[0]?.body).toEqual({
+      scores: { mood: 4, energy: 3, stress: 2, concentration: 1 },
+      tags: [],
+      mode: "free_text",
+    });
+  });
+
+  it("keeps a suggested row the day didn't ask for when its score is changed", async () => {
+    suggestionResponse = reply({ mood: 4, energy: 3, stress: 2, sleep_quality: 4 });
+    days[TODAY] = { ...emptyDay(TODAY), prompted: CORE };
+    renderScreen();
+    await writeAndSuggest();
+    await screen.findByRole("group", { name: "sleep_quality" });
+
+    await choose("sleep_quality", 2); // the person disagrees with the model
+
+    const sleep = screen.getByRole("group", { name: "sleep_quality" });
+    expect(chosen("sleep_quality")).toBe("2");
+    expect(within(sleep).getByText("Not asked today")).toBeTruthy();
+    expect(within(sleep).queryByText("Suggested, please check")).toBeNull();
+    await save();
+
+    await screen.findByText("overview screen");
+    expect(puts[0]?.body.scores).toEqual({ mood: 4, energy: 3, stress: 2, sleep_quality: 2 });
   });
 
   it("AC-11: never overwrites a choice, even one made while waiting for the model", async () => {

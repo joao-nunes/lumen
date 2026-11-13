@@ -68,6 +68,7 @@ def test_ac1_a_saved_checkin_reads_back_normalized(user: TestClient) -> None:
             "scores": {"mood": 4, "energy": 3, "stress": 2, "sleep_quality": 5},
             "tags": ["exercise", "time_outdoors"],
             "recorded_at": "2026-10-31T12:00:00Z",
+            "volunteered": [],  # sleep_quality is asked on 31 October
         },
     }
     assert (response.status_code, response.json()) == (200, expected)
@@ -84,10 +85,51 @@ def test_ac2_saving_a_day_again_replaces_its_checkin(user: TestClient) -> None:
         "scores": {"mood": 2, "energy": 2, "stress": 4},
         "tags": [],
         "recorded_at": "2026-10-31T12:00:00Z",
+        "volunteered": [],
     }
     mood = overview(user)["mood"]
     assert mood["daily"] == [{"date": "2026-10-31", "mean": 2.0}]
     assert mood["change"]["current"]["n"] == 1
+
+
+# --- volunteered scores (spec 008) ----------------------------------------------------
+# 31 October asks sleep quality and motivation; 30 October asks concentration and social
+# connection. The clock says 31 October, so a mix-up with today's schedule would show.
+YESTERDAY = TODAY - timedelta(days=1)
+
+
+def test_spec008_ac1_ac3_a_score_the_day_didn_t_ask_is_labelled_volunteered(
+    user: TestClient,
+) -> None:
+    response = save(user, YESTERDAY, {**CORE, "concentration": 2, "sleep_quality": 4})
+
+    assert response.json()["checkin"]["volunteered"] == ["sleep_quality"]
+    assert user.get(f"/api/checkins/{YESTERDAY}").json()["checkin"]["volunteered"] == [
+        "sleep_quality"
+    ]
+
+    save(user, YESTERDAY, {**CORE, "concentration": 2})
+    assert user.get(f"/api/checkins/{YESTERDAY}").json()["checkin"]["volunteered"] == []
+
+
+def test_spec008_ac2_the_client_can_t_label_a_score(user: TestClient) -> None:
+    response = user.put(
+        f"/api/checkins/{TODAY}",
+        json={"scores": {**CORE, "concentration": 2}, "volunteered": ["mood"]},
+        headers=csrf(user),
+    )
+
+    assert response.status_code == 200
+    assert user.get(f"/api/checkins/{TODAY}").json()["checkin"]["volunteered"] == ["concentration"]
+
+
+def test_spec008_ac6_the_overview_leaves_volunteered_scores_out(user: TestClient) -> None:
+    save(user, TODAY, {**CORE, "sleep_quality": 5})  # asked
+    save(user, YESTERDAY, {**CORE, "sleep_quality": 1})  # volunteered
+
+    sleep = overview(user)["sleep_quality"]
+    assert sleep["daily"] == [{"date": "2026-10-31", "mean": 5.0}]
+    assert sleep["change"]["current"]["n"] == 1
 
 
 @pytest.mark.parametrize(

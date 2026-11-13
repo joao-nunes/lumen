@@ -105,3 +105,86 @@ The owner approved every recommendation.
 | Q1 | How many invented tags? | **12.** |
 | Q2 | Keep spec 006's bar, per language across both day types? | **Yes.** It was set before any model saw the held-out split, and changing it with results known would weaken it. |
 | Q3 | If the bar is missed, should suggestions stay on until the owner decides? | **Yes.** The feature is only used by the owner, and nothing is saved without their confirmation. |
+
+## 7. Added during implementation (for review)
+
+### Prompt v1 missed the bar under the app's conditions
+
+The first held-out run measured v1 on the original held-out notes, as §2.4 planned. Each cell is English / Portuguese.
+
+| | Bar | Spec 006 conditions | App's conditions |
+|---|---|---|---|
+| Suggestions within one | ≥95% | 99.1 / 98.0 | 99.4 / 97.4 |
+| Coverage | ≥75% | 99.1 / 93.4 | 99.4 / 91.1 |
+| **Left blank** | ≥90% | 95.8 / 95.5 | 92.2 / **89.7** |
+| Off by 3+ | ≤1% | 0 / 0 | 0 / 0 |
+| Slowest 5% | <10 s | 4.2 / 4.7 s | 3.3 / 3.6 s |
+
+Against the owner's blind scores, left blank fell from 88.4 / 84.0 to 84.6 / 78.1, and off by 3+ rose from 2.8 / 3.3 to 3.4 / 4.4. Implementation stopped there, and the options went to the owner.
+
+### Diagnosis, on the tuning split only
+
+The owner chose to diagnose before changing anything. Left blank, English / Portuguese:
+
+| Condition | Left blank |
+|---|---|
+| All seven dimensions, starter tags | 95.5 / 92.8 |
+| The same answers, counted as two day types | 94.5 / 90.7 |
+| Two day types, starter tags | 92.3 / 88.6 |
+| Two day types, invented tags too (the app) | 92.3 / 89.6 |
+
+- **The shorter list was the main cause.** On about 7 notes, the model moved a note's content onto an asked dimension: "could not focus" became motivation on a day concentration wasn't asked, for example.
+- **Some of the drop was only what's counted,** because the core dimensions count twice.
+- **Invented tags didn't affect blanks,** but lowered tag precision.
+- **A first attempt at this run was invalid:** Ollama had stopped, so nearly every call failed. The script now aborts after three failures in a row. The earlier held-out and owner runs had no failed calls.
+
+### The owner chose a prompt v2
+
+I recommended always asking about all seven dimensions and discarding the unasked ones. The owner chose a prompt v2 instead, accepting that it's more work.
+
+- **New held-out notes were written and committed before v2 existed:** 100, half per language, with the same mix of kinds as before. That's 102 English labels and 101 Portuguese, with only starter tags. The Portuguese notes are separate scenarios, not translations.
+- **v1's held-out notes became `test_v1`.** They've been read, so they're never tuned on or measured again. The owner's blind scores belong to 30 of them, so `--against-owner` still uses them, and a test checks that the blind sheet still picks those 30.
+- **v2 names the dimensions that aren't asked,** each with its lowest and highest anchor, and tells the model to ignore what a note says about them rather than move it. The reply still asks only for that day's dimensions.
+- **Tuned on `dev` in three rounds,** then committed before the held-out run:
+  - **Round 1** was overcautious: it dropped mood when a note clearly stated it. Its totals were lost because I kept only the end of the output.
+  - **Round 2** narrowed the rule to unasked dimensions only.
+  - **Round 3** added the unasked dimensions' descriptions.
+  - **A leak avoided:** one example I added during tuning was close to a held-out note I'd written, so I replaced it before measuring. A check found no other wording shared with the held-out notes.
+- **On `dev`, v2 against v1 under the app's conditions:** left blank 94.5 / 90.2 against 92.3 / 89.6. Coverage was 89.4 / 85.7 against 90.9 / 89.3: it suggests slightly less.
+
+### Prompt v2 meets the bar
+
+One run, on the new held-out notes:
+
+| | Bar | v2 |
+|---|---|---|
+| Suggestions within one | ≥95% | 98.7 / 100 |
+| Coverage | ≥75% | 100 / 94.9 |
+| Left blank | ≥90% | 96.6 / 93.4 |
+| Off by 3+ | ≤1% | 0 / 0 |
+| Slowest 5% | <10 s | 3.9 / 3.7 s |
+| Failed calls on distressing notes | 0 | 0 / 0 |
+
+Exact match was 84.6 / 75.8%. Tag precision and recall were 85.7 and 77.8% in English, and 90.6 and 63.0% in Portuguese.
+
+Against the owner's blind scores, which have no bar:
+
+| | v1, app's conditions | v2 |
+|---|---|---|
+| Left blank | 84.6 / 78.1 | 86.8 / 81.9 |
+| Off by 3+ | 3.4 / 4.4 | 3.4 / 4.4 |
+| Suggestions within one | 92.2 / 94.9 | 92.2 / 94.9 |
+
+### How far to trust this
+
+- **The new notes look easier than the tuning ones.** Coverage was 100% / 94.9% on them, and 89.4% / 85.7% on `dev`. I wrote them after seeing v1's diagnosis, though before v2, so they may be clearer than real notes.
+- **The notes, labels and prompt all have one author, Claude.** The owner's blind scores are the more independent check: v2 improves on v1 there, but stays below the bar, as v1 did in spec 006.
+- **Still synthetic,** so accuracy on real notes is unmeasured.
+- **A person's real tags still differ from the invented ones,** and the record still doesn't cover the model.
+- **I committed v2 once with an unexpected failing test,** because a test assumed unasked anchors never appear in the prompt. I updated the test and amended the commit before pushing. The prompt didn't change.
+
+### Other changes
+
+- **`offered_tags`** in `lumen.suggestions.model` is now shared by the route and the evaluation. The route test now checks that a person's own tags come first, which it didn't before.
+- **One mutant covers both of §4's "unasked dimensions counted" items,** because they come from the same line.
+- **Added mutants** for the schedule being read for too few days, unasked dimensions not being named, prompt v1 being used again, and a person's own tags being offered last.

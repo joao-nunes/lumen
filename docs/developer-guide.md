@@ -128,20 +128,27 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 | `GET /api/tags` | `200 [{name, count}]` | Most used first. Unused tags are left out. |
 | `GET /api/checkins/{date}` | `200` | Any date. `checkin` is `null` if none was saved. |
 | `PUT /api/checkins/{date}` | `200` | See below. |
-| `POST /api/checkins/{date}/suggestion` | `200` | `{"text": "..."}`, 1 to 2,000 characters. Returns suggested `scores` and `tags`. Saves nothing, and never keeps the text (spec 006). |
+| `POST /api/checkins/{date}/suggestion` | `200` | `{"text": "..."}`, 1 to 2,000 characters. Returns suggested `scores` and `tags`. The model is asked about all seven dimensions, so a score can be for one the day didn't ask about (spec 008). Saves nothing, and never keeps the text (spec 006). |
 | `GET /api/overview?end={date}` | `200` | See below. `end` is required and has no limit, so future dates work. |
+| `GET /api/context` | `200` | `{"text": "..."}`, the person's personal context, or `""` (spec 010). |
+| `PUT /api/context` | `200` | `{"text": "..."}`, trimmed, at most 750 characters. Empty text deletes it. |
 
 ### Contracts
 
 **Check-ins**
 - There's one per day per user. `PUT` **replaces the whole day**, so a score or tag you leave out is deleted.
 - `mood`, `energy` and `stress` are required. Any other known dimension is accepted, whether or not `prompted` lists it.
+- A score for a dimension the day didn't ask about is **volunteered** (spec 008). The server labels it when the day is saved, from the day's schedule, and `checkin.volunteered` lists them. Clients can't set it. It's stored rather than worked out later, so a schedule change can't relabel past days.
 - Scores are JSON integers from 1 to 5; `true`, `"4"` and `4.0` are rejected.
 - Tags are normalized (`"Time outdoors"` becomes `time_outdoors`). At most 20, and each must match `^[a-z][a-z0-9_]{0,39}$` after normalizing.
 - `{date}` is the user's calendar day, chosen by the client. The server doesn't know their timezone, so it accepts from 8 days before the UTC date to 1 day after. The web app offers only today and the 7 days before it, in local time.
 - `recorded_at` is the server's time in UTC. Saving again overwrites it.
 
+**Personal context**
+- Tier 0, like a free-text note, but saved: the person writes it so it can be kept. Only the local model may see it, never a hosted one, and it's never logged.
+
 **Overview**
+- Volunteered scores are left out, because they lean towards days that stood out (spec 008 §2.4). Spec 009 decides how to show them.
 - Each dimension has `change` (last 28 days against the 28 before) and `trend` (a slope over 84 days). `daily` and `rolling_7` cover the 84 days.
 - A day missing from `daily` or `rolling_7` is a gap. Don't join across it. The rolling mean needs at least 3 days in its 7-day window.
 - `direction` is what the numbers did: `increasing`, `decreasing`, `flat`, `unclear` or `insufficient_data`. `outlook` applies polarity, so rising stress is `worsening`. Use `outlook` for good or bad, and never compare `direction` across dimensions.
@@ -297,12 +304,12 @@ Dimensions are defined in `lumen/domain/dimensions.py`, and the web app picks th
 
 ### Change a prompt
 
-The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the starter tags and the code that renders them. To change it:
+The accuracy bar was met by one exact prompt, so a test fails if what the model is sent changes without being measured. That covers the wording, the anchors in `lumen.domain.dimensions`, the starter and invented tags, and the code that renders them. The evaluation asks about each note as the app does: all seven dimensions, with the invented tags (`measured_requests`, specs 007 and 008). A run stops after three failed calls in a row, so an outage can't be reported as results. To change it:
 
-1. Add `src/lumen/suggestions/prompts/<name>_v2.txt`, and point `PROMPT_NAME` in `lumen.suggestions.prompt` at it. Keep the old file: it's what the recorded results refer to until they're replaced. Change the parser in the same commit if the reply's shape changes.
-2. Tune on the `dev` split.
-3. Add new held-out notes to `evals/extraction/entries.jsonl`, because the current ones have been read.
-4. Run `make eval-extraction MODEL=x SPLIT=test`. It updates `measured_prompt.json` only if the bar is met in both languages. Commit that file with the results.
+1. **Write new held-out notes first,** before the new prompt, and commit them. In `evals/extraction/entries.jsonl`, rename the current `test` split to the next `test_vN` and add it to `SPLITS`: its results have been read, so it's never tuned on or measured again. Keep `test_v1`, which holds the notes the owner scored blind.
+2. Add `src/lumen/suggestions/prompts/<name>_vN.txt`, and point `PROMPT_NAME` in `lumen.suggestions.prompt` at it. Keep the old files. Change the parser in the same commit if the reply's shape changes.
+3. Tune on the `dev` split only, saving the whole output. Don't put wording from a held-out note in the prompt.
+4. Commit the prompt, then run `make eval-extraction MODEL=x SPLIT=test` once. It updates `measured_prompt.json` only if the bar is met in both languages. Commit that file with the results, and report them whether or not the bar is met.
 
 ### Change the frontend
 

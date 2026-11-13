@@ -1,8 +1,10 @@
 import { Route, Routes } from "react-router";
 import styles from "./App.module.css";
 import { AuthenticatedLayout } from "./screens/AuthenticatedLayout";
+import { ContextScreen } from "./screens/ContextScreen";
 import { AuthForm } from "./screens/AuthForm";
 import { OverviewScreen } from "./screens/OverviewScreen";
+import { ThemeToggle } from "./screens/ThemeToggle";
 import { TodayScreen } from "./screens/TodayScreen";
 
 export function App() {
@@ -15,11 +17,15 @@ export function App() {
           <Route element={<AuthenticatedLayout />}>
             <Route path="/" element={<TodayScreen />} />
             <Route path="/overview" element={<OverviewScreen />} />
+            <Route path="/context" element={<ContextScreen />} />
           </Route>
         </Routes>
       </div>
       <footer className={styles.footer}>
-        Lumen is not a crisis service. If you are in danger, contact your local emergency number.
+        <p>
+          Lumen is not a crisis service. If you are in danger, contact your local emergency number.
+        </p>
+        <ThemeToggle />
       </footer>
     </div>
   );
