@@ -1,9 +1,9 @@
 # Evaluation set for free-text check-ins (spec 006)
 
-`entries.jsonl` holds 466 synthetic check-ins, in English and European Portuguese, with their labels. **Everything here is invented. This repository is public, so no real check-in text ever goes in it.**
+`entries.jsonl` holds 526 synthetic check-ins, in English and European Portuguese, with their labels. **Everything here is invented. This repository is public, so no real check-in text ever goes in it.**
 
 - `dev` (66 entries) is for tuning prompts.
-- `test` (100 entries) is held out for the current measurement, and the result reported on it is the measurement. Spec 010 added these, before prompt v3 was written.
+- `test` (160 entries) is held out for the current measurement, and the result reported on it is the measurement. Spec 010 added 100 before prompt v3 was written, then 60 rich in tags, so the tag bar is measured on about 50 labelled tags per language.
 - `test_v3` (100 entries) was spec 008's held-out split. It has been read, so it's never tuned on or measured against again.
 - `test_v2` (100 entries) was spec 007's held-out split, for prompt v2. It has been read, so it's never tuned on or measured against again.
 - `test_v1` (100 entries) was prompt v1's held-out split. Its results have been read, so it's never tuned on or measured against again. The owner's blind scores are for 30 of these notes, so `--against-owner` still uses them.

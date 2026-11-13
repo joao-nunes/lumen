@@ -333,11 +333,11 @@ def test_anything_else_leaves_the_record_as_it_was(
 def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(ENTRIES)
 
-    assert len(entries) == 466
-    assert len({e.id for e in entries}) == 466
-    assert len({e.text for e in entries}) == 466
+    assert len(entries) == 526
+    assert len({e.id for e in entries}) == 526
+    assert len({e.text for e in entries}) == 526
     for language in ("en", "pt"):
-        splits = (("dev", 33), ("test", 50), ("test_v1", 50), ("test_v2", 50), ("test_v3", 50))
+        splits = (("dev", 33), ("test", 80), ("test_v1", 50), ("test_v2", 50), ("test_v3", 50))
         for split, count in splits:
             assert len([e for e in entries if (e.language, e.split) == (language, split)]) == count
         # Enough of each awkward kind in both splits, or a weakness could go unmeasured.
@@ -363,6 +363,8 @@ def test_the_evaluation_set_is_what_the_spec_says() -> None:
         held_out = [e for e in entries if (e.language, e.split) == (language, "test")]
         assert sum(len(e.scores) for e in held_out) >= 100
         assert 25 <= sum(1 for e in held_out if e.context) <= 35
+        # Spec 010: enough tags for the 85% precision bar to mean something.
+        assert sum(len(e.tags) for e in held_out) >= 50
         assert any(e.context for e in entries if (e.language, e.split) == (language, "dev"))
 
 

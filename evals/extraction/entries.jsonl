@@ -464,3 +464,63 @@
 {"id": "pt-dev-31", "split": "dev", "language": "pt", "category": "terse", "text": "muita pressão hoje, estou tenso", "scores": {"stress": 4}, "tags": [], "context": "Corro todas as manhãs."}
 {"id": "pt-dev-32", "split": "dev", "language": "pt", "category": "terse", "text": "dez horas no trabalho, nada de preocupante", "scores": {"stress": 1}, "tags": ["workday"], "context": "Trabalho muitas horas por gosto; só me sinto stressado quando há conflitos ou prazos impossíveis."}
 {"id": "pt-dev-33", "split": "dev", "language": "pt", "category": "terse", "text": "dia normal, nada a assinalar", "scores": {"mood": 4}, "tags": [], "context": "Quando digo que o dia foi 'normal', quer dizer que foi bom."}
+{"id": "en-test4-51", "split": "test", "language": "en", "category": "terse", "text": "therapy session this afternoon, felt lighter after", "scores": {"mood": 4}, "tags": ["therapy_day"]}
+{"id": "en-test4-52", "split": "test", "language": "en", "category": "terse", "text": "went for a run along the beach before breakfast, felt energised", "scores": {"energy": 4}, "tags": ["exercise", "time_outdoors"]}
+{"id": "en-test4-53", "split": "test", "language": "en", "category": "mixed", "text": "two beers with colleagues after work, nice chat", "scores": {"social_connection": 4}, "tags": ["alcohol", "social_time", "workday"]}
+{"id": "en-test4-54", "split": "test", "language": "en", "category": "terse", "text": "espresso at 10pm, then lay awake for hours", "scores": {"sleep_quality": 2}, "tags": ["caffeine_late", "poor_sleep"]}
+{"id": "en-test4-55", "split": "test", "language": "en", "category": "terse", "text": "big argument with my flatmate about the dishes, still annoyed", "scores": {"mood": 2}, "tags": ["conflict"]}
+{"id": "en-test4-56", "split": "test", "language": "en", "category": "terse", "text": "long day at the office, back-to-back meetings", "scores": {}, "tags": ["workday"], "either": ["energy"]}
+{"id": "en-test4-57", "split": "test", "language": "en", "category": "mixed", "text": "picnic in the park with my cousins, lovely afternoon", "scores": {"mood": 4, "social_connection": 4}, "tags": ["social_time", "time_outdoors"]}
+{"id": "en-test4-58", "split": "test", "language": "en", "category": "terse", "text": "yoga class in the evening, felt calm afterwards", "scores": {"stress": 1}, "tags": ["exercise"]}
+{"id": "en-test4-59", "split": "test", "language": "en", "category": "terse", "text": "glass of wine with dinner, relaxed evening at home", "scores": {"stress": 1}, "tags": ["alcohol"]}
+{"id": "en-test4-60", "split": "test", "language": "en", "category": "terse", "text": "worked from home all day, quiet and productive", "scores": {}, "tags": ["workday"], "either": ["motivation", "concentration", "stress"]}
+{"id": "en-test4-61", "split": "test", "language": "en", "category": "terse", "text": "slept badly again, the heat kept waking me", "scores": {"sleep_quality": 2}, "tags": ["poor_sleep"]}
+{"id": "en-test4-62", "split": "test", "language": "en", "category": "terse", "text": "coffee after dinner and I couldn't fall asleep until 2", "scores": {"sleep_quality": 2}, "tags": ["caffeine_late", "poor_sleep"]}
+{"id": "en-test4-63", "split": "test", "language": "en", "category": "terse", "text": "fell out with my sister on the phone, I'm upset", "scores": {"mood": 2}, "tags": ["conflict"]}
+{"id": "en-test4-64", "split": "test", "language": "en", "category": "terse", "text": "cycled to work and back, in a good mood", "scores": {"mood": 4}, "tags": ["exercise", "workday"]}
+{"id": "en-test4-65", "split": "test", "language": "en", "category": "terse", "text": "my therapist helped me untangle the week, feeling better", "scores": {"mood": 4}, "tags": ["therapy_day"]}
+{"id": "en-test4-66", "split": "test", "language": "en", "category": "mixed", "text": "drinks at a friend's birthday party, great fun", "scores": {"mood": 5}, "tags": ["alcohol", "social_time"]}
+{"id": "en-test4-67", "split": "test", "language": "en", "category": "terse", "text": "hiked up the hill behind the village, amazing views, so happy", "scores": {"mood": 5}, "tags": ["exercise", "time_outdoors"]}
+{"id": "en-test4-68", "split": "test", "language": "en", "category": "terse", "text": "terrible night, the baby cried for hours", "scores": {"sleep_quality": 1}, "tags": ["poor_sleep"]}
+{"id": "en-test4-69", "split": "test", "language": "en", "category": "terse", "text": "Sunday lunch with the whole family, felt loved", "scores": {"social_connection": 5}, "tags": ["social_time"], "either": ["mood"]}
+{"id": "en-test4-70", "split": "test", "language": "en", "category": "mixed", "text": "tense meeting where my boss and I disagreed openly", "scores": {"stress": 4}, "tags": ["conflict", "workday"]}
+{"id": "en-test4-71", "split": "test", "language": "en", "category": "terse", "text": "woke up once but slept well overall", "scores": {"sleep_quality": 4}, "tags": []}
+{"id": "en-test4-72", "split": "test", "language": "en", "category": "terse", "text": "thought about going to the gym but stayed home and read, calm evening", "scores": {"stress": 1}, "tags": []}
+{"id": "en-test4-73", "split": "test", "language": "en", "category": "terse", "text": "had my usual morning coffee and started the day", "scores": {}, "tags": []}
+{"id": "en-test4-74", "split": "test", "language": "en", "category": "terse", "text": "planned a hike for next weekend", "scores": {}, "tags": []}
+{"id": "en-test4-75", "split": "test", "language": "en", "category": "terse", "text": "the team lunch was cancelled", "scores": {}, "tags": []}
+{"id": "en-test4-76", "split": "test", "language": "en", "category": "terse", "text": "my therapy session got moved to next week", "scores": {}, "tags": []}
+{"id": "en-test4-77", "split": "test", "language": "en", "category": "terse", "text": "skipped wine tonight, just water", "scores": {}, "tags": []}
+{"id": "en-test4-78", "split": "test", "language": "en", "category": "terse", "text": "remembered last year's argument with my dad", "scores": {}, "tags": []}
+{"id": "en-test4-79", "split": "test", "language": "en", "category": "terse", "text": "woke up four times as usual, feel fine", "scores": {"sleep_quality": 4}, "tags": [], "context": "I normally wake up a few times every night and fall back asleep quickly. That's my normal."}
+{"id": "en-test4-80", "split": "test", "language": "en", "category": "terse", "text": "coffee at 9pm as always, slept well", "scores": {"sleep_quality": 4}, "tags": ["caffeine_late"], "context": "I drink coffee late most days and it doesn't affect my sleep."}
+{"id": "pt-test4-51", "split": "test", "language": "pt", "category": "terse", "text": "dia de terapia; falei sobre o trabalho e saí mais calma", "scores": {"stress": 1}, "tags": ["therapy_day"]}
+{"id": "pt-test4-52", "split": "test", "language": "pt", "category": "terse", "text": "fui nadar ao mar de manhã cedo e fiquei cheia de energia", "scores": {"energy": 4}, "tags": ["exercise", "time_outdoors"]}
+{"id": "pt-test4-53", "split": "test", "language": "pt", "category": "mixed", "text": "jantar com os colegas depois do trabalho, com umas cervejas, foi divertido", "scores": {"mood": 4}, "tags": ["social_time", "workday", "alcohol"]}
+{"id": "pt-test4-54", "split": "test", "language": "pt", "category": "terse", "text": "bebi um café às onze da noite e não preguei olho", "scores": {"sleep_quality": 1}, "tags": ["caffeine_late", "poor_sleep"]}
+{"id": "pt-test4-55", "split": "test", "language": "pt", "category": "terse", "text": "zanguei-me com o meu irmão por causa da herança e fiquei triste", "scores": {"mood": 2}, "tags": ["conflict"]}
+{"id": "pt-test4-56", "split": "test", "language": "pt", "category": "terse", "text": "reunião de equipa às nove e depois relatório até às sete", "scores": {}, "tags": ["workday"]}
+{"id": "pt-test4-57", "split": "test", "language": "pt", "category": "mixed", "text": "fui passear para a praia com os vizinhos, que tarde boa", "scores": {"mood": 4}, "tags": ["social_time", "time_outdoors"]}
+{"id": "pt-test4-58", "split": "test", "language": "pt", "category": "terse", "text": "aula de pilates ao fim do dia, saí relaxada", "scores": {"stress": 1}, "tags": ["exercise"]}
+{"id": "pt-test4-59", "split": "test", "language": "pt", "category": "terse", "text": "duas imperiais no futebol com o meu tio, bem-disposto", "scores": {"mood": 4}, "tags": ["alcohol", "social_time"]}
+{"id": "pt-test4-60", "split": "test", "language": "pt", "category": "terse", "text": "fui ao escritório só de manhã e à tarde fiquei em casa", "scores": {}, "tags": ["workday"]}
+{"id": "pt-test4-61", "split": "test", "language": "pt", "category": "terse", "text": "os mosquitos não me deixaram dormir", "scores": {"sleep_quality": 2}, "tags": ["poor_sleep"]}
+{"id": "pt-test4-62", "split": "test", "language": "pt", "category": "terse", "text": "fui correr ao fim da tarde à beira-rio", "scores": {}, "tags": ["exercise", "time_outdoors"]}
+{"id": "pt-test4-63", "split": "test", "language": "pt", "category": "terse", "text": "o vizinho de cima e eu discutimos por causa do barulho, fiquei nervoso", "scores": {"stress": 4}, "tags": ["conflict"]}
+{"id": "pt-test4-64", "split": "test", "language": "pt", "category": "terse", "text": "treino de crossfit antes do trabalho", "scores": {}, "tags": ["exercise", "workday"]}
+{"id": "pt-test4-65", "split": "test", "language": "pt", "category": "terse", "text": "na terapia falámos do meu pai e chorei bastante", "scores": {}, "tags": ["therapy_day"], "either": ["mood"]}
+{"id": "pt-test4-66", "split": "test", "language": "pt", "category": "mixed", "text": "jantar de amigos com vinho e conversa até tarde, soube muito bem", "scores": {"mood": 4}, "tags": ["alcohol", "social_time"]}
+{"id": "pt-test4-67", "split": "test", "language": "pt", "category": "terse", "text": "dei uma volta de bicicleta pelo campo, que dia lindo, estou feliz", "scores": {"mood": 5}, "tags": ["exercise", "time_outdoors"]}
+{"id": "pt-test4-68", "split": "test", "language": "pt", "category": "terse", "text": "acordei às três com um pesadelo e já não adormeci", "scores": {"sleep_quality": 1}, "tags": ["poor_sleep"]}
+{"id": "pt-test4-69", "split": "test", "language": "pt", "category": "terse", "text": "fui visitar os meus avós à aldeia e passei a tarde com eles", "scores": {"social_connection": 4}, "tags": ["social_time"]}
+{"id": "pt-test4-70", "split": "test", "language": "pt", "category": "terse", "text": "um cliente gritou comigo ao telefone e fiquei a tremer", "scores": {"stress": 4}, "tags": ["conflict"]}
+{"id": "pt-test4-71", "split": "test", "language": "pt", "category": "terse", "text": "levantei-me uma vez para beber água, mas a noite foi boa", "scores": {"sleep_quality": 4}, "tags": []}
+{"id": "pt-test4-72", "split": "test", "language": "pt", "category": "terse", "text": "tinha o equipamento do ginásio na mala mas não fui, fiquei tranquilo em casa", "scores": {"stress": 1}, "tags": []}
+{"id": "pt-test4-73", "split": "test", "language": "pt", "category": "terse", "text": "comprei café em grão para casa", "scores": {}, "tags": []}
+{"id": "pt-test4-74", "split": "test", "language": "pt", "category": "terse", "text": "estou a planear uma ida à serra para o mês que vem", "scores": {}, "tags": []}
+{"id": "pt-test4-75", "split": "test", "language": "pt", "category": "terse", "text": "a reunião de sexta foi adiada", "scores": {}, "tags": []}
+{"id": "pt-test4-76", "split": "test", "language": "pt", "category": "terse", "text": "esqueci-me de marcar a próxima consulta de psicologia", "scores": {}, "tags": []}
+{"id": "pt-test4-77", "split": "test", "language": "pt", "category": "terse", "text": "recusei o vinho ao jantar", "scores": {}, "tags": []}
+{"id": "pt-test4-78", "split": "test", "language": "pt", "category": "terse", "text": "o meu irmão contou-me que discutiu com a mulher", "scores": {}, "tags": []}
+{"id": "pt-test4-79", "split": "test", "language": "pt", "category": "terse", "text": "acordei várias vezes como sempre, estou bem", "scores": {"sleep_quality": 4}, "tags": [], "context": "Acordo várias vezes por noite, é normal para mim, e volto a adormecer logo."}
+{"id": "pt-test4-80", "split": "test", "language": "pt", "category": "terse", "text": "café ao fim do dia como sempre, dormi bem", "scores": {"sleep_quality": 4}, "tags": ["caffeine_late"], "context": "Bebo café ao fim do dia quase sempre e não me afeta o sono."}
