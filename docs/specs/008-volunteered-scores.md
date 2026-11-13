@@ -1,6 +1,6 @@
 # Spec 008: Volunteered scores
 
-**Status:** Proposed, awaiting the owner's decisions in §6
+**Status:** Approved (decisions in §6)
 **Builds on:** spec 002 (check-ins and overview), spec 006 and spec 007 (suggestions and their measurement)
 
 ## 1. Goal
@@ -46,7 +46,7 @@ The migration labels existing scores using the schedule as it is today: any scor
 
 ### 2.4 Analytics leave volunteered scores out until spec 009
 
-`list_observations`, which feeds the overview, returns only asked scores. So the overview's means, changes and intervals stay as they are. A volunteered score is saved and shown on the day's form, but not in the overview until spec 009 (Q2).
+`list_observations`, which feeds the overview, returns only asked scores. So the overview's means, changes and intervals stay as they are. A volunteered score is saved and shown on the day's form, but not in the overview until spec 009, as the owner accepted (Q2).
 
 ### 2.5 API
 
@@ -113,11 +113,13 @@ Add to the `checkins` or `suggestions` group:
 1. This spec.
 2. The two PRs of §2.8, each with its tests failing first, fault injection, and an "Added during implementation" section here.
 
-## 6. Open questions for the owner
+## 6. Decisions
 
-| # | Question | Recommendation |
+The owner approved every recommendation.
+
+| # | Question | Decision |
 |---|---|---|
-| Q1 | **Use prompt v1's wording for all seven dimensions, without tuning?** It was tuned for this setup in spec 006 and met the bar there, with starter tags only. | **Yes.** Tuning again would need new notes anyway, and v1 is the best-tested starting point. If it misses the bar, the options come back to you. |
-| Q2 | **Volunteered scores are saved but don't appear in the overview until spec 009.** Is that gap acceptable? | **Yes.** It keeps the overview's statistics honest meanwhile, and spec 009 can follow straight after. |
-| Q3 | **Label existing scores from today's schedule?** Scores for unscheduled dimensions would become volunteered. | **Yes.** It's how they would have been labelled at the time, since the schedule hasn't changed. |
-| Q4 | **What to call them on the form?** | **"Not asked today".** It says what happened without judging it, and it's the same whether the score came from free text or was added by hand. |
+| Q1 | Use prompt v1's wording for all seven dimensions, without tuning? | **Yes.** If it misses the bar, the options come back to the owner. |
+| Q2 | Volunteered scores saved but not in the overview until spec 009? | **Yes, acceptable.** |
+| Q3 | Label existing scores from today's schedule? | **Yes.** |
+| Q4 | What to call them on the form? | **"Not asked today".** |
