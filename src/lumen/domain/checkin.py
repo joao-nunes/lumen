@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum
 
-from lumen.domain.dimensions import CORE_DIMENSIONS, Dimension, validate_score
+from lumen.domain.dimensions import CORE_DIMENSIONS, Dimension, dimensions_for, validate_score
 
 _TAG_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 MAX_TAGS = 20
@@ -60,6 +60,9 @@ class Checkin:
     scores: dict[Dimension, int]
     tags: frozenset[str] = field(default_factory=frozenset)
     mode: CheckinMode = CheckinMode.STRUCTURED
+    # Scores for dimensions the day didn't ask about (spec 008). Required, so that every way of
+    # making a check-in decides: `volunteered_for` for a new one, the stored labels for a saved one.
+    volunteered: frozenset[Dimension] = field(kw_only=True)
 
     def __post_init__(self) -> None:
         if self.recorded_at.tzinfo is None:
@@ -68,9 +71,17 @@ class Checkin:
             raise ValueError("A check-in needs at least one score")
         for value in self.scores.values():
             validate_score(value)
+        if not self.volunteered <= self.scores.keys():
+            raise ValueError("Only a scored dimension can be volunteered")
         object.__setattr__(self, "tags", frozenset(normalize_tag(t) for t in self.tags))
         if len(self.tags) > MAX_TAGS:
             raise TooManyTagsError(f"A check-in can have at most {MAX_TAGS} tags")
+
+
+def volunteered_for(day: date, scores: Mapping[Dimension, int]) -> frozenset[Dimension]:
+    """The scores the day's schedule didn't ask for, decided when the check-in is saved."""
+    asked = dimensions_for(day)
+    return frozenset(d for d in scores if d not in asked)
 
 
 def structured_scores(raw: Mapping[str, int]) -> dict[Dimension, int]:
