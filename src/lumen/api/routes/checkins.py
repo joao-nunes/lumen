@@ -142,7 +142,8 @@ def suggest_checkin(
     # A short transaction, not UserDb: a model call can take many seconds.
     with user_transaction(container.app_sessions, user.user_id) as db:
         used = [name for name, _ in tag_usage(db, user.user_id)]
-    asked = dimensions_for(local_date)
+    # All seven, whatever the day asks: a score the day didn't ask for is volunteered (spec 008).
+    asked = tuple(Dimension)
     offered = offered_tags(used)
     reply = container.suggestions.suggest(body.text, asked, offered)
     valid = keep_valid(

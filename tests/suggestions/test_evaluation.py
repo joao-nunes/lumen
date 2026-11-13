@@ -3,12 +3,11 @@
 import json
 from collections.abc import Collection
 from dataclasses import replace
-from datetime import date, timedelta
 from pathlib import Path
 
 import pytest
 
-from lumen.domain.dimensions import Dimension, dimensions_for
+from lumen.domain.dimensions import Dimension
 from lumen.suggestions.evaluation import (
     Agreement,
     Entry,
@@ -31,7 +30,7 @@ from lumen.suggestions.model import (
     SuggestionsUnavailableError,
     offered_tags,
 )
-from lumen.suggestions.prompt import INVENTED_TAGS, day_types
+from lumen.suggestions.prompt import INVENTED_TAGS, measured_requests
 
 MOOD, ENERGY, STRESS = Dimension.MOOD, Dimension.ENERGY, Dimension.STRESS
 ENTRIES = Path(__file__).parents[2] / "evals" / "extraction" / "entries.jsonl"
@@ -229,36 +228,21 @@ class RecordingModel:
         return Suggestion(scores={MOOD: 3})
 
 
-def test_every_note_is_asked_under_every_day_type_with_the_app_s_tags() -> None:
-    first, second = day_types()
+def test_every_note_is_asked_about_all_seven_dimensions_with_the_app_s_tags() -> None:
     model = RecordingModel()
     notes = [replace(entry({MOOD: 3}), text="fine"), replace(entry({MOOD: 3}), text="fails")]
     ticks = iter(range(100))
 
     outcomes = collect(model, notes, clock=lambda: float(next(ticks)))
 
-    tags = (*INVENTED_TAGS, *STARTER_TAGS)
-    assert model.calls == [
-        ("fine", first, tags),
-        ("fine", second, tags),
-        ("fails", first, tags),
-        ("fails", second, tags),
-    ]
+    every, tags = tuple(Dimension), (*INVENTED_TAGS, *STARTER_TAGS)
+    assert measured_requests() == ((every, tags),)  # spec 008 AC-12: one request per note
+    assert model.calls == [("fine", every, tags), ("fails", every, tags)]
     assert [(o.entry.text, o.asked, o.seconds) for o in outcomes] == [
-        ("fine", first, 1.0),
-        ("fine", second, 1.0),
-        ("fails", first, 1.0),
-        ("fails", second, 1.0),
+        ("fine", every, 1.0),
+        ("fails", every, 1.0),
     ]
-    assert [o.suggestion is None for o in outcomes] == [False, False, True, True]
-
-
-def test_the_day_types_cover_every_day_of_the_schedule_and_every_dimension() -> None:
-    types = day_types()
-    start = date(2026, 1, 1)
-
-    assert {dimensions_for(start + timedelta(days=i)) for i in range(731)} == set(types)
-    assert {d for asked in types for d in asked} == set(Dimension)
+    assert [o.suggestion is None for o in outcomes] == [False, True]
 
 
 def test_a_person_s_own_tags_are_offered_first_and_each_tag_once() -> None:

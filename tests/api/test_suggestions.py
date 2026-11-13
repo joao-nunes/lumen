@@ -58,7 +58,7 @@ def test_ac4_a_suggestion_is_returned_and_nothing_is_saved(
 
     [(note, dimensions, offered)] = suggestion_model.calls
     assert note == NOTE
-    assert dimensions == PROMPTED
+    assert dimensions == tuple(Dimension)  # spec 008: all seven, whatever the day asks
     assert offered == STARTER_TAGS
 
 
@@ -108,16 +108,19 @@ def test_ac5_the_text_leaves_no_trace(
             assert not [row for row in rows if MARKER in row], table
 
 
-def test_ac6_values_outside_what_was_asked_are_removed(
+def test_ac6_invalid_values_are_removed_and_a_volunteered_score_is_kept(
     client: TestClient, suggestion_model: FakeSuggestionModel
 ) -> None:
-    unasked = next(d for d in Dimension if d not in PROMPTED)
+    volunteered = next(d for d in Dimension if d not in PROMPTED)  # spec 008 AC-10
     suggestion_model.reply = Suggestion(
-        scores={Dimension.MOOD: 9, Dimension.ENERGY: 2, unasked: 3},
+        scores={Dimension.MOOD: 9, Dimension.ENERGY: 2, volunteered: 3},
         tags=frozenset({"not_offered", "exercise"}),
     )
 
-    assert suggest(client).json() == {"scores": {"energy": 2}, "tags": ["exercise"]}
+    assert suggest(client).json() == {
+        "scores": {"energy": 2, volunteered.value: 3},
+        "tags": ["exercise"],
+    }
 
 
 def test_ac7_an_unavailable_model_is_a_503(
