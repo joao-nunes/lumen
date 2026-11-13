@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from lumen.auth.models import AuthSession, PasswordCredential
 from lumen.db import models
-from lumen.db.repository import list_observations, save_checkin
+from lumen.db.repository import get_context, list_observations, save_checkin, save_context
 from lumen.db.scope import scope_to_user
 from lumen.domain.checkin import Checkin, volunteered_for
 from lumen.domain.dimensions import Dimension
@@ -75,6 +75,15 @@ def test_list_observations_filters_by_user_even_without_rls(session: Session) ->
 
     assert [o.value for o in list_observations(session, alice, DAY, DAY)] == [5]
     assert [o.value for o in list_observations(session, bob, DAY, DAY)] == [1]
+
+
+def test_get_context_filters_by_user_even_without_rls(session: Session) -> None:
+    # As the owner, which bypasses RLS: the repository's own filter is the second line of defence.
+    alice, bob = new_user(session), new_user(session)
+    now = datetime(2026, 11, 13, 12, tzinfo=UTC)
+    save_context(session, alice, "Alice's normal.", now)
+
+    assert (get_context(session, alice), get_context(session, bob)) == ("Alice's normal.", "")
 
 
 def test_tags_are_reused_per_user_and_isolated_between_users(session: Session) -> None:

@@ -17,6 +17,7 @@ from lumen.api.middleware import (
 )
 from lumen.api.routes.auth import router as auth_router
 from lumen.api.routes.checkins import router as checkins_router
+from lumen.api.routes.context import router as context_router
 from lumen.api.routes.overview import router as overview_router
 from lumen.api.web import WebApp
 from lumen.auth.policy import SessionPolicy
@@ -82,6 +83,7 @@ def create_app(
     app.include_router(auth_router)
     app.include_router(checkins_router)
     app.include_router(overview_router)
+    app.include_router(context_router)
     if settings.web_dist is not None:
         # An empty WEB_DIST means the current directory, which must never be published.
         if not (settings.web_dist / "index.html").is_file():

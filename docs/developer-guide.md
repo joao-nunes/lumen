@@ -130,6 +130,8 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 | `PUT /api/checkins/{date}` | `200` | See below. |
 | `POST /api/checkins/{date}/suggestion` | `200` | `{"text": "..."}`, 1 to 2,000 characters. Returns suggested `scores` and `tags`. The model is asked about all seven dimensions, so a score can be for one the day didn't ask about (spec 008). Saves nothing, and never keeps the text (spec 006). |
 | `GET /api/overview?end={date}` | `200` | See below. `end` is required and has no limit, so future dates work. |
+| `GET /api/context` | `200` | `{"text": "..."}`, the person's personal context, or `""` (spec 010). |
+| `PUT /api/context` | `200` | `{"text": "..."}`, trimmed, at most 750 characters. Empty text deletes it. |
 
 ### Contracts
 
@@ -141,6 +143,9 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 - Tags are normalized (`"Time outdoors"` becomes `time_outdoors`). At most 20, and each must match `^[a-z][a-z0-9_]{0,39}$` after normalizing.
 - `{date}` is the user's calendar day, chosen by the client. The server doesn't know their timezone, so it accepts from 8 days before the UTC date to 1 day after. The web app offers only today and the 7 days before it, in local time.
 - `recorded_at` is the server's time in UTC. Saving again overwrites it.
+
+**Personal context**
+- Tier 0, like a free-text note, but saved: the person writes it so it can be kept. Only the local model may see it, never a hosted one, and it's never logged.
 
 **Overview**
 - Volunteered scores are left out, because they lean towards days that stood out (spec 008 §2.4). Spec 009 decides how to show them.

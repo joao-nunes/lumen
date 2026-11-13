@@ -7,7 +7,7 @@ application-level filter stays as defence in depth.
 
 import uuid
 from collections.abc import Iterable
-from datetime import date
+from datetime import date, datetime
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert
@@ -146,3 +146,27 @@ def list_observations(
         .order_by(models.Checkin.local_date, models.Checkin.recorded_at)
     )
     return [Observation(day=d, dimension=dim, value=v) for d, dim, v in rows]
+
+
+def get_context(session: Session, user_id: uuid.UUID) -> str:
+    """The person's personal context (spec 010), or "" if they have none."""
+    found = session.scalar(
+        select(models.PersonalContext.text).where(models.PersonalContext.user_id == user_id)
+    )
+    return found or ""
+
+
+def save_context(session: Session, user_id: uuid.UUID, value: str, now: datetime) -> None:
+    """Replaces the person's personal context. Empty text deletes it."""
+    if not value:
+        session.execute(
+            delete(models.PersonalContext).where(models.PersonalContext.user_id == user_id)
+        )
+        return
+    stmt = insert(models.PersonalContext).values(user_id=user_id, text=value, updated_at=now)
+    session.execute(
+        stmt.on_conflict_do_update(
+            index_elements=["user_id"],
+            set_={"text": stmt.excluded.text, "updated_at": stmt.excluded.updated_at},
+        )
+    )

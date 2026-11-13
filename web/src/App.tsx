@@ -1,6 +1,7 @@
 import { Route, Routes } from "react-router";
 import styles from "./App.module.css";
 import { AuthenticatedLayout } from "./screens/AuthenticatedLayout";
+import { ContextScreen } from "./screens/ContextScreen";
 import { AuthForm } from "./screens/AuthForm";
 import { OverviewScreen } from "./screens/OverviewScreen";
 import { ThemeToggle } from "./screens/ThemeToggle";
@@ -16,6 +17,7 @@ export function App() {
           <Route element={<AuthenticatedLayout />}>
             <Route path="/" element={<TodayScreen />} />
             <Route path="/overview" element={<OverviewScreen />} />
+            <Route path="/context" element={<ContextScreen />} />
           </Route>
         </Routes>
       </div>
