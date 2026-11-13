@@ -56,7 +56,7 @@ ROUTES_CONTEXT = API + "routes/context.py"
 SUGGESTION = "src/lumen/suggestions/model.py"
 EVALUATION = "src/lumen/suggestions/evaluation.py"
 PROMPT = "src/lumen/suggestions/prompt.py"
-PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v1.txt"
+PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v3.txt"
 DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
@@ -786,14 +786,16 @@ GROUPS: dict[str, list[Mutant]] = {
             ROUTES_CHECKINS,
             "a transaction stays open during the model call",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
+            "        context = get_context(db, user.user_id)  # spec 010; Tier 0, so only the local model sees it\n"
             "    # All seven, whatever the day asks: a score the day didn't ask for is volunteered (spec 008).\n"
             "    asked = tuple(Dimension)\n"
             "    offered = offered_tags(used)\n"
-            "    reply = container.suggestions.suggest(body.text, asked, offered)\n",
+            "    reply = container.suggestions.suggest(body.text, asked, offered, context)\n",
             "        used = [name for name, _ in tag_usage(db, user.user_id)]\n"
+            "        context = get_context(db, user.user_id)\n"
             "        asked = tuple(Dimension)\n"
             "        offered = offered_tags(used)\n"
-            "        reply = container.suggestions.suggest(body.text, asked, offered)\n",
+            "        reply = container.suggestions.suggest(body.text, asked, offered, context)\n",
         ),
         Mutant(
             ROUTES_CHECKINS,
@@ -987,8 +989,8 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             OLLAMA,
             "client sends a different prompt from the measured one",
-            "system = checkin_extraction_prompt(dimensions, tags)",
-            "system = checkin_extraction_prompt(dimensions, ())",
+            "system = checkin_extraction_prompt(dimensions, tags, context)",
+            "system = checkin_extraction_prompt(dimensions, (), context)",
         ),
         Mutant(
             EVALUATION,
@@ -998,21 +1000,64 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             PROMPT,
-            "prompt v2 used again",
+            "prompt v1 used again",
+            'PROMPT_NAME = "checkin_extraction_v3"',
             'PROMPT_NAME = "checkin_extraction_v1"',
-            'PROMPT_NAME = "checkin_extraction_v2"',
         ),
         Mutant(
             PROMPT,
             "measured for the day's dimensions, not all seven",
-            "return ((tuple(Dimension), offered_tags(INVENTED_TAGS)),)",
-            "return ((tuple(Dimension)[:5], offered_tags(INVENTED_TAGS)),)",
+            "return (tuple(Dimension), offered_tags(INVENTED_TAGS), context)",
+            "return (tuple(Dimension)[:5], offered_tags(INVENTED_TAGS), context)",
         ),
         Mutant(
             PROMPT,
             "invented tags not offered",
-            "return ((tuple(Dimension), offered_tags(INVENTED_TAGS)),)",
-            "return ((tuple(Dimension), offered_tags(())),)",
+            "return (tuple(Dimension), offered_tags(INVENTED_TAGS), context)",
+            "return (tuple(Dimension), offered_tags(()), context)",
+        ),
+        # Spec 010: the personal context and the tag bar.
+        Mutant(
+            ROUTES_CHECKINS,
+            "the saved context never reaches the model",
+            "reply = container.suggestions.suggest(body.text, asked, offered, context)",
+            'reply = container.suggestions.suggest(body.text, asked, offered, "")',
+        ),
+        Mutant(
+            OLLAMA,
+            "the client drops the context",
+            "system = checkin_extraction_prompt(dimensions, tags, context)",
+            "system = checkin_extraction_prompt(dimensions, tags)",
+        ),
+        Mutant(
+            OLLAMA,
+            "a quote from the context counts",
+            'scores, chosen = _evidenced_scores(reply["dimensions"], text), reply["tags"]',
+            'scores, chosen = _evidenced_scores(reply["dimensions"], text + " " + context), reply["tags"]',
+        ),
+        Mutant(
+            PROMPT,
+            "the context section shown when there's no context",
+            'context_section=_CONTEXT_SECTION.format(context=context) if context else "",',
+            "context_section=_CONTEXT_SECTION.format(context=context),",
+        ),
+        Mutant(
+            PROMPT,
+            "the hash ignores how a context is shown",
+            'return (request_for(""), request_for(MEASURED_CONTEXT))',
+            'return (request_for(""), request_for(""))',
+        ),
+        Mutant(
+            EVALUATION,
+            "each note measured without its context",
+            "for asked, tags, context in (request_for(entry.context),):",
+            'for asked, tags, context in (request_for(""),):',
+        ),
+        Mutant(
+            EVALUATION,
+            "no bar for tags",
+            "        and metrics.tag_precision >= TAG_PRECISION_BAR\n",
+            "",
         ),
         Mutant(
             EVALUATION,

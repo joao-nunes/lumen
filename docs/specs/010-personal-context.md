@@ -125,3 +125,50 @@ Add to the `suggestions` and `checkins` groups, or a new `context` group:
 - **The text box has spellcheck off,** like the free-text note, because some browsers send text to an online spelling service.
 - **Added a repository test** that `get_context` filters by user even without RLS. RLS alone would have hidden a missing filter, as the existing test for observations already guards.
 - **Not tested end to end:** the page uses nothing the Content-Security-Policy would block, such as inline styles, and the unit tests cover its behaviour.
+
+### Second PR: prompt v3 and its measurement
+
+- **Held-out notes first,** committed in `df8e3f2` before v3: 100 new notes, about 30 per language with an invented context the labels take into account, and 16 tuning notes with contexts. Some contexts are there to change nothing: late coffee every day must never become a tag, and a weekly therapy session must never become `therapy_day`. Spec 008's held-out notes became `test_v3`.
+- **Prompt v3** is v1 plus a context section, shown only when there is a context, and a stricter tag rule: a tag needs the note itself to say it happened, and `poor_sleep` needs the note to say the sleep was bad. Its example of a night with a wake-up but no tag is new, not taken from any held-out note.
+- **The context goes to the model in the system prompt, never as part of the note,** and the quote check still uses the note alone. A test checks that a score quoted from the context is dropped.
+- **`measured_requests`** now holds two requests, without a context and with `MEASURED_CONTEXT`, so the hash covers how a context is shown. Each note in the evaluation is asked once, with its own context.
+- **Tuned on `dev` in two rounds.** Round 1, v3 as written, already met every bar on `dev`, including tag precision of 92.9% / 91.7%. Round 2 added a sentence saying that something normal for the person isn't worse than normal. It changed nothing, so it was removed, and v3 stayed as in round 1.
+- **On two `dev` notes the context didn't help:** "short night with the kids, but I feel okay", with a context saying short nights are normal, still got sleep 2, and `poor_sleep` in Portuguese. My labels left sleep blank there, but "short night" does describe sleep, so a 3 would have been a fair label too. I didn't relabel tuning notes to improve the result.
+- **The "Using your personal context" label** reads `GET /api/context` on the Today page. A failed read hides the label rather than breaking the form.
+
+### The first measurement missed the tag bar
+
+On the 100 held-out notes, v3 met every score bar, but Portuguese tag precision was 81.2% against 85%: 13 right of 16 suggested. English was 86.7%, 13 of 15. With so few tags, one more right tag would have given 87.5%. Implementation stopped, and the owner chose to add held-out notes rich in tags and measure the unchanged v3 once more.
+
+| First run, English / Portuguese | Bar | v3 |
+|---|---|---|
+| Within one | ≥95% | 100 / 97.0 |
+| Coverage | ≥75% | 99.0 / 98.0 |
+| Left blank | ≥90% | 97.5 / 95.5 |
+| Off by 3+ | ≤1% | 0 / 0 |
+| Tag precision | ≥85% | 86.7 / **81.2** |
+
+Against the owner's blind scores, with no bar: within one 93.8 / 96.3, left blank 89.9 / 84.0, off by 3+ 2.8 / 3.3, and every suggested tag right.
+
+### The second measurement meets every bar
+
+60 notes rich in tags were added to the held-out split in `be75b32`, with v3 unchanged: 30 per language, each tag clearly stated, and some decoys that tempt a tag without earning one, such as "my therapy session got moved to next week". The split now has 53 and 51 labelled tags. The unchanged v3 was measured once on all 160 notes. Nothing was tuned on the first 100, whose totals only had been read.
+
+| Second run, English / Portuguese | Bar | v3 |
+|---|---|---|
+| Within one | ≥95% | 98.4 / 96.6 |
+| Coverage | ≥75% | 99.2 / 98.3 |
+| Left blank | ≥90% | 95.7 / 94.2 |
+| Off by 3+ | ≤1% | 0 / 0 |
+| Slowest 5% | <10 s | 6.6 / 6.6 s |
+| Tag precision | ≥85% | 88.9 / 91.7 |
+
+About 36 tags were suggested per language, and tag recall was 60.4% / 64.7%.
+
+### How far to trust this
+
+- **The tag pass comes from the new notes.** In Portuguese, the first 100 notes gave 13 right tags of 16, and the 60 new ones about 20 of 20. The new notes state their tags plainly, so they're probably easier than real notes. I wrote them after seeing the miss, though before the second run. Real tag precision may well be below 85%.
+- **Tag recall is low,** about 60–65%: the model misses many tags. That's the cheaper mistake, because a person can add a missed tag.
+- **Spec 008's prompt, which this replaces, had tag precision of 61 / 67%** on its own held-out notes, so v3 is a large improvement even if the true figure is lower than measured here.
+- **The notes, labels, contexts and prompt all have one author,** and everything is synthetic. Whether v3 reads the owner's real notes with their real context better is untested; the owner's own use is the first real check.
+- **A person's real tags still differ from the invented ones,** and the record still doesn't cover the model.
