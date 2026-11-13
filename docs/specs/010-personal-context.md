@@ -1,6 +1,6 @@
 # Spec 010: Personal context and stricter tags
 
-**Status:** Proposed, awaiting the owner's decisions in §6
+**Status:** Approved (decisions in §6)
 **Builds on:** spec 006 (suggestions), spec 008 (all seven dimensions)
 
 ## 1. Goal
@@ -27,7 +27,7 @@ The owner chose two fixes:
 
 ### 2.1 What personal context is
 
-- **One short text per person,** written and edited by them, at most 500 characters (Q1).
+- **One short text per person,** written and edited by them, at most 750 characters (Q1).
 - **Tier 0** (`PROJECT.MD` §8): it can name people and describe health, so it never leaves the machine. Only the local model sees it, and it's never sent to a hosted model.
 - **Saved, unlike a free-text note.** The person writes it so it can be kept, and they can change or delete it at any time. Saving empty text deletes it.
 - **Never logged.** `EventLog` already logs only allowlisted fields, so no change is needed there, and a test checks it (AC-4).
@@ -47,7 +47,7 @@ A table `personal_context (user_id, text, updated_at)`, one row per person, with
 ### 2.4 API
 
 - `GET /api/context` returns `{"text": "..."}`, or `{"text": ""}` when there's none.
-- `PUT /api/context` takes `{"text": "..."}`. Text is trimmed, at most 500 characters, and empty text deletes the row.
+- `PUT /api/context` takes `{"text": "..."}`. Text is trimmed, at most 750 characters, and empty text deletes the row.
 - **Suggestions read the context** in the same short transaction that reads the person's tags.
 
 ### 2.5 The web app
@@ -78,7 +78,7 @@ It's measured as spec 008 was, with two additions:
 
 **First PR**
 - **AC-1 (save and read):** `PUT {"text": "  Waking at night is normal for me.  "}` stores it trimmed, and `GET` returns exactly that. A second `PUT` replaces it.
-- **AC-2 (limits):** 501 characters gives `422`. `PUT {"text": ""}` deletes the row, and `GET` then returns `{"text": ""}`.
+- **AC-2 (limits):** 751 characters gives `422`. `PUT {"text": ""}` deletes the row, and `GET` then returns `{"text": ""}`.
 - **AC-3 (RLS and grants):** another user can't read or change the row, even with `lumen_app` and no filter. The new table is covered by the test that every user-owned table is protected.
 - **AC-4 (never logged):** a context containing a marker is saved, read and used, and the marker isn't in the log, in any other table, or in an error message.
 - **AC-5 (the page):** the page shows the saved context, counts characters and saves the edited text. Clearing it and saving deletes it.
@@ -106,12 +106,12 @@ Add to the `suggestions` and `checkins` groups, or a new `context` group:
 1. This spec.
 2. The two PRs of §2.7, each with its tests failing first, fault injection, and an "Added during implementation" section here.
 
-## 6. Open questions for the owner
+## 6. Decisions
 
-| # | Question | Recommendation |
+| # | Question | Decision |
 |---|---|---|
-| Q1 | **How long can the context be?** | **500 characters.** Enough for a few sentences about your normal. A longer text makes every prompt longer and slower, and gives the model more to misread. |
-| Q2 | **Where do you edit it?** | **Its own "Personal context" page, linked in the header.** It's something you set once and revisit, not part of each day's check-in. |
-| Q3 | **Show "Using your personal context" by the Suggest button?** | **Yes.** It keeps it clear why a suggestion differs from what the note alone says. |
-| Q4 | **What bar for tags?** Precision is how often a suggested tag is right. Recall is how many of the right tags it finds. | **Precision at least 85% per language, and recall reported without a bar.** A wrong tag distorts later analysis without anyone noticing, while a missed tag you can add yourself. |
-| Q5 | **Should the context ever reach a hosted model,** once Lumen has one (Milestone 3)? | **No, never.** It's Tier 0 like your notes, and it's personal by design. |
+| Q1 | How long can the context be? | **750 characters,** longer than the 500 recommended. |
+| Q2 | Where do you edit it? | **Its own "Personal context" page, linked in the header.** |
+| Q3 | Show "Using your personal context" by the Suggest button? | **Yes.** |
+| Q4 | What bar for tags? | **Precision at least 85% per language,** and recall reported without a bar. |
+| Q5 | Should the context ever reach a hosted model? | **No, never.** |
