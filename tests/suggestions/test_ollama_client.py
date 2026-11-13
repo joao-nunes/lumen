@@ -114,12 +114,38 @@ def test_ac2_the_prompt_uses_the_anchors_the_form_shows(stub: Stub) -> None:
 def test_the_client_sends_the_prompt_that_was_measured(stub: Stub) -> None:
     stub.answer(reply())
     model = OllamaSuggestionModel(stub.url, "some-model")
-    for dimensions, tags in measured_requests():
-        model.suggest(TEXT, dimensions, tags)
+    for dimensions, tags, context in measured_requests():
+        model.suggest(TEXT, dimensions, tags, context)
 
     sent = "\n".join(r["body"]["messages"][0]["content"] for r in stub.requests)
-    assert len(stub.requests) == 1
+    assert len(stub.requests) == 2  # without a personal context, and with one (spec 010)
     assert hashlib.sha256(sent.encode()).hexdigest() == prompt_fingerprint()
+
+
+def test_spec010_the_personal_context_has_its_own_section_only_when_there_is_one(
+    stub: Stub,
+) -> None:
+    stub.answer(reply())
+    model = OllamaSuggestionModel(stub.url, "some-model")
+    model.suggest(TEXT, ASKED, TAGS, "Waking at night is normal for me.")
+    model.suggest(TEXT, ASKED, TAGS)
+
+    with_context, without = (r["body"]["messages"] for r in stub.requests)
+    assert "About this person" in with_context[0]["content"]
+    assert "Waking at night is normal for me." in with_context[0]["content"]
+    assert with_context[-1] == {"role": "user", "content": TEXT}  # the note alone
+    assert "About this person" not in without[0]["content"]
+
+
+def test_spec010_ac7_a_quote_from_the_context_doesn_t_count(stub: Stub) -> None:
+    stub.answer(reply(energy=("always exhausted", 1), mood=("slept badly", 2)))
+    model = OllamaSuggestionModel(stub.url, "some-model")
+
+    suggestion = model.suggest(
+        TEXT, (Dimension.MOOD, Dimension.ENERGY), (), "I'm always exhausted."
+    )
+
+    assert suggestion == Suggestion(scores={Dimension.MOOD: 2})
 
 
 def test_a_score_counts_only_if_its_quote_is_really_in_the_note(stub: Stub) -> None:

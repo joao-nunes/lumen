@@ -72,10 +72,14 @@ class OllamaSuggestionModel:
         self._url, self._model, self._timeout = url, model, timeout_seconds
 
     def suggest(
-        self, text: str, dimensions: Collection[Dimension], tags: Collection[str]
+        self,
+        text: str,
+        dimensions: Collection[Dimension],
+        tags: Collection[str],
+        context: str = "",
     ) -> Suggestion:
         # Outside the try: a broken template is a bug to see, not "the model is unavailable".
-        system = checkin_extraction_prompt(dimensions, tags)
+        system = checkin_extraction_prompt(dimensions, tags, context)
         try:
             # trust_env=False: a proxy setting would carry the text to another machine.
             response = httpx2.post(

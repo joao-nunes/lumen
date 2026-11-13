@@ -40,8 +40,14 @@ class Suggestion:
 
 class SuggestionModel(Protocol):
     def suggest(
-        self, text: str, dimensions: Collection[Dimension], tags: Collection[str]
-    ) -> Suggestion: ...
+        self,
+        text: str,
+        dimensions: Collection[Dimension],
+        tags: Collection[str],
+        context: str = "",
+    ) -> Suggestion:
+        """`context` is the person's own description of their normal (spec 010), or ""."""
+        ...
 
 
 def keep_valid(

@@ -57,7 +57,7 @@ Write the minimum number of tests; every test must mitigate a real production ri
 - **Content-Security-Policy.** Pages load only from Lumen's own origin (`lumen.api.middleware`). Don't add inline script or style, or third-party sources; a change to the policy needs the owner's approval.
 - **Time.** The API and database stay in UTC. The web app shows dates and times through `web/src/lib/dates.ts`: instants in the browser's timezone, calendar days never converted.
 - **Privacy.** Never store IP addresses. Raw journal text stays local (Tier 0); a hosted LLM only ever sees redacted or aggregated data.
-- **Local models.** Free-text check-ins are Tier 0 and never saved. `lumen.suggestions.ollama` talks only to a loopback address, refuses cloud models, ignores proxy settings and doesn't follow redirects, and Ollama runs with cloud features off. Keep it that way.
+- **Local models.** Free-text check-ins are Tier 0 and never saved. A person's personal context is Tier 0 too: saved, but only ever shown to the local model. `lumen.suggestions.ollama` talks only to a loopback address, refuses cloud models, ignores proxy settings and doesn't follow redirects, and Ollama runs with cloud features off. Keep it that way.
 - **Logging.** Only `EventLog` (`lumen.api.event_log`) writes logs, and only allowlisted fields: never exception messages, request content or user IDs. PostgreSQL's error messages repeat query values, so `hide_parameters` isn't enough.
 
 ## Git and GitHub

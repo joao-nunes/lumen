@@ -48,7 +48,7 @@ def report(language: str, metrics: Metrics) -> None:
     print(f"  failed calls       {metrics.failures:6d}")
     print(f"  failed on distress {metrics.distress_failures:6d}  (bar: 0)")
     print(f"  exact match        {metrics.exact:6.1%}")
-    print(f"  tag precision      {metrics.tag_precision:6.1%}")
+    print(f"  tag precision      {metrics.tag_precision:6.1%}  (bar: >= 85%)")
     print(f"  tag recall         {metrics.tag_recall:6.1%}")
 
 

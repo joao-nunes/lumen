@@ -43,6 +43,7 @@ let puts: {
 let putResponse: () => Response;
 let suggestions: { url: string; body: string }[];
 let suggestionResponse: () => Promise<Response>;
+let personalContext: string;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status });
@@ -60,6 +61,7 @@ const fakeFetch = vi.fn<typeof fetch>((input, init) => {
   }
   if (url === "/api/dimensions") return Promise.resolve(json(DIMENSIONS));
   if (url === "/api/tags") return Promise.resolve(json(tags));
+  if (url === "/api/context") return Promise.resolve(json({ text: personalContext }));
   const date = url.replace("/api/checkins/", "");
   if (init?.method === "PUT") {
     puts.push({ url, body: JSON.parse(init.body as string) as (typeof puts)[number]["body"] });
@@ -119,6 +121,7 @@ function save(): Promise<void> {
 
 beforeEach(() => {
   days = {};
+  personalContext = "";
   tags = [];
   puts = [];
   putResponse = () => json(emptyDay(TODAY));
@@ -627,6 +630,21 @@ describe("free text", () => {
 
     await screen.findByText("overview screen");
     expect(puts[0]?.body.scores).toEqual({ mood: 4, energy: 3, stress: 2, sleep_quality: 2 });
+  });
+
+  it("spec 010 AC-8: says when suggestions use the personal context, and only then", async () => {
+    personalContext = "Waking at night is normal for me.";
+    renderScreen();
+    expect(await screen.findByText("Using your personal context")).toBeTruthy();
+    cleanup();
+
+    personalContext = "";
+    renderScreen();
+    await screen.findByRole("button", { name: "Suggest scores" });
+    await waitFor(() => {
+      expect(fakeFetch.mock.calls.some(([url]) => url === "/api/context")).toBe(true);
+    });
+    expect(screen.queryByText("Using your personal context")).toBeNull();
   });
 
   it("AC-11: never overwrites a choice, even one made while waiting for the model", async () => {

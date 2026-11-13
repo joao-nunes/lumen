@@ -10,12 +10,12 @@ from pathlib import Path
 
 from lumen.domain.dimensions import SCALE_MAX, SCALE_MIN, Dimension
 from lumen.suggestions.model import Suggestion, SuggestionModel, SuggestionsUnavailableError
-from lumen.suggestions.prompt import measured_requests
+from lumen.suggestions.prompt import request_for
 
 # "test" is the held-out split for the current measurement. The others held earlier ones and have
 # been read, so they're never tuned on or measured against again: "test_v1" (spec 006, which keeps
-# the owner's blind scores) and "test_v2" (spec 007).
-SPLITS = frozenset({"dev", "test", "test_v1", "test_v2"})
+# the owner's blind scores), "test_v2" (spec 007) and "test_v3" (spec 008).
+SPLITS = frozenset({"dev", "test", "test_v1", "test_v2", "test_v3"})
 BLIND_SPLIT = "test_v1"
 LANGUAGES = frozenset({"en", "pt"})
 
@@ -24,6 +24,7 @@ COVERAGE_BAR = 0.75
 LEFT_BLANK_BAR = 0.90
 OFF_BY_THREE_BAR = 0.01
 P95_SECONDS_BAR = 10.0
+TAG_PRECISION_BAR = 0.85  # spec 010 Q4: a wrong tag distorts analysis unnoticed
 BLIND_PER_LANGUAGE = 15
 
 
@@ -38,6 +39,8 @@ class Entry:
     tags: frozenset[str] = frozenset()
     # Dimensions the text only hints at: a score or a blank are both fair, so neither is measured.
     either: frozenset[Dimension] = frozenset()
+    # An invented personal context the labels take into account (spec 010), or "" for none.
+    context: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +86,7 @@ def load_entries(path: Path) -> list[Entry]:
                 scores=scores,
                 tags=frozenset(raw["tags"]),
                 either=frozenset(Dimension(key) for key in raw.get("either", [])),
+                context=raw.get("context", ""),
             )
         )
     return entries
@@ -107,10 +111,10 @@ def collect(
     outcomes: list[Outcome] = []
     failures_in_a_row = 0
     for entry in entries:
-        for asked, tags in measured_requests():
+        for asked, tags, context in (request_for(entry.context),):
             started = clock()
             try:
-                suggestion: Suggestion | None = model.suggest(entry.text, asked, tags)
+                suggestion: Suggestion | None = model.suggest(entry.text, asked, tags, context)
             except SuggestionsUnavailableError:
                 suggestion = None
             outcomes.append(Outcome(entry, suggestion, clock() - started, asked))
@@ -181,6 +185,7 @@ def meets_bar(metrics: Metrics) -> bool:
         and metrics.off_by_three <= OFF_BY_THREE_BAR
         and metrics.p95_seconds < P95_SECONDS_BAR
         and metrics.distress_failures == 0
+        and metrics.tag_precision >= TAG_PRECISION_BAR
     )
 
 
