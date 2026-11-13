@@ -1,6 +1,8 @@
-"""AC-1 of spec 006. A bug in these sums could report a bar as met when it isn't."""
+"""AC-1 of spec 006, and spec 007. A bug in these sums could report a bar as met when it isn't."""
 
 import json
+from collections.abc import Collection
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -11,8 +13,10 @@ from lumen.suggestions.evaluation import (
     Entry,
     Metrics,
     Outcome,
+    RunAbortedError,
     agreement,
     blind_sheet_entries,
+    collect,
     labelled_by_owner,
     load_entries,
     measure,
@@ -21,10 +25,17 @@ from lumen.suggestions.evaluation import (
     record_if_met,
     write_blind_sheet,
 )
-from lumen.suggestions.model import Suggestion
+from lumen.suggestions.model import (
+    STARTER_TAGS,
+    Suggestion,
+    SuggestionsUnavailableError,
+    offered_tags,
+)
+from lumen.suggestions.prompt import INVENTED_TAGS, measured_requests
 
 MOOD, ENERGY, STRESS = Dimension.MOOD, Dimension.ENERGY, Dimension.STRESS
 ENTRIES = Path(__file__).parents[2] / "evals" / "extraction" / "entries.jsonl"
+SCORED = ENTRIES.with_name("owner_scores.csv")
 
 
 def entry(
@@ -195,6 +206,68 @@ def test_the_bar_fails_past_each_limit(changes: dict[str, float]) -> None:
     assert not meets_bar(with_(**changes))
 
 
+def test_only_the_dimensions_asked_are_measured() -> None:
+    asked = (MOOD, ENERGY, STRESS, Dimension.CONCENTRATION, Dimension.SOCIAL_CONNECTION)
+    labelled = entry({MOOD: 4, Dimension.SLEEP_QUALITY: 2})
+
+    metrics = measure([Outcome(labelled, Suggestion(scores={MOOD: 4}), asked=asked)])
+
+    assert (metrics.addressed, metrics.coverage, metrics.within_one) == (1, 1.0, 1.0)
+    assert (metrics.unaddressed, metrics.left_blank) == (4, 1.0)
+
+
+class RecordingModel:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, tuple[Dimension, ...], tuple[str, ...]]] = []
+
+    def suggest(
+        self, text: str, dimensions: Collection[Dimension], tags: Collection[str]
+    ) -> Suggestion:
+        self.calls.append((text, tuple(dimensions), tuple(tags)))
+        if text == "fails":
+            raise SuggestionsUnavailableError
+        return Suggestion(scores={MOOD: 3})
+
+
+def test_every_note_is_asked_about_all_seven_dimensions_with_the_app_s_tags() -> None:
+    model = RecordingModel()
+    notes = [replace(entry({MOOD: 3}), text="fine"), replace(entry({MOOD: 3}), text="fails")]
+    ticks = iter(range(100))
+
+    outcomes = collect(model, notes, clock=lambda: float(next(ticks)))
+
+    every, tags = tuple(Dimension), (*INVENTED_TAGS, *STARTER_TAGS)
+    assert measured_requests() == ((every, tags),)  # spec 008 AC-12: one request per note
+    assert model.calls == [("fine", every, tags), ("fails", every, tags)]
+    assert [(o.entry.text, o.asked, o.seconds) for o in outcomes] == [
+        ("fine", every, 1.0),
+        ("fails", every, 1.0),
+    ]
+    assert [o.suggestion is None for o in outcomes] == [False, True]
+
+
+def test_a_run_stops_after_three_failed_calls_in_a_row_rather_than_reporting_them() -> None:
+    fails, fine = replace(entry({MOOD: 3}), text="fails"), replace(entry({MOOD: 3}), text="fine")
+
+    assert len(collect(RecordingModel(), [fails, fails, fine, fails, fails])) == 5
+    with pytest.raises(RunAbortedError):
+        collect(RecordingModel(), [fine, fails, fails, fails, fine])
+
+
+def test_a_person_s_own_tags_are_offered_first_and_each_tag_once() -> None:
+    others = tuple(t for t in STARTER_TAGS if t != "exercise")
+
+    assert offered_tags(["reading", "exercise"]) == ("reading", "exercise", *others)
+
+
+def test_invented_tags_can_only_count_against_precision() -> None:
+    entries = load_entries(ENTRIES)
+    labelled = {tag for e in entries for tag in e.tags}
+
+    assert len(INVENTED_TAGS) == len(set(INVENTED_TAGS)) == 12
+    assert not set(INVENTED_TAGS) & (labelled | set(STARTER_TAGS))
+
+
 def test_a_held_out_run_that_meets_the_bar_in_both_languages_is_recorded(tmp_path: Path) -> None:
     path = tmp_path / "measured.json"
 
@@ -248,11 +321,11 @@ def test_anything_else_leaves_the_record_as_it_was(
 def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(ENTRIES)
 
-    assert len(entries) == 150
-    assert len({e.id for e in entries}) == 150
-    assert len({e.text for e in entries}) == 150
+    assert len(entries) == 350
+    assert len({e.id for e in entries}) == 350
+    assert len({e.text for e in entries}) == 350
     for language in ("en", "pt"):
-        for split, count in (("dev", 25), ("test", 50)):
+        for split, count in (("dev", 25), ("test", 50), ("test_v1", 50), ("test_v2", 50)):
             assert len([e for e in entries if (e.language, e.split) == (language, split)]) == count
         # Enough of each awkward kind in both splits, or a weakness could go unmeasured.
         for split in ("dev", "test"):
@@ -271,7 +344,7 @@ def test_the_evaluation_set_is_what_the_spec_says() -> None:
         assert not set(e.scores) & set(e.either), e.id
     irrelevant = [e for e in entries if e.category == "irrelevant"]
     assert irrelevant and all(not e.scores for e in irrelevant)
-    # About 100 per language, which is good to roughly 4 points either way (spec 006 §7).
+    # About 100 per language, which is good to roughly 4 points either way (spec 006 §7, 007, 008).
     for language in ("en", "pt"):
         held_out = [e for e in entries if (e.language, e.split) == (language, "test")]
         assert sum(len(e.scores) for e in held_out) >= 100
@@ -305,7 +378,8 @@ def test_the_blind_sheet_never_shows_the_labels_and_leaves_out_distress(tmp_path
     assert len(chosen) == 30
     assert len([e for e in chosen if e.language == "en"]) == 15
     assert len([e for e in chosen if e.language == "pt"]) == 15
-    assert {e.split for e in chosen} == {"test"}
+    assert {e.split for e in chosen} == {"test_v1"}
+    assert {e.id for e in chosen} == set(read_blind_sheet(SCORED))  # the notes the owner scored
     assert "distress" not in {e.category for e in chosen}
     assert {e.category for e in chosen} >= {"terse", "long", "mixed", "negation", "stress"}
     assert chosen == blind_sheet_entries(entries)  # the same sheet every time

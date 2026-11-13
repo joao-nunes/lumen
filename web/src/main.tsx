@@ -4,6 +4,10 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { App } from "./App";
 import "./global.css";
+import { applyTheme, storedTheme } from "./lib/theme";
+
+// Before the first render, so the page draws in the chosen theme.
+applyTheme(storedTheme());
 
 const root = document.getElementById("root");
 if (root === null) {

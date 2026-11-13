@@ -6,18 +6,16 @@ uv run python scripts/eval_extraction.py --agreement  # the owner's blind scores
 """
 
 import argparse
-import time
 from dataclasses import asdict
 from pathlib import Path
 
 from lumen.config import get_settings
-from lumen.domain.dimensions import Dimension
 from lumen.suggestions.evaluation import (
-    Entry,
     Metrics,
     Outcome,
     agreement,
     blind_sheet_entries,
+    collect,
     labelled_by_owner,
     load_entries,
     measure,
@@ -26,7 +24,6 @@ from lumen.suggestions.evaluation import (
     record_if_met,
     write_blind_sheet,
 )
-from lumen.suggestions.model import STARTER_TAGS, SuggestionsUnavailableError
 from lumen.suggestions.ollama import OllamaSuggestionModel
 from lumen.suggestions.prompt import PROMPT_NAME, prompt_fingerprint
 
@@ -62,7 +59,7 @@ def show_misses(outcomes: list[Outcome]) -> None:
             print(f"{entry.id} FAILED")
             continue
         wrong = []
-        for dimension in Dimension:
+        for dimension in outcome.asked:
             label, guess = entry.scores.get(dimension), suggestion.scores.get(dimension)
             if dimension in entry.either or label == guess:
                 continue
@@ -74,22 +71,10 @@ def show_misses(outcomes: list[Outcome]) -> None:
             print(f"{entry.id} {wrong} tags +{extra} -{missing}\n    {entry.text}")
 
 
-def run(model: OllamaSuggestionModel, entries: list[Entry]) -> list[Outcome]:
-    outcomes: list[Outcome] = []
-    for entry in entries:
-        started = time.perf_counter()
-        try:
-            suggestion = model.suggest(entry.text, tuple(Dimension), STARTER_TAGS)
-        except SuggestionsUnavailableError:
-            suggestion = None
-        outcomes.append(Outcome(entry, suggestion, time.perf_counter() - started))
-    return outcomes
-
-
 def evaluate(model_name: str, split: str, misses: bool) -> None:
     url = get_settings().ollama_url
     model = OllamaSuggestionModel(url, model_name, timeout_seconds=120)
-    outcomes = run(model, [e for e in load_entries(ENTRIES) if e.split == split])
+    outcomes = collect(model, [e for e in load_entries(ENTRIES) if e.split == split])
 
     fingerprint = prompt_fingerprint()
     print(f"{model_name}, {split} split, {PROMPT_NAME} ({fingerprint[:12]})")
@@ -120,7 +105,9 @@ def against_owner(model_name: str) -> None:
     print(f"{model_name}, against the owner's blind scores")
     for language in ("en", "pt"):
         entries = [e for e in chosen if e.language == language]
-        report(language, measure(run(model, labelled_by_owner(entries, read_blind_sheet(SCORED)))))
+        report(
+            language, measure(collect(model, labelled_by_owner(entries, read_blind_sheet(SCORED))))
+        )
 
 
 def main() -> None:

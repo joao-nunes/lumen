@@ -17,7 +17,7 @@ from zoneinfo import ZoneInfo
 
 import numpy as np
 
-from lumen.domain.checkin import Checkin, CheckinMode
+from lumen.domain.checkin import Checkin, CheckinMode, volunteered_for
 from lumen.domain.dimensions import SCALE_MAX, SCALE_MIN, Dimension, dimensions_for
 
 # A level curve maps study progress t ∈ [0, 1] to a latent score.
@@ -117,6 +117,7 @@ def generate(
                 scores=scores,
                 tags=tags,
                 mode=CheckinMode.STRUCTURED,
+                volunteered=volunteered_for(day, scores),
             )
         )
     return checkins

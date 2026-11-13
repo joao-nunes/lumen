@@ -45,6 +45,13 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
     await expect(labels).toHaveText(anchors);
   }
 
+  // 2b. Spec 008 AC-9: add a dimension today didn't ask about. It's marked, and gets a group.
+  const addControl = page.getByRole("combobox", { name: "Add another dimension" });
+  // selectOption, not a click; ArrowDown opens the menu rather than choosing on macOS.
+  await addControl.selectOption({ index: 1 }); // the first dimension after "Choose one"
+  await expect(groups).toHaveCount(6);
+  await expect(page.getByText("Not asked today")).toHaveCount(1);
+
   // 3. Keyboard alone: Tab into each group, an arrow key chooses, then submit.
   await page.getByRole("combobox", { name: "Day" }).focus();
   for (const group of await groups.all()) {
@@ -68,9 +75,22 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
   await page.reload();
   await expect(page.getByRole("heading", { name: "Overview" })).toBeVisible();
   await page.getByRole("link", { name: "Today" }).click();
+  await expect(groups).toHaveCount(6);
   for (const group of await groups.all()) {
     await expect(group.getByRole("radio").nth(1)).toBeChecked();
   }
+  await expect(page.getByText("Not asked today")).toHaveCount(1); // saved, and still marked
+
+  // 4b. Dark mode is chosen from the footer and survives a reload; the page starts light.
+  const html = page.locator("html");
+  await expect(html).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Dark mode" }).click();
+  await page.reload();
+  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(page.getByRole("button", { name: "Dark mode" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 
   // 5. Logging out returns to Log in.
   await page.getByRole("button", { name: "Log out" }).click();
