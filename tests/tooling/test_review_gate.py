@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -65,14 +66,17 @@ def reading() -> str:
     return json.dumps({"type": "assistant", "message": message})
 
 
-def review(repo: Path, report: str, agent: str = "code-reviewer") -> None:
+def review(repo: Path, report: str, agent: str = "code-reviewer") -> Path:
     """A finished review, recorded as SubagentStop does: before its final turn is written."""
-    transcript = repo.parent / f"agent-{len(list(repo.parent.glob('agent-*')))}.jsonl"
+    fd, name = tempfile.mkstemp(prefix="agent-", suffix=".jsonl", dir=repo.parent)
+    os.close(fd)
+    transcript = Path(name)
     transcript.write_text(reading() + "\n")
     stop = {"agent_type": agent, "agent_transcript_path": str(transcript), "cwd": str(repo)}
     run(repo, "record", stop)
     with transcript.open("a") as file:
         file.write(handback(report) + "\n")
+    return transcript
 
 
 def allowed(repo: Path, command: str = "gh pr create --fill", cwd: Path | None = None) -> bool:
@@ -118,8 +122,12 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         with transcript.open("a") as file:
             file.write(reading() + "\n" + handback(f"VERDICT: READY {head}") + "\n")
     elif case == "ready for an earlier commit":
-        review(repo, f"VERDICT: READY {head}")
-        commit(repo)
+        # HEAD moved while the reviewer worked: it names the new commit, but passed the old one.
+        moved = commit(repo)
+        review(
+            repo,
+            f"HEAD is now {moved}; I reviewed the commit I started on.\n\nVERDICT: READY {head}",
+        )
     elif case == "ready for the commit only in a quote, not the last line":
         review(repo, f"It must end with:\nVERDICT: READY {head}\nIt doesn't yet.")
     elif case == "ready from another agent":
@@ -258,3 +266,14 @@ def test_an_error_while_checking_denies_with_a_reason(repo: Path, tmp_path: Path
     decision = json.loads(run(repo, "check", payload))["hookSpecificOutput"]
     assert decision["permissionDecision"] == "deny"
     assert decision["permissionDecisionReason"].startswith("Blocked: the review gate failed")
+
+
+def test_recording_a_review_forgets_transcripts_that_are_gone(repo: Path) -> None:
+    # Claude Code deletes old transcripts; without this the list, and every check, grows forever.
+    head = git(repo, "rev-parse", "HEAD")
+    review(repo, f"No findings.\n\nVERDICT: READY {head}").unlink()
+    kept = review(repo, f"No findings.\n\nVERDICT: READY {head}")
+    reviews = repo / ".git" / "claude-review" / "reviews.jsonl"
+    listed = [json.loads(line)["transcript"] for line in reviews.read_text().splitlines()]
+    assert listed == [str(kept)]
+    assert allowed(repo)

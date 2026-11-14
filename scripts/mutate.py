@@ -1521,6 +1521,12 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             REVIEW_GATE,
+            "deleted transcripts stay listed forever",
+            "kept = [line for line in lines if listed_transcript(line).is_file()]",
+            "kept = lines",
+        ),
+        Mutant(
+            REVIEW_GATE,
             "an invalid byte in a transcript crashes the gate",
             'transcript.read_text(errors="replace")',
             "transcript.read_text()",

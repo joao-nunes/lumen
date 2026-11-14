@@ -26,6 +26,7 @@ Reviews are listed in .git/claude-review/, which is never committed.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import re
 import shutil
@@ -87,13 +88,12 @@ def review_dir(cwd: str) -> Path:
     return (common if common.is_absolute() else Path(cwd) / common) / "claude-review"
 
 
-def final_reports(transcript: Path) -> list[str]:
-    """Every SubagentHandback report, as a resumed reviewer hands back once per run, or else
-    the reviewer's last text message."""
+def final_reports(transcript: str) -> list[str]:
+    """Every SubagentHandback report in a transcript's text, as a resumed reviewer hands back
+    once per run, or else the reviewer's last text message."""
     handbacks: list[str] = []
     text = ""
-    # A stray invalid byte spoils only its own line, not every review after it.
-    for line in transcript.read_text(errors="replace").splitlines():
+    for line in transcript.splitlines():
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
@@ -128,20 +128,44 @@ def record(data: dict[str, Any]) -> int:
         return 0
     directory = review_dir(data.get("cwd") or ".")
     directory.mkdir(exist_ok=True)
-    with (directory / REVIEWS).open("a") as reviews:
-        reviews.write(json.dumps({"transcript": transcript}) + "\n")
+    reviews = directory / REVIEWS
+    # One recorder at a time, so two reviews finishing together both stay listed.
+    with (directory / "reviews.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        # Claude Code deletes old transcripts, and a deleted one holds no verdict, so drop it:
+        # otherwise the list, and the time each check takes, grows forever.
+        lines = reviews.read_text().splitlines() if reviews.is_file() else []
+        kept = [line for line in lines if listed_transcript(line).is_file()]
+        kept.append(json.dumps({"transcript": transcript}))
+        # Replaced in one step, so a check reading at the same time sees the old or new list.
+        staged = directory / (REVIEWS + ".new")
+        staged.write_text("".join(line + "\n" for line in kept))
+        staged.replace(reviews)
     return 0
+
+
+def listed_transcript(line: str) -> Path:
+    """The transcript a line of reviews.jsonl names, or a path that doesn't exist."""
+    try:
+        return Path(json.loads(line)["transcript"])
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return Path()
 
 
 def verdicts_for(directory: Path, head: str) -> set[str]:
     reviews = directory / REVIEWS
     found: set[str] = set()
     for line in reviews.read_text().splitlines() if reviews.is_file() else []:
-        try:
-            transcript = Path(json.loads(line)["transcript"])
-        except (json.JSONDecodeError, KeyError, TypeError):
+        transcript = listed_transcript(line)
+        if not transcript.is_file():
             continue
-        for report in final_reports(transcript) if transcript.is_file() else []:
+        # A stray invalid byte spoils only its own line, not every review after it.
+        text = transcript.read_text(errors="replace")
+        # Every verdict names its full commit, so a transcript without HEAD's holds none for
+        # it: skip parsing, which keeps a check fast as old reviews pile up.
+        if head not in text:
+            continue
+        for report in final_reports(text):
             result = verdict_of(report)
             if result and result[1] == head:
                 found.add(result[0])
