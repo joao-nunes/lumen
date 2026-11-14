@@ -3,7 +3,8 @@ import { lazy, Suspense, useId } from "react";
 import { type DimensionInfo, fetchDimensions } from "../api/checkins";
 import { type DimensionOverview, fetchOverview } from "../api/overview";
 import { formatDay, today as localToday } from "../lib/dates";
-import { chartRows, days, directionLine, latelyLine } from "../lib/overview";
+import { chartRows, days, directionLine, latelyLine, mentionedLine } from "../lib/overview";
+import { Lately } from "./Heatmap";
 import styles from "./OverviewScreen.module.css";
 
 // Recharts is most of the app's code, and only this screen needs it.
@@ -36,6 +37,7 @@ export function OverviewScreen({ today = localToday() }: { today?: string }) {
   return (
     <>
       <h1>Overview</h1>
+      <Lately end={overview.data.end} results={overview.data.dimensions} info={info} />
       <Legend />
       <div className={styles.cards}>
         {overview.data.dimensions.map((result) => {
@@ -66,6 +68,9 @@ function Legend() {
         <span className={styles.keyLine} /> 7-day average
       </li>
       <li>
+        <span className={styles.keyHollow} /> Mentioned, not asked
+      </li>
+      <li>
         <span className={`${styles.dot ?? ""} ${styles.improving ?? ""}`} /> Getting better
       </li>
       <li>
@@ -88,7 +93,8 @@ function DimensionCard({
   result: DimensionOverview;
 }) {
   const headingId = useId();
-  const rows = chartRows(end, result.daily, result.rolling_7);
+  const rows = chartRows(end, result.daily, result.rolling_7, result.volunteered);
+  const hasPoints = result.daily.length > 0 || result.volunteered.length > 0;
   return (
     <section className={styles.card} aria-labelledby={headingId}>
       <h2 id={headingId}>{dimension.display_name}</h2>
@@ -107,7 +113,10 @@ function DimensionCard({
           {directionLine(result.trend)}
         </dd>
       </dl>
-      {result.daily.length > 0 && (
+      {result.volunteered.length > 0 && (
+        <p className={styles.note}>{mentionedLine(result.volunteered.length)}</p>
+      )}
+      {hasPoints && (
         <Suspense fallback={<div className={styles.chartSpace} />}>
           <DimensionChart
             name={dimension.display_name}
@@ -119,7 +128,7 @@ function DimensionCard({
       <details className={styles.numbers}>
         <summary>Numbers</summary>
         <Numbers result={result} />
-        {result.daily.length > 0 && (
+        {hasPoints && (
           <div className={styles.values}>
             <table>
               <thead>
@@ -127,17 +136,22 @@ function DimensionCard({
                   <th scope="col">Day</th>
                   <th scope="col">Daily</th>
                   <th scope="col">7-day average</th>
+                  <th scope="col">Mentioned, not asked</th>
                 </tr>
               </thead>
               <tbody>
                 {rows
-                  .filter(({ daily, rolling }) => daily !== null || rolling !== null)
+                  .filter(
+                    ({ daily, rolling, volunteered }) =>
+                      daily !== null || rolling !== null || volunteered !== null,
+                  )
                   .reverse()
-                  .map(({ date, daily, rolling }) => (
+                  .map(({ date, daily, rolling, volunteered }) => (
                     <tr key={date}>
                       <th scope="row">{formatDay(date)}</th>
                       <td>{daily ?? "–"}</td>
                       <td>{rolling?.toFixed(2) ?? "–"}</td>
+                      <td>{volunteered ?? "–"}</td>
                     </tr>
                   ))}
               </tbody>

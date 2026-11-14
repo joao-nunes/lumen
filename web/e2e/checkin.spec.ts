@@ -48,6 +48,7 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
   // 2b. Spec 008 AC-9: add a dimension today didn't ask about. It's marked, and gets a group.
   const addControl = page.getByRole("combobox", { name: "Add another dimension" });
   // selectOption, not a click; ArrowDown opens the menu rather than choosing on macOS.
+  const added = (await addControl.locator("option").nth(1).textContent()) ?? "";
   await addControl.selectOption({ index: 1 }); // the first dimension after "Choose one"
   await expect(groups).toHaveCount(6);
   await expect(page.getByText("Not asked today")).toHaveCount(1);
@@ -70,6 +71,21 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
   const top = await mood.locator("svg").getByText("Very good").boundingBox();
   const bottom = await mood.locator("svg").getByText("Very low").boundingBox();
   expect(top?.y).toBeLessThan(bottom?.y ?? 0);
+
+  // 3b. Spec 009 AC-8: the added dimension's score was volunteered, so its chart draws one hollow
+  // point and no filled one, and its heatmap cell is marked.
+  const volunteered = page.getByRole("region", { name: added });
+  await expect(volunteered.getByText("Also mentioned on 1 day without being asked")).toBeVisible();
+  await expect(volunteered.locator('svg circle[fill="var(--background)"]')).toHaveCount(1);
+  await expect(volunteered.locator('svg circle[fill="var(--chart-line)"]')).toHaveCount(0);
+  // Never joined: the only drawn line is the 7-day average's, which Recharts renders even empty.
+  await expect(
+    volunteered.locator('svg path.recharts-curve[stroke="var(--chart-line)"]'),
+  ).toHaveCount(1);
+  const lately = page.getByRole("region", { name: "Lately" });
+  await expect(lately.getByRole("list", { name: added }).locator("[data-volunteered]")).toHaveCount(
+    1,
+  );
 
   // 4. A reload keeps the session, and Today is prefilled.
   await page.reload();

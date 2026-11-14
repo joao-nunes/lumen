@@ -2,7 +2,14 @@
 // the opposite of what their data says, and nothing would crash.
 import { describe, expect, it } from "vitest";
 import type { components } from "../api/schema";
-import { chartRows, directionLine, latelyLine } from "./overview";
+import {
+  calendarWeeks,
+  chartRows,
+  directionLine,
+  heatStep,
+  latelyLine,
+  mentionedLine,
+} from "./overview";
 
 type Change = components["schemas"]["ChangeOut"];
 type Trend = components["schemas"]["TrendOut"];
@@ -86,17 +93,49 @@ describe("chartRows", () => {
       { date: "2026-08-08", mean: 2 },
     ],
     [{ date: "2026-10-30", mean: 3.5, n: 3 }],
+    [{ date: "2026-10-29", value: 1 }],
   );
 
   it("has one row per day of the 84 days ending on the given day, oldest first", () => {
     expect(rows).toHaveLength(84);
-    expect(rows[0]).toEqual({ date: "2026-08-09", daily: null, rolling: null });
+    expect(rows[0]).toEqual({ date: "2026-08-09", daily: null, rolling: null, volunteered: null });
   });
 
-  it("keeps a day without data as a gap, so the line is never joined across it", () => {
-    expect(rows.slice(-2)).toEqual([
-      { date: "2026-10-30", daily: null, rolling: 3.5 },
-      { date: "2026-10-31", daily: 4, rolling: null },
+  it("keeps a day without data as a gap, and a volunteered score apart from the daily ones", () => {
+    expect(rows.slice(-3)).toEqual([
+      { date: "2026-10-29", daily: null, rolling: null, volunteered: 1 },
+      { date: "2026-10-30", daily: null, rolling: 3.5, volunteered: null },
+      { date: "2026-10-31", daily: 4, rolling: null, volunteered: null },
     ]);
+  });
+});
+
+describe("the heatmap (spec 009)", () => {
+  it("colours by outlook: a good score is always the good end, whichever way the scale runs", () => {
+    expect([1, 2, 3, 4, 5].map((v) => heatStep(v, "higher_is_better"))).toEqual([1, 2, 3, 4, 5]);
+    expect([1, 2, 3, 4, 5].map((v) => heatStep(v, "higher_is_worse"))).toEqual([5, 4, 3, 2, 1]);
+  });
+
+  it("lays the 84 days out in week columns, Monday first, drawing nothing outside them", () => {
+    // 31 October 2026 is a Saturday, so the window starts on Sunday 9 August.
+    const weeks = calendarWeeks("2026-10-31");
+
+    expect(weeks).toHaveLength(13);
+    expect(weeks[0]).toEqual([null, null, null, null, null, null, "2026-08-09"]);
+    expect(weeks[12]).toEqual([
+      "2026-10-26",
+      "2026-10-27",
+      "2026-10-28",
+      "2026-10-29",
+      "2026-10-30",
+      "2026-10-31",
+      null,
+    ]);
+    expect(weeks.flat().filter((day) => day !== null)).toHaveLength(84);
+  });
+
+  it("counts volunteered days in words", () => {
+    expect(mentionedLine(1)).toBe("Also mentioned on 1 day without being asked");
+    expect(mentionedLine(4)).toBe("Also mentioned on 4 days without being asked");
   });
 });

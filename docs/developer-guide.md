@@ -148,7 +148,8 @@ Everything except register, login and logout needs a session. `PUT` and the pass
 - Tier 0, like a free-text note, but saved: the person writes it so it can be kept. Only the local model may see it, never a hosted one, and it's never logged.
 
 **Overview**
-- Volunteered scores are left out, because they lean towards days that stood out (spec 008 §2.4). Spec 009 decides how to show them.
+- **Statistics use asked scores only:** daily means, the 7-day average, change, trend, and any future correlation. Volunteered scores lean towards days that stood out, so statistics on them would be biased (spec 008 §2.4).
+- Each dimension's `volunteered` lists its volunteered scores inside the 84-day trend window, `{date, value}`, for showing only (spec 009). A day appears in `daily` or `volunteered`, never both, and core dimensions' lists are always empty.
 - Each dimension has `change` (last 28 days against the 28 before) and `trend` (a slope over 84 days). `daily` and `rolling_7` cover the 84 days.
 - A day missing from `daily` or `rolling_7` is a gap. Don't join across it. The rolling mean needs at least 3 days in its 7-day window.
 - `direction` is what the numbers did: `increasing`, `decreasing`, `flat`, `unclear` or `insufficient_data`. `outlook` applies polarity, so rising stress is `worsening`. Use `outlook` for good or bad, and never compare `direction` across dimensions.

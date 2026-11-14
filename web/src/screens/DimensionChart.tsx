@@ -69,6 +69,15 @@ export function DimensionChart({
             activeDot={{ r: 4, fill: "var(--chart-line)", stroke: "var(--background)" }}
           />
           <Line
+            dataKey="volunteered"
+            name="Mentioned, not asked"
+            stroke="none"
+            isAnimationActive={false}
+            // Hollow, so it's told apart by shape, not colour. Never joined to the average (spec 009).
+            dot={{ r: 3, fill: "var(--background)", stroke: "var(--chart-line)", strokeWidth: 1.5 }}
+            activeDot={{ r: 4, fill: "var(--background)", stroke: "var(--chart-line)" }}
+          />
+          <Line
             dataKey="rolling"
             name="7-day average"
             stroke="var(--chart-line)"
@@ -97,6 +106,11 @@ function ChartTooltip({ row }: { row: ChartRow | undefined }) {
       <div>
         <strong>{row.rolling?.toFixed(2) ?? "–"}</strong> 7-day average
       </div>
+      {row.volunteered !== null && (
+        <div>
+          <strong>{row.volunteered}</strong> Mentioned, not asked
+        </div>
+      )}
     </div>
   );
 }

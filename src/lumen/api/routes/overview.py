@@ -15,8 +15,9 @@ from lumen.analytics.overview import DimensionOverview, overview, overview_start
 from lumen.analytics.series import DateRange
 from lumen.api.dependencies import CurrentUser, UserDb
 from lumen.api.errors import error_responses
-from lumen.db.repository import list_observations
+from lumen.db.repository import list_observations, list_volunteered
 from lumen.domain.dimensions import Dimension
+from lumen.domain.observation import Observation
 
 router = APIRouter(prefix="/api")
 
@@ -61,12 +62,19 @@ class RollingPoint(BaseModel):
     n: int
 
 
+class VolunteeredPoint(BaseModel):
+    date: date
+    value: int
+
+
 class DimensionOverviewOut(BaseModel):
     dimension: Dimension
     change: ChangeOut
     trend: TrendOut
     daily: list[DailyPoint]
     rolling_7: list[RollingPoint]
+    # Scores the day didn't ask for, inside the trend window: shown, never computed with (spec 009).
+    volunteered: list[VolunteeredPoint]
 
 
 class OverviewOut(BaseModel):
@@ -78,7 +86,9 @@ def _period(period: DateRange, stat: PeriodStat) -> PeriodOut:
     return PeriodOut(start=period.start, end=period.end, mean=stat.mean, n=stat.n)
 
 
-def _dimension(dimension: Dimension, o: DimensionOverview) -> DimensionOverviewOut:
+def _dimension(
+    dimension: Dimension, o: DimensionOverview, volunteered: list[Observation]
+) -> DimensionOverviewOut:
     s = o.summary
     return DimensionOverviewOut(
         dimension=dimension,
@@ -109,13 +119,19 @@ def _dimension(dimension: Dimension, o: DimensionOverview) -> DimensionOverviewO
             for day, stat in o.rolling.items()
             if stat.mean is not None
         ],
+        volunteered=[
+            VolunteeredPoint(date=v.day, value=v.value)
+            for v in volunteered
+            if v.dimension == dimension and s.trend_period.start <= v.day <= s.trend_period.end
+        ],
     )
 
 
 @router.get("/overview", responses=error_responses(401, 422))
 def read_overview(end: date, user: CurrentUser, db: UserDb) -> OverviewOut:
     observations = list_observations(db, user.user_id, overview_start(end), end)
+    volunteered = list_volunteered(db, user.user_id, overview_start(end), end)
     return OverviewOut(
         end=end,
-        dimensions=[_dimension(d, o) for d, o in overview(observations, end).items()],
+        dimensions=[_dimension(d, o, volunteered) for d, o in overview(observations, end).items()],
     )

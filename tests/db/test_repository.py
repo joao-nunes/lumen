@@ -8,10 +8,17 @@ from sqlalchemy.orm import Session
 
 from lumen.auth.models import AuthSession, PasswordCredential
 from lumen.db import models
-from lumen.db.repository import get_context, list_observations, save_checkin, save_context
+from lumen.db.repository import (
+    get_context,
+    list_observations,
+    list_volunteered,
+    save_checkin,
+    save_context,
+)
 from lumen.db.scope import scope_to_user
 from lumen.domain.checkin import Checkin, volunteered_for
 from lumen.domain.dimensions import Dimension
+from lumen.domain.observation import Observation
 from tests.db.factories import new_user
 from tests.db.roles import APP, act_as, act_as_owner
 
@@ -75,6 +82,17 @@ def test_list_observations_filters_by_user_even_without_rls(session: Session) ->
 
     assert [o.value for o in list_observations(session, alice, DAY, DAY)] == [5]
     assert [o.value for o in list_observations(session, bob, DAY, DAY)] == [1]
+
+
+def test_list_volunteered_filters_by_user_and_kind_even_without_rls(session: Session) -> None:
+    # As the owner, which bypasses RLS. 23 October asks sleep quality, not concentration.
+    alice, bob = new_user(session), new_user(session)
+    save_checkin(session, alice, make_checkin(mood=3, sleep_quality=4, concentration=2))
+    save_checkin(session, bob, make_checkin(mood=3, concentration=5))
+
+    assert list_volunteered(session, alice, DAY, DAY) == [
+        Observation(DAY, Dimension.CONCENTRATION, 2)
+    ]
 
 
 def test_get_context_filters_by_user_even_without_rls(session: Session) -> None:
