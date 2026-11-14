@@ -1,4 +1,4 @@
-.PHONY: check test e2e mutate eval-extraction dev run schema check-schema
+.PHONY: check audit test e2e mutate eval-extraction dev run schema check-schema
 
 WEB := pnpm --dir web
 # --no-access-log: uvicorn's access log records client IP addresses, which Lumen never stores.
@@ -8,6 +8,13 @@ API := uv run uvicorn lumen.api.main:app --factory --host 127.0.0.1 --port $(POR
 # Lint, format, type-check and secret-scan everything (as CI's first job does).
 check:
 	uv run pre-commit run --all-files
+
+# Known vulnerabilities in both lockfiles (as CI does on every change and daily). Needs Docker.
+# Accepted exceptions, each with a reason and an expiry date, are in osv-scanner.toml.
+audit:
+	docker build --quiet --tag lumen-osv-scanner docker/osv-scanner > /dev/null
+	docker run --rm -v "$(CURDIR):/src:ro" lumen-osv-scanner scan source \
+		--config /src/osv-scanner.toml --lockfile /src/uv.lock --lockfile /src/web/pnpm-lock.yaml
 
 # Unit and integration tests (integration tests need `docker compose up -d db`).
 test:
