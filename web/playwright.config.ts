@@ -9,7 +9,8 @@ export default defineConfig({
   testDir: "e2e",
   forbidOnly: true,
   reporter: "list",
-  use: { baseURL: `http://localhost:${String(PORT)}` },
+  // A Portuguese browser, so a date that follows the browser's locale fails (spec 002 Q8).
+  use: { baseURL: `http://localhost:${String(PORT)}`, locale: "pt-PT" },
   webServer: [
     {
       command: `node e2e/fake-ollama.mjs ${String(OLLAMA_PORT)}`,
