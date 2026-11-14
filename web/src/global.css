@@ -17,6 +17,17 @@
   --button-text: light-dark(#fcfaf6, #262524);
   --chart-line: light-dark(#383838, #e4dcd7);
   --chart-grid: light-dark(#e1ddd2, #3a3835);
+  /*
+   * The heatmap, 1 the bad end to 5 the good end (spec 009): green for good and a darker
+   * red-orange for bad, with a grey middle. Checked with the dataviz palette validator, all pairs:
+   * colour-blind separation ΔE 11.0 light / 12.0 dark, normal-vision floor 15.1 / 15.0. Some steps
+   * are under 3:1 against the background, so every cell is named and Numbers lists the values.
+   */
+  --heat-1: light-dark(#5f2309, #e76937);
+  --heat-2: light-dark(#e1713c, #9e4827);
+  --heat-3: light-dark(#e9e5e0, #3d3a36);
+  --heat-4: light-dark(#a4d48a, #81cc92);
+  --heat-5: light-dark(#16673a, #cef4bd);
   /* Outlook keeps its own hues: the palette has no pair that tells better from harder apart. */
   --outlook-better: light-dark(#1baf7a, #199e70);
   --outlook-harder: light-dark(#6250d6, #9085e9);

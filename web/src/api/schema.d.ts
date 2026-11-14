@@ -322,6 +322,8 @@ export interface components {
             /** Rolling 7 */
             rolling_7: components["schemas"]["RollingPoint"][];
             trend: components["schemas"]["TrendOut"];
+            /** Volunteered */
+            volunteered: components["schemas"]["VolunteeredPoint"][];
         };
         /**
          * Direction
@@ -460,6 +462,16 @@ export interface components {
              * Format: date
              */
             start: string;
+        };
+        /** VolunteeredPoint */
+        VolunteeredPoint: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Value */
+            value: number;
         };
     };
     responses: never;
