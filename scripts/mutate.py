@@ -1486,14 +1486,20 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REVIEW_GATE,
             "last text preferred to the handback report",
-            "    return handbacks or [text]",
-            "    return [text] if text else handbacks",
+            "for report in (found or [last])]",
+            "for report in ([last] if last else found)]",
         ),
         Mutant(
             REVIEW_GATE,
             "a resumed review's last verdict overrides its earlier ones",
-            "    return handbacks or [text]",
-            "    return handbacks[-1:] or [text]",
+            "for report in (found or [last])]",
+            "for report in (found[-1:] or [last])]",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "only the last run's verdict counts",
+            "for found, last in runs for report",
+            "for found, last in runs[-1:] for report",
         ),
         Mutant(
             REVIEW_GATE,

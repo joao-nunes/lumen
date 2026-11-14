@@ -66,6 +66,25 @@ def reading() -> str:
     return json.dumps({"type": "assistant", "message": message})
 
 
+def said(text: str) -> str:
+    message = {"role": "assistant", "content": [{"type": "text", "text": text}]}
+    return json.dumps({"type": "assistant", "message": message})
+
+
+def prompt(text: str) -> str:
+    return json.dumps({"type": "user", "message": {"role": "user", "content": text}})
+
+
+def tool_result() -> str:
+    block = {"type": "tool_result", "tool_use_id": "t1", "content": "diff --git a/x b/x"}
+    return json.dumps({"type": "user", "message": {"role": "user", "content": [block]}})
+
+
+def text_review(repo: Path, *lines: str) -> None:
+    """A review whose transcript has no SubagentHandback calls, only text turns."""
+    review(repo, "").write_text("".join(line + "\n" for line in lines))
+
+
 def review(repo: Path, report: str, agent: str = "code-reviewer") -> Path:
     """A finished review, recorded as SubagentStop does: before its final turn is written."""
     fd, name = tempfile.mkstemp(prefix="agent-", suffix=".jsonl", dir=repo.parent)
@@ -103,6 +122,8 @@ def test_a_passed_commit_may_open_a_pr(repo: Path) -> None:
         "fix first",
         "fix first, then ready on the same commit",
         "fix first, then ready when the same review is resumed",
+        "fix first, then ready when a review without handbacks is resumed",
+        "fix first without a handback, then a resumed run hands back ready",
         "ready for an earlier commit",
         "ready for the commit only in a quote, not the last line",
         "ready from another agent",
@@ -121,6 +142,22 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         (transcript,) = repo.parent.glob("agent-*.jsonl")
         with transcript.open("a") as file:
             file.write(reading() + "\n" + handback(f"VERDICT: READY {head}") + "\n")
+    elif case == "fix first, then ready when a review without handbacks is resumed":
+        text_review(
+            repo,
+            prompt("Review the branch."),
+            said(f"Found a blocker.\n\nVERDICT: FIX FIRST {head}"),
+            prompt("Look again."),
+            said(f"Looks fine now.\n\nVERDICT: READY {head}"),
+        )
+    elif case == "fix first without a handback, then a resumed run hands back ready":
+        text_review(
+            repo,
+            prompt("Review the branch."),
+            said(f"Found a blocker.\n\nVERDICT: FIX FIRST {head}"),
+            prompt("You didn't hand back. Look again."),
+            handback(f"Looks fine now.\n\nVERDICT: READY {head}"),
+        )
     elif case == "ready for an earlier commit":
         # HEAD moved while the reviewer worked: it names the new commit, but passed the old one.
         moved = commit(repo)
@@ -276,4 +313,16 @@ def test_recording_a_review_forgets_transcripts_that_are_gone(repo: Path) -> Non
     reviews = repo / ".git" / "claude-review" / "reviews.jsonl"
     listed = [json.loads(line)["transcript"] for line in reviews.read_text().splitlines()]
     assert listed == [str(kept)]
+    assert allowed(repo)
+
+
+def test_a_review_without_handbacks_counts_its_last_text(repo: Path) -> None:
+    head = git(repo, "rev-parse", "HEAD")
+    text_review(
+        repo,
+        prompt("Review the branch."),
+        said("Reading the diff."),
+        tool_result(),
+        said(f"No findings.\n\nVERDICT: READY {head}"),
+    )
     assert allowed(repo)
