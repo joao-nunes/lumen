@@ -146,6 +146,7 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         "gh pr cre\\\nate --fill",
         "gh api repos/o/r/pulls/ -f head=x -f base=master",
         "gh api graphql --input mutation.json",
+        "gh api graphql -F query=@mutation.graphql",
         "gh api repos/o/r/pulls -f head=x -f base=master",
         "gh api -f head=x -f base=master -f title=t repos/o/r/pulls",
         "gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'",

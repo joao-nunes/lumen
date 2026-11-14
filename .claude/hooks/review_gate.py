@@ -36,13 +36,14 @@ REVIEWS = "reviews.jsonl"
 # and matched with quotes removed, so `gh pr 'create'` doesn't either. `gh pr new` is an alias of
 # `gh pr create`; gh's persistent flags (`-R o/r`) may sit between `pr` and `create`.
 # `gh api .../pulls` with fields creates a PR too, and so does the GraphQL createPullRequest
-# mutation, which may also come from a file (`gh api graphql --input q.json`).
+# mutation, which may also come from a file (`--input q.json`, `-F query=@q.graphql`), so every
+# `gh api graphql` call counts.
 PR_CREATE = re.compile(r"\bgh\b.*\bpr\b(?:\s+-\S+(?:\s+[^-\s]\S*)?)*\s+(?:create|new)\b", re.DOTALL)
 API_CREATE = re.compile(
     # The path and the fields are checked separately, because either may come first.
     r"\bgh\b(?=.*\bapi\b)"
     r"(?:(?=.*/pulls/?(?![/\w]))(?=.*(?:\s-[fFX]|--(?:field|raw-field|method|input)))"
-    r"|(?=.*\bcreatePullRequest\b)|(?=.*\bgraphql\b)(?=.*--input\b))",
+    r"|(?=.*\bcreatePullRequest\b)|(?=.*\bgraphql\b))",
     re.DOTALL,
 )
 # The only form the gate can vouch for: `gh pr create` alone, opening a PR for this session's

@@ -1521,8 +1521,8 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             REVIEW_GATE,
-            "gh api graphql --input hides it",
-            '|(?=.*\\bgraphql\\b)(?=.*--input\\b))",',
+            "a GraphQL mutation from a file hides it",
+            '|(?=.*\\bgraphql\\b))",',
             ')",',
         ),
         Mutant(
