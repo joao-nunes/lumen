@@ -71,6 +71,17 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
   const top = await mood.locator("svg").getByText("Very good").boundingBox();
   const bottom = await mood.locator("svg").getByText("Very low").boundingBox();
   expect(top?.y).toBeLessThan(bottom?.y ?? 0);
+  // Every date label sits inside the chart; the newest, at the right edge, used to be cut off.
+  const chart = await mood.locator("svg.recharts-surface").boundingBox();
+  const dateLabels = mood.locator(".recharts-xAxis-tick-labels text");
+  await expect(dateLabels).toHaveCount(3); // 84 days, one label every 28 ending today
+  for (const label of await dateLabels.all()) {
+    const box = await label.boundingBox();
+    expect(box?.x).toBeGreaterThanOrEqual(chart?.x ?? Infinity);
+    expect((box?.x ?? Infinity) + (box?.width ?? 0)).toBeLessThanOrEqual(
+      (chart?.x ?? 0) + (chart?.width ?? 0),
+    );
+  }
 
   // 3b. Spec 009 AC-8: the added dimension's score was volunteered, so its chart draws one hollow
   // point and no filled one, and its heatmap cell is marked.

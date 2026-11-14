@@ -28,7 +28,8 @@ export function DimensionChart({
   return (
     <div role="group" aria-label={`${name} chart. The values are also under Numbers.`}>
       <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 0, left: 0 }}>
+        {/* The newest date label is centred on the right edge: the right margin holds half of it. */}
+        <LineChart data={rows} margin={{ top: 8, right: 28, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--chart-grid)" />
           <XAxis
             dataKey="date"
