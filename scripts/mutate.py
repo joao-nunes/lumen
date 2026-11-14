@@ -1497,8 +1497,26 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REVIEW_GATE,
             "only a plain gh pr create is gated",
-            'PR_CREATE = re.compile(r"\\bgh\\b.*\\bpr\\s+(?:create|new)\\b", re.DOTALL)',
+            'PR_CREATE = re.compile(r"\\bgh\\b.*\\bpr\\b(?:\\s+-\\S+(?:\\s+[^-\\s]\\S*)?)*\\s+(?:create|new)\\b", re.DOTALL)',
             'PR_CREATE = re.compile(r"^gh\\s+pr\\s+create\\b")',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "flags between pr and create hide it",
+            "\\bpr\\b(?:\\s+-\\S+(?:\\s+[^-\\s]\\S*)?)*\\s+(?:create|new)",
+            "\\bpr\\s+(?:create|new)",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "gh api fields before the path hide it",
+            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls(?![/\\w]))(?=',
+            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls(?![/\\w]).*',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "short flag with attached value passes",
+            '|--work-tree\\b)"',
+            '|--work-tree\\b)(?:[\\s=]|$)"',
         ),
         Mutant(
             REVIEW_GATE,

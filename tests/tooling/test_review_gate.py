@@ -130,7 +130,9 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         "/opt/homebrew/bin/gh pr create",
         "bash -c 'gh pr create --fill'",
         "if true; then gh pr create; fi",
+        "gh pr -R o/r create",
         "gh api repos/o/r/pulls -f head=x -f base=master",
+        "gh api -f head=x -f base=master -f title=t repos/o/r/pulls",
         "gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'",
     ],
 )
@@ -144,6 +146,8 @@ def test_every_way_of_opening_a_pr_is_gated(repo: Path, command: str) -> None:
         "cd ../other-worktree && gh pr create --fill",
         "gh pr create --head other-branch",
         "gh pr create -R someone/fork",
+        "gh pr create -Hother-branch",
+        "gh pr create -Ro/fork",
         "GH_REPO=o/r gh pr create",
     ],
 )

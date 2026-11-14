@@ -34,16 +34,20 @@ REVIEWS = "reviews.jsonl"
 # Anywhere in the command, so prefixes (env, command, a full path, bash -c '...') don't hide it.
 # `gh pr new` is an alias of `gh pr create`. `gh api .../pulls` with fields creates a PR too,
 # and so does the GraphQL createPullRequest mutation.
-PR_CREATE = re.compile(r"\bgh\b.*\bpr\s+(?:create|new)\b", re.DOTALL)
+# gh's persistent flags (`-R o/r`) may sit between `pr` and `create`.
+PR_CREATE = re.compile(r"\bgh\b.*\bpr\b(?:\s+-\S+(?:\s+[^-\s]\S*)?)*\s+(?:create|new)\b", re.DOTALL)
 API_CREATE = re.compile(
-    r"\bgh\b.*\bapi\b.*(?:/pulls(?![/\w]).*(?:\s-[fFX]|--(?:field|raw-field|method|input))"
-    r"|\bcreatePullRequest\b)",
+    # The path and the fields are checked separately, because either may come first.
+    r"\bgh\b(?=.*\bapi\b)"
+    r"(?:(?=.*/pulls(?![/\w]))(?=.*(?:\s-[fFX]|--(?:field|raw-field|method|input)))"
+    r"|(?=.*\bcreatePullRequest\b))",
     re.DOTALL,
 )
 # Anything that may make the PR's commit differ from this session's HEAD.
 OTHER_TARGET = re.compile(
     r"(?:^|[\s;&|(])(?:cd|pushd)\s"
-    r"|(?:^|\s)(?:-[CHR]|--head|--repo|--git-dir|--work-tree)(?:[\s=]|$)"
+    # A short flag's value may be attached (`-Hbranch`), so nothing is required after it.
+    r"|(?:^|\s)(?:-[CHR]|--head\b|--repo\b|--git-dir\b|--work-tree\b)"
     r"|\b(?:GH_REPO|GIT_DIR|GIT_WORK_TREE)="
 )
 ONLY_MENTIONS = (
