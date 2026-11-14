@@ -1490,8 +1490,32 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             REVIEW_GATE,
+            "anything that mentions gh pr create passes",
+            "    if not PLAIN_CREATE.fullmatch(command.strip()) or OTHER_TARGET.search(command):",
+            "    if False:",
+        ),
+        Mutant(
+            REVIEW_GATE,
             "PR for another branch or repo passes",
-            "    if OTHER_TARGET.search(command):",
+            " or OTHER_TARGET.search(command):",
+            ":",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a plain gh pr create may be followed by anything",
+            "PLAIN_CREATE.fullmatch(",
+            "PLAIN_CREATE.match(",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "quotes hide it",
+            "PR_CREATE.search(unquoted) or API_CREATE.search(unquoted)",
+            "PR_CREATE.search(command) or API_CREATE.search(command)",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a remote ahead of HEAD is ignored",
+            "    if pushed_elsewhere(cwd, head):",
             "    if False:",
         ),
         Mutant(
@@ -1521,8 +1545,8 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REVIEW_GATE,
             "gh api pulls not gated",
-            "    if not (PR_CREATE.search(command) or API_CREATE.search(command)):",
-            "    if not PR_CREATE.search(command):",
+            "    if not (PR_CREATE.search(unquoted) or API_CREATE.search(unquoted)):",
+            "    if not PR_CREATE.search(unquoted):",
         ),
     ],
 }

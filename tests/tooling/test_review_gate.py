@@ -88,6 +88,7 @@ def test_a_passed_commit_may_open_a_pr(repo: Path) -> None:
     review(repo, f"No findings.\n\nVERDICT: READY {head}")
     assert allowed(repo)
     assert allowed(repo, cwd=repo / "sub")  # relative --git-common-dir resolves
+    assert allowed(repo, "gh pr create --title 'Add a gate' --body-file /tmp/b.md --base master")
 
 
 @pytest.mark.parametrize(
@@ -131,6 +132,8 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         "bash -c 'gh pr create --fill'",
         "if true; then gh pr create; fi",
         "gh pr -R o/r create",
+        "gh pr 'create'",
+        'gh "pr" create',
         "gh api repos/o/r/pulls -f head=x -f base=master",
         "gh api -f head=x -f base=master -f title=t repos/o/r/pulls",
         "gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'",
@@ -149,12 +152,32 @@ def test_every_way_of_opening_a_pr_is_gated(repo: Path, command: str) -> None:
         "gh pr create -Hother-branch",
         "gh pr create -Ro/fork",
         "GH_REPO=o/r gh pr create",
+        "git checkout other && gh pr create --fill",
+        "git switch other; gh pr create",
+        'gh pr create --title "$(git switch other)"',
+        "gh api repos/o/r/pulls -f head=unreviewed -f base=master",
+        "gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'",
     ],
 )
 def test_a_pr_for_another_commit_is_blocked_even_after_a_pass(repo: Path, command: str) -> None:
     head = git(repo, "rev-parse", "HEAD")
     review(repo, f"VERDICT: READY {head}")
     assert not allowed(repo, command)
+
+
+def test_a_remote_ahead_of_the_passed_commit_is_blocked(repo: Path, tmp_path: Path) -> None:
+    """gh skips pushing when the remote branch already contains HEAD, and opens the PR with the
+    remote's commits: say a failed commit was pushed, then reset away locally."""
+    git(tmp_path, "init", "-q", "--bare", "remote.git")
+    git(repo, "remote", "add", "origin", str(tmp_path / "remote.git"))
+    passed = git(repo, "rev-parse", "HEAD")
+    commit(repo)
+    git(repo, "push", "-q", "-u", "origin", "HEAD")
+    git(repo, "reset", "-q", "--hard", passed)
+    review(repo, f"VERDICT: READY {passed}")
+    assert not allowed(repo)
+    git(repo, "push", "-q", "--force", "origin", "HEAD")
+    assert allowed(repo)
 
 
 @pytest.mark.parametrize(

@@ -12,8 +12,9 @@ Two hooks call this (see .claude/settings.json):
   none failed it: a FIX FIRST sticks to its commit, so only a new commit gets a fresh review.
 
 This is a guardrail for a cooperative agent, not a security boundary. It sees only Bash commands
-and judges them by their text, so it errs towards blocking: a command that merely mentions
-opening a PR, or that may target another branch or repository, is blocked too.
+and judges them by their text, so it errs towards blocking: it allows only a plain
+`gh pr create`, and blocks any other command that mentions opening a PR. It also blocks when the
+branch's remote holds commits HEAD doesn't, since gh would open the PR with those.
 
 Reviews are listed in .git/claude-review/, which is never committed.
 """
@@ -31,10 +32,11 @@ from typing import Any
 REVIEWER = "code-reviewer"
 REVIEWS = "reviews.jsonl"
 
-# Anywhere in the command, so prefixes (env, command, a full path, bash -c '...') don't hide it.
-# `gh pr new` is an alias of `gh pr create`. `gh api .../pulls` with fields creates a PR too,
-# and so does the GraphQL createPullRequest mutation.
-# gh's persistent flags (`-R o/r`) may sit between `pr` and `create`.
+# Anywhere in the command, so prefixes (env, command, a full path, bash -c '...') don't hide it,
+# and matched with quotes removed, so `gh pr 'create'` doesn't either. `gh pr new` is an alias of
+# `gh pr create`; gh's persistent flags (`-R o/r`) may sit between `pr` and `create`.
+# `gh api .../pulls` with fields creates a PR too, and so does the GraphQL createPullRequest
+# mutation.
 PR_CREATE = re.compile(r"\bgh\b.*\bpr\b(?:\s+-\S+(?:\s+[^-\s]\S*)?)*\s+(?:create|new)\b", re.DOTALL)
 API_CREATE = re.compile(
     # The path and the fields are checked separately, because either may come first.
@@ -43,13 +45,14 @@ API_CREATE = re.compile(
     r"|(?=.*\bcreatePullRequest\b))",
     re.DOTALL,
 )
-# Anything that may make the PR's commit differ from this session's HEAD.
-OTHER_TARGET = re.compile(
-    r"(?:^|[\s;&|(])(?:cd|pushd)\s"
-    # A short flag's value may be attached (`-Hbranch`), so nothing is required after it.
-    r"|(?:^|\s)(?:-[CHR]|--head\b|--repo\b|--git-dir\b|--work-tree\b)"
-    r"|\b(?:GH_REPO|GIT_DIR|GIT_WORK_TREE)="
+# The only form the gate can vouch for: `gh pr create` alone, opening a PR for this session's
+# HEAD, on one line. Arguments are bare words or single-quoted strings, so nothing in them can
+# chain another command, switch branch, change directory or expand a variable.
+PLAIN_CREATE = re.compile(
+    r"gh[ \t]+pr[ \t]+(?:create|new)(?:[ \t]+(?:[^\s'\"`$\\;&|<>()]+|'[^'\n]*'))*[ \t]*"
 )
+# Flags that open the PR for another branch or repository.
+OTHER_TARGET = re.compile(r"(?:^|\s)'?(?:-[CHR]|--head\b|--repo\b|--git-dir\b|--work-tree\b)")
 ONLY_MENTIONS = (
     " If the command only mentions opening a PR, as a commit message or a search can, move that "
     "text into a file (for example `git commit --file=<path>`) so the command doesn't contain it."
@@ -142,19 +145,43 @@ def deny(reason: str) -> int:
     return 0
 
 
+def pushed_elsewhere(cwd: str, head: str) -> bool:
+    """Whether the branch's push ref holds commits HEAD doesn't, which gh would open the PR with."""
+    pushed = subprocess.run(  # noqa: S603
+        [GIT, "rev-parse", "--verify", "--quiet", "@{push}"],
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout.strip()
+    if not pushed:
+        return False
+    ancestor = subprocess.run(  # noqa: S603
+        [GIT, "merge-base", "--is-ancestor", pushed, head], cwd=cwd, check=False
+    )
+    return ancestor.returncode != 0
+
+
 def check(data: dict[str, Any]) -> int:
     command = str((data.get("tool_input") or {}).get("command", ""))
-    if not (PR_CREATE.search(command) or API_CREATE.search(command)):
+    unquoted = re.sub(r"[\"']", "", command)
+    if not (PR_CREATE.search(unquoted) or API_CREATE.search(unquoted)):
         return 0
-    if OTHER_TARGET.search(command):
+    if not PLAIN_CREATE.fullmatch(command.strip()) or OTHER_TARGET.search(command):
         return deny(
-            "Blocked: this command may open a PR for a commit other than this session's HEAD "
-            "(it changes directory or names a branch, repository or git dir), so the review "
-            "gate can't check it. Run `gh pr create` on its own from the reviewed branch."
+            "Blocked: the review gate can only vouch for a PR opened by `gh pr create` on its "
+            "own, from the reviewed branch. Run it alone (no other commands, directory changes, "
+            "--head, --repo or gh api), with any values in single quotes or a --body-file."
             + ONLY_MENTIONS
         )
     cwd = data.get("cwd") or "."
     head = git(cwd, "rev-parse", "HEAD")
+    if pushed_elsewhere(cwd, head):
+        return deny(
+            f"Blocked: this branch's remote has commits that {head[:7]} doesn't, and gh would "
+            "open the PR with them rather than the reviewed commit. Push HEAD to the branch "
+            "(after checking those commits should go) before opening the PR."
+        )
     verdicts = verdicts_for(review_dir(cwd), head)
     if verdicts == {"READY"}:
         return 0
