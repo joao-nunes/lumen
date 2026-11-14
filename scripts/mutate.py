@@ -59,6 +59,7 @@ PROMPT = "src/lumen/suggestions/prompt.py"
 PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v3.txt"
 DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
 REVIEW_GATE = ".claude/hooks/review_gate.py"
+CLAUDE_SETTINGS = ".claude/settings.json"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
 )
@@ -1503,8 +1504,40 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REVIEW_GATE,
             "shell escapes hide it",
-            """SHELL_QUOTING = re.compile(r"[\\"'\\\\]|\\$(?=')")""",
-            """SHELL_QUOTING = re.compile(r"[\\"']")""",
+            """[\\"'\\\\]|\\$(?=')")""",
+            """[\\"']")""",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a line continuation hides it",
+            'SHELL_QUOTING = re.compile(r"\\\\\\n|[',
+            'SHELL_QUOTING = re.compile(r"[',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a trailing slash on /pulls hides it",
+            "/pulls/?(?!",
+            "/pulls(?!",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "gh api graphql --input hides it",
+            '|(?=.*\\bgraphql\\b)(?=.*--input\\b))",',
+            ')",',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "globs pass the allowlist",
+            "()*?[~{]+|",
+            "()]+|",
+        ),
+        Mutant(
+            CLAUDE_SETTINGS,
+            "the gate is found only under CLAUDE_PROJECT_DIR",
+            '$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/review_gate.py\\"; '
+            '[ -f \\"$f\\" ] || exit 0; python3 \\"$f\\" check',
+            '$CLAUDE_PROJECT_DIR/.claude/hooks/review_gate.py\\"; '
+            '[ -f \\"$f\\" ] || exit 0; python3 \\"$f\\" check',
         ),
         Mutant(
             REVIEW_GATE,
@@ -1551,8 +1584,8 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REVIEW_GATE,
             "gh api fields before the path hide it",
-            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls(?![/\\w]))(?=',
-            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls(?![/\\w]).*',
+            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls/?(?![/\\w]))(?=',
+            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls/?(?![/\\w]).*',
         ),
         Mutant(
             REVIEW_GATE,

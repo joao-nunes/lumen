@@ -4,6 +4,7 @@ run with hook JSON on stdin, in a real git repository.
 """
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -142,6 +143,9 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         'gh "pr" create',
         "gh pr cr\\eate --fill",
         "gh pr $'create'",
+        "gh pr cre\\\nate --fill",
+        "gh api repos/o/r/pulls/ -f head=x -f base=master",
+        "gh api graphql --input mutation.json",
         "gh api repos/o/r/pulls -f head=x -f base=master",
         "gh api -f head=x -f base=master -f title=t repos/o/r/pulls",
         "gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'",
@@ -161,6 +165,7 @@ def test_every_way_of_opening_a_pr_is_gated(repo: Path, command: str) -> None:
         "gh pr create -Ro/fork",
         "gh pr create -dH other",
         "gh pr create -fR o/fork",
+        "gh pr create *",
         "GH_REPO=o/r gh pr create",
         "git checkout other && gh pr create --fill",
         "git switch other; gh pr create",
@@ -188,6 +193,44 @@ def test_a_remote_ahead_of_the_passed_commit_is_blocked(repo: Path, tmp_path: Pa
     assert not allowed(repo)
     git(repo, "push", "-q", "--force", "origin", "HEAD")
     assert allowed(repo)
+
+
+def test_the_configured_hooks_work_when_claude_code_starts_in_a_subdirectory(repo: Path) -> None:
+    """There CLAUDE_PROJECT_DIR has no .claude/: the hooks must still find the gate, or a
+    missing script lets every PR through."""
+    (repo / ".claude" / "hooks").mkdir(parents=True)
+    shutil.copy(GATE, repo / ".claude" / "hooks")
+    hooks = json.loads((GATE.parents[1] / "settings.json").read_text())["hooks"]
+    sub = repo / "sub"
+    env = {**os.environ, "CLAUDE_PROJECT_DIR": str(sub)}
+
+    def hook(event: str, payload: dict[str, object]) -> str:
+        command = hooks[event][0]["hooks"][0]["command"]
+        # The command from this repository's settings, in a temporary repository.
+        return subprocess.run(  # noqa: S603
+            ["bash", "-c", command],  # noqa: S607
+            input=json.dumps(payload),
+            cwd=sub,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+
+    create = {"tool_input": {"command": "gh pr create --fill"}, "cwd": str(sub)}
+    assert (
+        json.loads(hook("PreToolUse", create))["hookSpecificOutput"]["permissionDecision"] == "deny"
+    )
+    head = git(repo, "rev-parse", "HEAD")
+    transcript = repo.parent / "agent-sub.jsonl"
+    transcript.write_text(handback(f"VERDICT: READY {head}") + "\n")
+    stop = {
+        "agent_type": "code-reviewer",
+        "agent_transcript_path": str(transcript),
+        "cwd": str(sub),
+    }
+    hook("SubagentStop", stop)
+    assert hook("PreToolUse", create) == ""
 
 
 @pytest.mark.parametrize(

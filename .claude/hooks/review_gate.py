@@ -36,29 +36,30 @@ REVIEWS = "reviews.jsonl"
 # and matched with quotes removed, so `gh pr 'create'` doesn't either. `gh pr new` is an alias of
 # `gh pr create`; gh's persistent flags (`-R o/r`) may sit between `pr` and `create`.
 # `gh api .../pulls` with fields creates a PR too, and so does the GraphQL createPullRequest
-# mutation.
+# mutation, which may also come from a file (`gh api graphql --input q.json`).
 PR_CREATE = re.compile(r"\bgh\b.*\bpr\b(?:\s+-\S+(?:\s+[^-\s]\S*)?)*\s+(?:create|new)\b", re.DOTALL)
 API_CREATE = re.compile(
     # The path and the fields are checked separately, because either may come first.
     r"\bgh\b(?=.*\bapi\b)"
-    r"(?:(?=.*/pulls(?![/\w]))(?=.*(?:\s-[fFX]|--(?:field|raw-field|method|input)))"
-    r"|(?=.*\bcreatePullRequest\b))",
+    r"(?:(?=.*/pulls/?(?![/\w]))(?=.*(?:\s-[fFX]|--(?:field|raw-field|method|input)))"
+    r"|(?=.*\bcreatePullRequest\b)|(?=.*\bgraphql\b)(?=.*--input\b))",
     re.DOTALL,
 )
 # The only form the gate can vouch for: `gh pr create` alone, opening a PR for this session's
 # HEAD, on one line. Arguments are bare words or single-quoted strings, so nothing in them can
-# chain another command, switch branch, change directory or expand a variable.
+# chain another command, switch branch, change directory, expand a variable or a glob.
 PLAIN_CREATE = re.compile(
-    r"gh[ \t]+pr[ \t]+(?:create|new)(?:[ \t]+(?:[^\s'\"`$\\;&|<>()]+|'[^'\n]*'))*[ \t]*"
+    r"gh[ \t]+pr[ \t]+(?:create|new)(?:[ \t]+(?:[^\s'\"`$\\;&|<>()*?[~{]+|'[^'\n]*'))*[ \t]*"
 )
 # Flags that open the PR for another branch or repository. Short flags may be combined (`-dH x`),
 # so any single-dash word holding C, H or R counts, even if that blocks a value like `-tHi`.
 OTHER_TARGET = re.compile(
     r"(?:^|\s)'?(?:-[A-Za-z]*[CHR]|--head\b|--repo\b|--git-dir\b|--work-tree\b)"
 )
-# Removed before looking for a PR command, as the shell removes them: quotes, backslash escapes
-# and the `$` of `$'...'`. A command built from variables or a gh alias still isn't recognised.
-SHELL_QUOTING = re.compile(r"[\"'\\]|\$(?=')")
+# Removed before looking for a PR command, as the shell removes them: line continuations
+# (backslash-newline, which joins a word), quotes, backslash escapes and the `$` of `$'...'`.
+# A command built from variables or a gh alias still isn't recognised.
+SHELL_QUOTING = re.compile(r"\\\n|[\"'\\]|\$(?=')")
 ONLY_MENTIONS = (
     " If the command only mentions opening a PR, as a commit message or a search can, move that "
     "text into a file (for example `git commit --file=<path>`) so the command doesn't contain it."
