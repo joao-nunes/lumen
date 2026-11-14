@@ -64,9 +64,18 @@ def last_assistant_text(data: dict[str, Any]) -> str:
         if isinstance(content, str):
             last = content or last
         elif isinstance(content, list):
-            parts = [c.get("text", "") for c in content if c.get("type") == "text"]
+            parts = [block_text(c) for c in content]
             last = "\n".join(p for p in parts if p) or last
     return last
+
+
+def block_text(block: dict[str, Any]) -> str:
+    """A text block's text, or the report a subagent hands back through its final tool call."""
+    if block.get("type") == "text":
+        return str(block.get("text", ""))
+    if block.get("type") == "tool_use" and block.get("name") == "SubagentHandback":
+        return str((block.get("input") or {}).get("message", ""))
+    return ""
 
 
 def record(data: dict[str, Any]) -> int:
