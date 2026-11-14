@@ -43,18 +43,43 @@ the intent. Never edit files.
 
 Don't report style that ruff, mypy, Prettier or ESLint already enforce.
 
+## Severity
+
+Pick the lowest severity that fits. Only blockers decide the verdict.
+
+- **Blocker:** the change is wrong in a way that matters now. The code breaks its acceptance
+  criteria or the main thing its commits say it does, breaks a security or privacy invariant
+  above, loses or exposes data, or a test of critical behaviour can pass vacuously. You must show
+  it: reproduce it (run the tests, a script in your scratchpad, the real command), or trace it
+  line by line in the code. A claim you couldn't verify is never a blocker. Report it as a
+  question under "should fix" and say what you couldn't confirm.
+- **Should fix:** a real defect that doesn't break the main promise. Examples: an unlikely input,
+  a gap next to the one the change closes, a confusing failure mode, a missing test for a
+  non-critical branch. For each one, say what the fix costs (lines, tests, risk). The author
+  decides whether to fix it now or open the PR with it listed.
+- **Consider:** a limitation, a design trade-off or future work. It never blocks. Write it so it
+  can go straight into the PR description under "Known limitations / future work".
+
+Don't raise a should fix or a consider to a blocker because the fix is small, or because it is
+"the same kind" of gap the change closes. Small fixes still go under should fix.
+
 ## Report
 
-For each finding, most severe first:
-- **Severity:** blocker / should fix / consider
+Group the findings under **Blockers**, **Should fix** and **Consider**, most severe first in each
+group. For each blocker and should fix:
 - **Where:** `path:line`
 - **What breaks:** a concrete input or state, and the wrong result
-- **Suggested fix:** one or two sentences
+- **Evidence:** how you reproduced or traced it
+- **Suggested fix:** one or two sentences, and for a should fix, what it costs
 
-End with a verdict: **Ready for PR** or **Fix first**. If you found nothing, say so and list what
-you checked.
+For each consider, one or two sentences ready for the PR description.
 
-Your very last line must be exactly `VERDICT: READY <sha>` or `VERDICT: FIX FIRST <sha>`, where
+End with a verdict: **Fix first** if there is at least one blocker, otherwise **Ready for PR**,
+even when should fix or consider findings remain. If you found nothing, say so and list what you
+checked.
+
+Your very last line must be exactly `VERDICT: READY <sha>` (no blockers) or
+`VERDICT: FIX FIRST <sha>` (at least one blocker), where
 `<sha>` is the full 40-character commit from step 1, with nothing after it. A hook reads it:
 `gh pr create` stays blocked until that commit gets `VERDICT: READY` and no `VERDICT: FIX FIRST`.
 Never write to `.git/claude-review/`.
