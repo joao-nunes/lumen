@@ -123,6 +123,7 @@ def test_a_passed_commit_may_open_a_pr(repo: Path) -> None:
         "fix first, then ready on the same commit",
         "fix first, then ready when the same review is resumed",
         "fix first, then ready when a review without handbacks is resumed",
+        "fix first without a handback, then a resumed run hands back ready",
         "ready for an earlier commit",
         "ready for the commit only in a quote, not the last line",
         "ready from another agent",
@@ -148,6 +149,14 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
             said(f"Found a blocker.\n\nVERDICT: FIX FIRST {head}"),
             prompt("Look again."),
             said(f"Looks fine now.\n\nVERDICT: READY {head}"),
+        )
+    elif case == "fix first without a handback, then a resumed run hands back ready":
+        text_review(
+            repo,
+            prompt("Review the branch."),
+            said(f"Found a blocker.\n\nVERDICT: FIX FIRST {head}"),
+            prompt("You didn't hand back. Look again."),
+            handback(f"Looks fine now.\n\nVERDICT: READY {head}"),
         )
     elif case == "ready for an earlier commit":
         # HEAD moved while the reviewer worked: it names the new commit, but passed the old one.

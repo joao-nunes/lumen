@@ -89,11 +89,11 @@ def review_dir(cwd: str) -> Path:
 
 
 def final_reports(transcript: str) -> list[str]:
-    """Every SubagentHandback report in a transcript's text, as a resumed reviewer hands back
-    once per run. Without any, the last text message of each run: a run ends where a new
-    prompt starts, so a resumed review's earlier verdicts still count."""
+    """The reports in a transcript's text, one set per run, so a resumed review's earlier
+    verdicts still count. A run ends where a new prompt starts. Its reports are its
+    SubagentHandback calls, or without any, its last text message."""
+    runs: list[tuple[list[str], str]] = []
     handbacks: list[str] = []
-    runs: list[str] = []
     text = ""
     for line in transcript.splitlines():
         try:
@@ -103,9 +103,10 @@ def final_reports(transcript: str) -> list[str]:
         message = entry.get("message") if isinstance(entry, dict) else None
         if not isinstance(message, dict):
             continue
-        if message.get("role") == "user" and is_prompt(message.get("content")) and text:
-            runs.append(text)
-            text = ""
+        if message.get("role") == "user" and is_prompt(message.get("content")):
+            if handbacks or text:
+                runs.append((handbacks, text))
+            handbacks, text = [], ""
         if message.get("role") != "assistant":
             continue
         content = message.get("content")
@@ -117,7 +118,8 @@ def final_reports(transcript: str) -> list[str]:
                 handbacks.append(str((block.get("input") or {}).get("message", "")))
             elif block.get("type") == "text":
                 text = str(block.get("text", "")) or text
-    return handbacks or [*runs, text]
+    runs.append((handbacks, text))
+    return [report for found, last in runs for report in (found or [last])]
 
 
 def is_prompt(content: object) -> bool:
