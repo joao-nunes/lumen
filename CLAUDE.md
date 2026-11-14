@@ -33,6 +33,13 @@ make schema                        # regenerate web/src/api/schema.d.ts after ch
    5. Fix any real issues found, then continue normal development and testing.
 
    Keep repeatable faults as mutants in `scripts/mutate.py` (`make mutate`). Security-critical code must have them.
+5. **Review before every PR,** for every change, not only features:
+   1. Commit, then run the `code-reviewer` agent (`.claude/agents/code-reviewer.md`) on the branch.
+   2. Fix its blockers. Fix "should fix" findings too, or say in the PR why not.
+   3. Commit and run it again: a review covers one commit, so every fix needs a fresh one.
+   4. In the PR description, list its findings and what was done about each.
+
+   A hook (`.claude/hooks/review_gate.py`) blocks `gh pr create` until the reviewer's verdict for HEAD is `VERDICT: READY`. Never work around it, for example by writing the verdict file under `.git/claude-review/` yourself.
 
 ## Tests
 
