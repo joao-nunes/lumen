@@ -1,0 +1,10 @@
+# Known vulnerabilities `make audit` accepts. Fixing by upgrading always comes first.
+# Each exception says why it can't be exploited in Lumen, and expires within three months:
+# then the build fails again, and the exception is reviewed rather than forgotten.
+
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249" # minimatch 10.x: denial of service from crafted glob patterns
+effectiveUntil = 2027-01-31
+reason = """\
+Dev-only, through ESLint and typescript-eslint, which match the repo's own config patterns, never \
+user input. ESLint has moved to the fixed minimatch 11, but typescript-eslint still requires ^10."""

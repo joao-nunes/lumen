@@ -349,6 +349,7 @@ Gotchas:
 - **`lumen_test` is shared.** pytest downgrades and upgrades it on every run, and `make e2e` and `make mutate` also use it, so don't run them at the same time.
 - **Use the `passwords` fixture** for service-level tests, because production Argon2 settings are slow.
 - **CI is stricter than local.** It sets `LUMEN_REQUIRE_DB=1` so integration tests fail rather than skip, enforces 90% coverage, and runs `alembic check`.
+- **`make audit` also runs daily in CI,** so the build can go red with no change to the code: a new advisory was published. Upgrade the package (`uv lock --upgrade-package x`, or `pnpm --dir web update x`). If nothing fixed is compatible yet, add an exception to `osv-scanner.toml`: why it can't be exploited in Lumen, and an `effectiveUntil` at most three months away. CodeQL alerts show under the repository's *Security* tab and on the PR.
 - **`make mutate` isn't in CI.** It stops before starting if a mutant's snippet no longer matches the code exactly once, so update the mutant when you change that code.
 
 ## Debug
