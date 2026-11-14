@@ -58,6 +58,8 @@ EVALUATION = "src/lumen/suggestions/evaluation.py"
 PROMPT = "src/lumen/suggestions/prompt.py"
 PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v3.txt"
 DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
+REVIEW_GATE = ".claude/hooks/review_gate.py"
+CLAUDE_SETTINGS = ".claude/settings.json"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
 )
@@ -1454,6 +1456,166 @@ GROUPS: dict[str, list[Mutant]] = {
             "summary_start ignores change window",
             "    return min(change_period.previous().start, DateRange.ending_on(end, trend_days).start)",
             "    return DateRange.ending_on(end, trend_days).start",
+        ),
+    ],
+    "review-gate": [
+        Mutant(
+            REVIEW_GATE,
+            "a later READY overrides FIX FIRST",
+            '    if verdicts == {"READY"}:',
+            '    if "READY" in verdicts:',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "verdict for any commit counts",
+            "        if result and result[1] == head:",
+            "        if result:",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "verdict on any line counts",
+            "    lines = report.strip().splitlines()\n",
+            '    lines = [s for s in report.strip().splitlines() if s.startswith("VERDICT")]\n',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "any agent's verdict counts",
+            '    if data.get("agent_type") != REVIEWER:\n        return 0\n    transcript',
+            "    transcript",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "last text preferred to the handback report",
+            "    return handbacks or [text]",
+            "    return [text] if text else handbacks",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a resumed review's last verdict overrides its earlier ones",
+            "    return handbacks or [text]",
+            "    return handbacks[-1:] or [text]",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "combined short flags hide a target flag",
+            "-[A-Za-z]*[CHR]|",
+            "-[CHR]|",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "shell escapes hide it",
+            """[\\"'\\\\]|\\$(?=')")""",
+            """[\\"']")""",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a line continuation hides it",
+            'SHELL_QUOTING = re.compile(r"\\\\\\n|[',
+            'SHELL_QUOTING = re.compile(r"[',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a trailing slash on /pulls hides it",
+            "/pulls/?(?!",
+            "/pulls(?!",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "deleted transcripts stay listed forever",
+            "kept = [line for line in lines if listed_transcript(line).is_file()]",
+            "kept = lines",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "an invalid byte in a transcript crashes the gate",
+            'transcript.read_text(errors="replace")',
+            "transcript.read_text()",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "an error while checking crashes instead of denying",
+            "    except Exception:  # any failure blocks",
+            "    except ImportError:  # any failure blocks",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a GraphQL mutation from a file hides it",
+            '|(?=.*\\bgraphql\\b))",',
+            ')",',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "globs pass the allowlist",
+            "()*?[~{]+|",
+            "()]+|",
+        ),
+        Mutant(
+            CLAUDE_SETTINGS,
+            "the gate is found only under CLAUDE_PROJECT_DIR",
+            '$(git rev-parse --show-toplevel 2>/dev/null)/.claude/hooks/review_gate.py\\"; '
+            '[ -f \\"$f\\" ] || exit 0; python3 \\"$f\\" check',
+            '$CLAUDE_PROJECT_DIR/.claude/hooks/review_gate.py\\"; '
+            '[ -f \\"$f\\" ] || exit 0; python3 \\"$f\\" check',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "anything that mentions gh pr create passes",
+            "    if not PLAIN_CREATE.fullmatch(command.strip()) or OTHER_TARGET.search(command):",
+            "    if False:",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "PR for another branch or repo passes",
+            " or OTHER_TARGET.search(command):",
+            ":",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a plain gh pr create may be followed by anything",
+            "PLAIN_CREATE.fullmatch(",
+            "PLAIN_CREATE.match(",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "quotes hide it",
+            "PR_CREATE.search(unquoted) or API_CREATE.search(unquoted)",
+            "PR_CREATE.search(command) or API_CREATE.search(command)",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a remote ahead of HEAD is ignored",
+            "    if pushed_elsewhere(cwd, head):",
+            "    if False:",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "only a plain gh pr create is gated",
+            'PR_CREATE = re.compile(r"\\bgh\\b.*\\bpr\\b(?:\\s+-\\S+(?:\\s+[^-\\s]\\S*)?)*\\s+(?:create|new)\\b", re.DOTALL)',
+            'PR_CREATE = re.compile(r"^gh\\s+pr\\s+create\\b")',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "flags between pr and create hide it",
+            "\\bpr\\b(?:\\s+-\\S+(?:\\s+[^-\\s]\\S*)?)*\\s+(?:create|new)",
+            "\\bpr\\s+(?:create|new)",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "gh api fields before the path hide it",
+            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls/?(?![/\\w]))(?=',
+            'r"\\bgh\\b(?=.*\\bapi\\b)"\n    r"(?:(?=.*/pulls/?(?![/\\w]).*',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "short flag with attached value passes",
+            '|--work-tree\\b)"',
+            '|--work-tree\\b)(?:[\\s=]|$)"',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "gh api pulls not gated",
+            "    if not (PR_CREATE.search(unquoted) or API_CREATE.search(unquoted)):",
+            "    if not PR_CREATE.search(unquoted):",
         ),
     ],
 }

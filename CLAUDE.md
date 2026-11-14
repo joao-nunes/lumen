@@ -33,6 +33,13 @@ make schema                        # regenerate web/src/api/schema.d.ts after ch
    5. Fix any real issues found, then continue normal development and testing.
 
    Keep repeatable faults as mutants in `scripts/mutate.py` (`make mutate`). Security-critical code must have them.
+5. **Review before every PR,** for every change, not only features:
+   1. Commit, then run the `code-reviewer` agent (`.claude/agents/code-reviewer.md`) on the branch.
+   2. Fix its blockers. For each "should fix", fix it or list it in the PR for the owner to decide.
+   3. Commit and run it again: a review covers one commit, so every fix needs a fresh one.
+   4. In the PR description, list its findings and what was done about each. "Consider" findings go under Known limitations / Future work.
+
+   A hook (`.claude/hooks/review_gate.py`) blocks `gh pr create` until a review of HEAD ends with `VERDICT: READY <sha>` and none ends with `VERDICT: FIX FIRST <sha>`: a failed commit stays failed, so don't rerun the reviewer on it or narrow its prompt to get a pass. Run `gh pr create` on its own from the reviewed branch, with values in single quotes or a `--body-file`: the hook allows nothing else, so it blocks chained commands, a changed directory, another branch or repository (`--head`, `--repo`) and `gh api`, and it blocks when the remote branch holds commits HEAD doesn't. It also blocks any command whose text merely mentions opening a PR, such as a commit message: put that text in a file (`git commit --file=<path>`). It sees only Bash commands, so open PRs with `gh` and not through another tool such as a GitHub MCP server. It's a guardrail, not a security boundary. Never work around it, for example by editing `.git/claude-review/` yourself.
 
 ## Tests
 
