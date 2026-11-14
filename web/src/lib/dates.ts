@@ -3,8 +3,13 @@
  *
  * Instants, such as recorded_at, are converted to the browser's timezone.
  * Calendar days, such as local_date, name a day rather than a moment, so they
- * are never converted. `locale` defaults to the browser's.
+ * are never converted.
+ *
+ * The app is in English, so dates are always British English, never the
+ * browser's locale: a Portuguese browser would mix "14 de novembro" into
+ * English text (spec 002 Q8).
  */
+const LOCALE = "en-GB";
 
 /** The browser's local date. `toISOString()` would give the UTC date. */
 export function today(now: Date = new Date()): string {
@@ -13,26 +18,26 @@ export function today(now: Date = new Date()): string {
   return `${String(now.getFullYear())}-${month}-${day}`;
 }
 
-export function formatInstant(iso: string, locale?: string): { day: string; time: string } {
+export function formatInstant(iso: string): { day: string; time: string } {
   const instant = new Date(iso);
   return {
-    day: new Intl.DateTimeFormat(locale, { day: "numeric", month: "long" }).format(instant),
-    time: new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(instant),
+    day: new Intl.DateTimeFormat(LOCALE, { day: "numeric", month: "long" }).format(instant),
+    time: new Intl.DateTimeFormat(LOCALE, { hour: "2-digit", minute: "2-digit" }).format(instant),
   };
 }
 
-export function formatDay(day: string, locale?: string): string {
+export function formatDay(day: string): string {
   // new Date("2026-10-31") is midnight UTC, so it must also be formatted in UTC:
   // in the browser's timezone it would be 30 October anywhere west of UTC.
-  return new Intl.DateTimeFormat(locale, {
+  return new Intl.DateTimeFormat(LOCALE, {
     day: "numeric",
     month: "long",
     timeZone: "UTC",
   }).format(new Date(day));
 }
 
-export function formatShortDay(day: string, locale?: string): string {
-  return new Intl.DateTimeFormat(locale, {
+export function formatShortDay(day: string): string {
+  return new Intl.DateTimeFormat(LOCALE, {
     day: "numeric",
     month: "short",
     timeZone: "UTC", // as in formatDay

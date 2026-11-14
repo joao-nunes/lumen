@@ -1,4 +1,5 @@
 // AC-12 (spec 002): each case is run in a real process timezone, as a browser would be.
+// No locale is passed: the app is in British English whatever the machine's locale (Q8).
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { formatDay, formatInstant, formatShortDay, today } from "./dates";
 
@@ -23,7 +24,7 @@ afterEach(() => {
 describe("instants are shown in the browser's timezone", () => {
   it("applies summer time", () => {
     inTimeZone("Europe/Lisbon");
-    expect(formatInstant("2026-07-15T20:00:00Z", "en-GB")).toEqual({
+    expect(formatInstant("2026-07-15T20:00:00Z")).toEqual({
       day: "15 July",
       time: "21:00",
     });
@@ -31,7 +32,7 @@ describe("instants are shown in the browser's timezone", () => {
 
   it("applies winter time", () => {
     inTimeZone("Europe/Lisbon");
-    expect(formatInstant("2026-01-15T20:00:00Z", "en-GB")).toEqual({
+    expect(formatInstant("2026-01-15T20:00:00Z")).toEqual({
       day: "15 January",
       time: "20:00",
     });
@@ -39,7 +40,7 @@ describe("instants are shown in the browser's timezone", () => {
 
   it("moves to the local day when that differs from the UTC day", () => {
     inTimeZone("Europe/Lisbon");
-    expect(formatInstant("2026-07-14T23:30:00Z", "en-GB")).toEqual({
+    expect(formatInstant("2026-07-14T23:30:00Z")).toEqual({
       day: "15 July",
       time: "00:30",
     });
@@ -66,7 +67,7 @@ describe("today is the browser's local date", () => {
 describe("calendar days are never converted", () => {
   it("stays on the same day west of UTC", () => {
     inTimeZone("America/New_York");
-    expect(formatDay("2026-10-31", "en-GB")).toBe("31 October");
-    expect(formatShortDay("2026-10-31", "en-GB")).toBe("31 Oct");
+    expect(formatDay("2026-10-31")).toBe("31 October");
+    expect(formatShortDay("2026-10-31")).toBe("31 Oct");
   });
 });

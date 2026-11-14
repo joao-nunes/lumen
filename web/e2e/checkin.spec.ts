@@ -80,6 +80,13 @@ test("register, check in by keyboard, see the overview, reload, log out", async 
     await expect(group.getByRole("radio").nth(1)).toBeChecked();
   }
   await expect(page.getByText("Not asked today")).toHaveCount(1); // saved, and still marked
+  // Spec 002 Q8: dates are in British English, although this browser is Portuguese.
+  const todayInEnglish = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" }).format(
+    new Date(),
+  );
+  await expect(page.getByRole("combobox", { name: "Day" }).locator("option:checked")).toHaveText(
+    `Today, ${todayInEnglish}`,
+  );
 
   // 4b. Dark mode is chosen from the footer and survives a reload; the page starts light.
   const html = page.locator("html");
