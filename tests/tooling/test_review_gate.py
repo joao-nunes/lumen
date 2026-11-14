@@ -240,3 +240,21 @@ def test_the_configured_hooks_work_when_claude_code_starts_in_a_subdirectory(rep
 )
 def test_other_commands_are_not_gated(repo: Path, command: str) -> None:
     assert allowed(repo, command)
+
+
+def test_a_transcript_with_invalid_bytes_still_counts(repo: Path) -> None:
+    # One unreadable line must not crash the gate, which would block every PR from then on.
+    head = git(repo, "rev-parse", "HEAD")
+    review(repo, f"No findings.\n\nVERDICT: READY {head}")
+    transcript = next(repo.parent.glob("agent-*.jsonl"))
+    transcript.write_bytes(b"\xff\xfe not text\n" + transcript.read_bytes())
+    assert allowed(repo)
+
+
+def test_an_error_while_checking_denies_with_a_reason(repo: Path, tmp_path: Path) -> None:
+    outside = tmp_path / "not-a-repo"
+    outside.mkdir()
+    payload = {"tool_input": {"command": "gh pr create --fill"}, "cwd": str(outside)}
+    decision = json.loads(run(repo, "check", payload))["hookSpecificOutput"]
+    assert decision["permissionDecision"] == "deny"
+    assert decision["permissionDecisionReason"].startswith("Blocked: the review gate failed")

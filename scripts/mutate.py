@@ -1521,6 +1521,18 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             REVIEW_GATE,
+            "an invalid byte in a transcript crashes the gate",
+            'transcript.read_text(errors="replace")',
+            "transcript.read_text()",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "an error while checking crashes instead of denying",
+            "    except Exception:  # any failure blocks",
+            "    except ImportError:  # any failure blocks",
+        ),
+        Mutant(
+            REVIEW_GATE,
             "a GraphQL mutation from a file hides it",
             '|(?=.*\\bgraphql\\b))",',
             ')",',

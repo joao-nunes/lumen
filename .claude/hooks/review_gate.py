@@ -11,6 +11,11 @@ Two hooks call this (see .claude/settings.json):
   naming the commit the reviewer read. The command is allowed only if a review passed HEAD and
   none failed it: a FIX FIRST sticks to its commit, so only a new commit gets a fresh review.
 
+If anything fails once a command is known to open a PR, the gate denies it. If the hook itself
+fails (a crash, a timeout, no python3), `onFailure: "block"` in the settings blocks the call. The
+one exception is deliberate: when the repository has no review_gate.py, as on a branch cut before
+the gate existed, both hooks do nothing.
+
 This is a guardrail for a cooperative agent, not a security boundary. It sees only Bash commands
 and judges them by their text, so it errs towards blocking: it allows only a plain
 `gh pr create`, and blocks any other command that mentions opening a PR. It also blocks when the
@@ -87,7 +92,8 @@ def final_reports(transcript: Path) -> list[str]:
     the reviewer's last text message."""
     handbacks: list[str] = []
     text = ""
-    for line in transcript.read_text().splitlines():
+    # A stray invalid byte spoils only its own line, not every review after it.
+    for line in transcript.read_text(errors="replace").splitlines():
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
@@ -185,7 +191,17 @@ def check(data: dict[str, Any]) -> int:
             "--head, --repo or gh api), with any values in single quotes or a --body-file."
             + ONLY_MENTIONS
         )
-    cwd = data.get("cwd") or "."
+    try:
+        return check_commit(data.get("cwd") or ".")
+    except Exception:  # any failure blocks, with a reason Claude can act on
+        return deny(
+            "Blocked: the review gate failed while checking this commit (for example, the "
+            "directory isn't a git repository). Run gh pr create from the reviewed branch, "
+            "and if it fails again, tell the owner rather than working around the gate."
+        )
+
+
+def check_commit(cwd: str) -> int:
     head = git(cwd, "rev-parse", "HEAD")
     if pushed_elsewhere(cwd, head):
         return deny(
