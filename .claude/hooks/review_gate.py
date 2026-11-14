@@ -51,8 +51,14 @@ API_CREATE = re.compile(
 PLAIN_CREATE = re.compile(
     r"gh[ \t]+pr[ \t]+(?:create|new)(?:[ \t]+(?:[^\s'\"`$\\;&|<>()]+|'[^'\n]*'))*[ \t]*"
 )
-# Flags that open the PR for another branch or repository.
-OTHER_TARGET = re.compile(r"(?:^|\s)'?(?:-[CHR]|--head\b|--repo\b|--git-dir\b|--work-tree\b)")
+# Flags that open the PR for another branch or repository. Short flags may be combined (`-dH x`),
+# so any single-dash word holding C, H or R counts, even if that blocks a value like `-tHi`.
+OTHER_TARGET = re.compile(
+    r"(?:^|\s)'?(?:-[A-Za-z]*[CHR]|--head\b|--repo\b|--git-dir\b|--work-tree\b)"
+)
+# Removed before looking for a PR command, as the shell removes them: quotes, backslash escapes
+# and the `$` of `$'...'`. A command built from variables or a gh alias still isn't recognised.
+SHELL_QUOTING = re.compile(r"[\"'\\]|\$(?=')")
 ONLY_MENTIONS = (
     " If the command only mentions opening a PR, as a commit message or a search can, move that "
     "text into a file (for example `git commit --file=<path>`) so the command doesn't contain it."
@@ -74,9 +80,11 @@ def review_dir(cwd: str) -> Path:
     return (common if common.is_absolute() else Path(cwd) / common) / "claude-review"
 
 
-def final_report(transcript: Path) -> str:
-    """The reviewer's last SubagentHandback report, or else its last text message."""
-    handback = text = ""
+def final_reports(transcript: Path) -> list[str]:
+    """Every SubagentHandback report, as a resumed reviewer hands back once per run, or else
+    the reviewer's last text message."""
+    handbacks: list[str] = []
+    text = ""
     for line in transcript.read_text().splitlines():
         try:
             entry = json.loads(line)
@@ -91,10 +99,10 @@ def final_report(transcript: Path) -> str:
             if not isinstance(block, dict):
                 continue
             if block.get("type") == "tool_use" and block.get("name") == "SubagentHandback":
-                handback = str((block.get("input") or {}).get("message", "")) or handback
+                handbacks.append(str((block.get("input") or {}).get("message", "")))
             elif block.get("type") == "text":
                 text = str(block.get("text", "")) or text
-    return handback or text
+    return handbacks or [text]
 
 
 def verdict_of(report: str) -> tuple[str, str] | None:
@@ -125,9 +133,10 @@ def verdicts_for(directory: Path, head: str) -> set[str]:
             transcript = Path(json.loads(line)["transcript"])
         except (json.JSONDecodeError, KeyError, TypeError):
             continue
-        result = verdict_of(final_report(transcript)) if transcript.is_file() else None
-        if result and result[1] == head:
-            found.add(result[0])
+        for report in final_reports(transcript) if transcript.is_file() else []:
+            result = verdict_of(report)
+            if result and result[1] == head:
+                found.add(result[0])
     return found
 
 
@@ -164,7 +173,7 @@ def pushed_elsewhere(cwd: str, head: str) -> bool:
 
 def check(data: dict[str, Any]) -> int:
     command = str((data.get("tool_input") or {}).get("command", ""))
-    unquoted = re.sub(r"[\"']", "", command)
+    unquoted = SHELL_QUOTING.sub("", command)
     if not (PR_CREATE.search(unquoted) or API_CREATE.search(unquoted)):
         return 0
     if not PLAIN_CREATE.fullmatch(command.strip()) or OTHER_TARGET.search(command):

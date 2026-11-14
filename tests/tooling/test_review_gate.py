@@ -97,6 +97,7 @@ def test_a_passed_commit_may_open_a_pr(repo: Path) -> None:
         "no review",
         "fix first",
         "fix first, then ready on the same commit",
+        "fix first, then ready when the same review is resumed",
         "ready for an earlier commit",
         "ready for the commit only in a quote, not the last line",
         "ready from another agent",
@@ -110,6 +111,11 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
     elif case == "fix first, then ready on the same commit":
         review(repo, f"VERDICT: FIX FIRST {head}")
         review(repo, f"VERDICT: READY {head}")
+    elif case == "fix first, then ready when the same review is resumed":
+        review(repo, f"VERDICT: FIX FIRST {head}")
+        (transcript,) = repo.parent.glob("agent-*.jsonl")
+        with transcript.open("a") as file:
+            file.write(reading() + "\n" + handback(f"VERDICT: READY {head}") + "\n")
     elif case == "ready for an earlier commit":
         review(repo, f"VERDICT: READY {head}")
         commit(repo)
@@ -134,6 +140,8 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         "gh pr -R o/r create",
         "gh pr 'create'",
         'gh "pr" create',
+        "gh pr cr\\eate --fill",
+        "gh pr $'create'",
         "gh api repos/o/r/pulls -f head=x -f base=master",
         "gh api -f head=x -f base=master -f title=t repos/o/r/pulls",
         "gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'",
@@ -151,6 +159,8 @@ def test_every_way_of_opening_a_pr_is_gated(repo: Path, command: str) -> None:
         "gh pr create -R someone/fork",
         "gh pr create -Hother-branch",
         "gh pr create -Ro/fork",
+        "gh pr create -dH other",
+        "gh pr create -fR o/fork",
         "GH_REPO=o/r gh pr create",
         "git checkout other && gh pr create --fill",
         "git switch other; gh pr create",

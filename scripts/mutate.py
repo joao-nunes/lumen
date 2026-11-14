@@ -1485,8 +1485,26 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REVIEW_GATE,
             "last text preferred to the handback report",
-            "    return handback or text",
-            "    return text or handback",
+            "    return handbacks or [text]",
+            "    return [text] if text else handbacks",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "a resumed review's last verdict overrides its earlier ones",
+            "    return handbacks or [text]",
+            "    return handbacks[-1:] or [text]",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "combined short flags hide a target flag",
+            "-[A-Za-z]*[CHR]|",
+            "-[CHR]|",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "shell escapes hide it",
+            """SHELL_QUOTING = re.compile(r"[\\"'\\\\]|\\$(?=')")""",
+            """SHELL_QUOTING = re.compile(r"[\\"']")""",
         ),
         Mutant(
             REVIEW_GATE,
