@@ -58,6 +58,7 @@ EVALUATION = "src/lumen/suggestions/evaluation.py"
 PROMPT = "src/lumen/suggestions/prompt.py"
 PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v3.txt"
 DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
+REVIEW_GATE = ".claude/hooks/review_gate.py"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
 )
@@ -1454,6 +1455,56 @@ GROUPS: dict[str, list[Mutant]] = {
             "summary_start ignores change window",
             "    return min(change_period.previous().start, DateRange.ending_on(end, trend_days).start)",
             "    return DateRange.ending_on(end, trend_days).start",
+        ),
+    ],
+    "review-gate": [
+        Mutant(
+            REVIEW_GATE,
+            "a later READY overrides FIX FIRST",
+            '    if verdicts == {"READY"}:',
+            '    if "READY" in verdicts:',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "verdict for any commit counts",
+            "        if result and result[1] == head:",
+            "        if result:",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "verdict on any line counts",
+            "    lines = report.strip().splitlines()\n",
+            '    lines = [s for s in report.strip().splitlines() if s.startswith("VERDICT")]\n',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "any agent's verdict counts",
+            '    if data.get("agent_type") != REVIEWER:\n        return 0\n    transcript',
+            "    transcript",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "last text preferred to the handback report",
+            "    return handback or text",
+            "    return text or handback",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "PR for another branch or repo passes",
+            "    if OTHER_TARGET.search(command):",
+            "    if False:",
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "only a plain gh pr create is gated",
+            'PR_CREATE = re.compile(r"\\bgh\\b.*\\bpr\\s+(?:create|new)\\b", re.DOTALL)',
+            'PR_CREATE = re.compile(r"^gh\\s+pr\\s+create\\b")',
+        ),
+        Mutant(
+            REVIEW_GATE,
+            "gh api pulls not gated",
+            "    if not (PR_CREATE.search(command) or API_CREATE.search(command)):",
+            "    if not PR_CREATE.search(command):",
         ),
     ],
 }

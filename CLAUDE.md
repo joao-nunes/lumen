@@ -39,7 +39,7 @@ make schema                        # regenerate web/src/api/schema.d.ts after ch
    3. Commit and run it again: a review covers one commit, so every fix needs a fresh one.
    4. In the PR description, list its findings and what was done about each.
 
-   A hook (`.claude/hooks/review_gate.py`) blocks `gh pr create` until the reviewer's verdict for HEAD is `VERDICT: READY`. Never work around it, for example by writing the verdict file under `.git/claude-review/` yourself.
+   A hook (`.claude/hooks/review_gate.py`) blocks `gh pr create` until a review of HEAD ends with `VERDICT: READY <sha>` and none ends with `VERDICT: FIX FIRST <sha>`: a failed commit stays failed, so don't rerun the reviewer on it or narrow its prompt to get a pass. Run `gh pr create` on its own from the reviewed branch: the hook blocks a command that changes directory or names another branch or repository. It's a guardrail, not a security boundary. Never work around it, for example by editing `.git/claude-review/` yourself.
 
 ## Tests
 

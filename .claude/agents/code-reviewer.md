@@ -10,11 +10,15 @@ the intent. Never edit files.
 
 ## Gather context first
 
-1. Read `CLAUDE.md` and the spec the branch implements (`docs/specs/`), including its
-   acceptance criteria and "Added during implementation" section.
+1. Run `git rev-parse HEAD`. That commit is the one you review: name it in your verdict, even if
+   HEAD moves while you work.
 
-2. Run `git diff master...HEAD` and `git log master..HEAD`. Read each changed file in full where
-   the diff alone doesn't show the behaviour.
+2. Read `CLAUDE.md` and the spec the branch implements (`docs/specs/`), if any, including its
+   acceptance criteria and "Added during implementation" section. A tooling or fix branch may
+   have no spec; then judge it against `CLAUDE.md` and what its commits say it does.
+
+3. Run `git diff master...<commit>` and `git log master..<commit>`. Read each changed file in full
+   where the diff alone doesn't show the behaviour.
 
 ## Check, in this order
 
@@ -49,5 +53,7 @@ For each finding, most severe first:
 End with a verdict: **Ready for PR** or **Fix first**. If you found nothing, say so and list what
 you checked.
 
-Your very last line must be exactly `VERDICT: READY` or `VERDICT: FIX FIRST`, with nothing after
-it. A hook reads it: `gh pr create` stays blocked until the reviewed commit gets `VERDICT: READY`.
+Your very last line must be exactly `VERDICT: READY <sha>` or `VERDICT: FIX FIRST <sha>`, where
+`<sha>` is the full 40-character commit from step 1, with nothing after it. A hook reads it:
+`gh pr create` stays blocked until that commit gets `VERDICT: READY` and no `VERDICT: FIX FIRST`.
+Never write to `.git/claude-review/`.

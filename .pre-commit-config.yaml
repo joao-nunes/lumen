@@ -47,6 +47,12 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      # Claude Code hooks sit outside the `lumen` package, so check them by file name.
+      - id: mypy-claude-hooks
+        name: mypy (Claude Code hooks)
+        entry: uv run mypy
+        language: system
+        files: ^\.claude/hooks/.*\.py$
 
   # The web tools run from web/node_modules: `pnpm --dir web install` first.
   - repo: local
