@@ -90,8 +90,10 @@ def review_dir(cwd: str) -> Path:
 
 def final_reports(transcript: str) -> list[str]:
     """Every SubagentHandback report in a transcript's text, as a resumed reviewer hands back
-    once per run, or else the reviewer's last text message."""
+    once per run. Without any, the last text message of each run: a run ends where a new
+    prompt starts, so a resumed review's earlier verdicts still count."""
     handbacks: list[str] = []
+    runs: list[str] = []
     text = ""
     for line in transcript.splitlines():
         try:
@@ -99,7 +101,12 @@ def final_reports(transcript: str) -> list[str]:
         except json.JSONDecodeError:
             continue
         message = entry.get("message") if isinstance(entry, dict) else None
-        if not isinstance(message, dict) or message.get("role") != "assistant":
+        if not isinstance(message, dict):
+            continue
+        if message.get("role") == "user" and is_prompt(message.get("content")) and text:
+            runs.append(text)
+            text = ""
+        if message.get("role") != "assistant":
             continue
         content = message.get("content")
         blocks = [{"type": "text", "text": content}] if isinstance(content, str) else content
@@ -110,7 +117,15 @@ def final_reports(transcript: str) -> list[str]:
                 handbacks.append(str((block.get("input") or {}).get("message", "")))
             elif block.get("type") == "text":
                 text = str(block.get("text", "")) or text
-    return handbacks or [text]
+    return handbacks or [*runs, text]
+
+
+def is_prompt(content: object) -> bool:
+    """Whether a user message is a new prompt, not tool results, which arrive as user messages."""
+    if isinstance(content, str):
+        return True
+    blocks = content if isinstance(content, list) else []
+    return any(isinstance(block, dict) and block.get("type") == "text" for block in blocks)
 
 
 def verdict_of(report: str) -> tuple[str, str] | None:
