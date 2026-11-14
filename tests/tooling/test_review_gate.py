@@ -47,6 +47,7 @@ def repo(tmp_path: Path) -> Path:
     git(path, "init", "-q")
     git(path, "config", "user.email", "test@example.com")
     git(path, "config", "user.name", "Test")
+    git(path, "config", "commit.gpgsign", "false")  # a global signing setup can't break the tests
     (path / "sub").mkdir()
     commit(path)
     return path
@@ -130,6 +131,7 @@ def test_otherwise_opening_a_pr_is_blocked(repo: Path, case: str) -> None:
         "bash -c 'gh pr create --fill'",
         "if true; then gh pr create; fi",
         "gh api repos/o/r/pulls -f head=x -f base=master",
+        "gh api graphql -f query='mutation { createPullRequest(input: {}) { clientMutationId } }'",
     ],
 )
 def test_every_way_of_opening_a_pr_is_gated(repo: Path, command: str) -> None:

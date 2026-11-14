@@ -18,7 +18,8 @@ the intent. Never edit files.
    have no spec; then judge it against `CLAUDE.md` and what its commits say it does.
 
 3. Run `git diff master...<commit>` and `git log master..<commit>`. Read each changed file in full
-   where the diff alone doesn't show the behaviour.
+   where the diff alone doesn't show the behaviour, as committed: `git show <commit>:<path>`, not
+   the working tree, which may hold changes that aren't in the commit you're passing.
 
 ## Check, in this order
 

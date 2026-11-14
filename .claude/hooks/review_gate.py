@@ -32,10 +32,12 @@ REVIEWER = "code-reviewer"
 REVIEWS = "reviews.jsonl"
 
 # Anywhere in the command, so prefixes (env, command, a full path, bash -c '...') don't hide it.
-# `gh pr new` is an alias of `gh pr create`. `gh api .../pulls` with fields creates a PR too.
+# `gh pr new` is an alias of `gh pr create`. `gh api .../pulls` with fields creates a PR too,
+# and so does the GraphQL createPullRequest mutation.
 PR_CREATE = re.compile(r"\bgh\b.*\bpr\s+(?:create|new)\b", re.DOTALL)
 API_CREATE = re.compile(
-    r"\bgh\b.*\bapi\b.*/pulls(?![/\w]).*(?:\s-[fFX]|--(?:field|raw-field|method|input))",
+    r"\bgh\b.*\bapi\b.*(?:/pulls(?![/\w]).*(?:\s-[fFX]|--(?:field|raw-field|method|input))"
+    r"|\bcreatePullRequest\b)",
     re.DOTALL,
 )
 # Anything that may make the PR's commit differ from this session's HEAD.
@@ -43,6 +45,10 @@ OTHER_TARGET = re.compile(
     r"(?:^|[\s;&|(])(?:cd|pushd)\s"
     r"|(?:^|\s)(?:-[CHR]|--head|--repo|--git-dir|--work-tree)(?:[\s=]|$)"
     r"|\b(?:GH_REPO|GIT_DIR|GIT_WORK_TREE)="
+)
+ONLY_MENTIONS = (
+    " If the command only mentions opening a PR, as a commit message or a search can, move that "
+    "text into a file (for example `git commit --file=<path>`) so the command doesn't contain it."
 )
 VERDICT = re.compile(r"^VERDICT:\s*(READY|FIX FIRST)\s+([0-9a-f]{40})$")
 
@@ -141,6 +147,7 @@ def check(data: dict[str, Any]) -> int:
             "Blocked: this command may open a PR for a commit other than this session's HEAD "
             "(it changes directory or names a branch, repository or git dir), so the review "
             "gate can't check it. Run `gh pr create` on its own from the reviewed branch."
+            + ONLY_MENTIONS
         )
     cwd = data.get("cwd") or "."
     head = git(cwd, "rev-parse", "HEAD")
@@ -151,7 +158,7 @@ def check(data: dict[str, Any]) -> int:
     return deny(
         f"Blocked: the code-reviewer agent hasn't passed commit {head[:7]} (verdicts for it: "
         f"{found}). Run the code-reviewer agent on this branch, fix what it reports, commit, "
-        "and review the new commit until it ends with VERDICT: READY."
+        "and review the new commit until it ends with VERDICT: READY." + ONLY_MENTIONS
     )
 
 
