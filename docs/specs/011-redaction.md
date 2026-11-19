@@ -264,17 +264,17 @@ What the current convention protects, and any new one must keep:
 - **AC-7 (re-hydration):** after AC-1, the reply *"Feedback from [PERSON_1] at [ORG_1] weighs on you; [PERSON_9] isn't mentioned."* becomes *"Feedback from Ana at Deloitte weighs on you; [PERSON_9] isn't mentioned."*.
 - **AC-8 (placeholders already in the text):** *"I wrote [PERSON_1] in my notes. Ana called."* becomes *"I wrote [PERSON_1] in my notes. [PERSON_2] called."*, and re-hydrating *"[PERSON_1] and [PERSON_2]"* gives *"[PERSON_1] and Ana"*.
 - **AC-9 (fail closed):** when the detector raises, times out, or returns malformed output (§2.2), including a failure on the personal context, `Redactor.pseudonymize` raises `RedactionUnavailableError`, returns no text, and the error's message, `repr` and chained exceptions contain none of the input.
-- **AC-10 (last check):** with a detector fake that makes the replacement leave a rule-shaped identifier behind, the call fails rather than return text. (This guards the last check itself; in normal use it never fires.)
-- **AC-11 (nothing leaks through `repr`):** the `repr` and `str` of a `Pseudonymized` contain neither the original text nor any real value from the map.
+- **AC-10 (nothing leaks through `repr`):** the `repr` and `str` of a `Pseudonymized` contain neither the original text nor any real value from the map.
 
 **Second PR: the model and its measurement**
 
-- **AC-12 (local only):** the Ollama detector refuses a non-loopback URL and a cloud model, sends with `trust_env=False` and without following redirects. The shared transport is the one suggestions use.
-- **AC-13 (measured):** `evals/redaction/measured_prompt.json` holds the hash after a held-out run that meets every bar, and a test fails if the prompt then changes.
+- **AC-11 (local only):** the Ollama detector refuses a non-loopback URL and a cloud model, sends with `trust_env=False` and without following redirects. The shared transport is the one suggestions use.
+- **AC-12 (measured):** `evals/redaction/measured_prompt.json` holds the hash after a held-out run that meets every bar, and a test fails if the prompt then changes.
 
 **Untested by justification**
 
 - **The model's judgement** (names versus words, distinctive titles, personal dates): the evaluation measures it, which is stronger than a few unit tests with a real model.
+- **The last check** (§2.2): replacement is deterministic and every detected span is replaced, so no public input makes the check fire; the review found none, and neither did the author. It stays as defence in depth against a future bug in replacement. It's covered by one fault injected by hand: break replacement so it skips a span, and see the call fail closed. Without an input that can trigger it, a mutant for it could never be killed, so there's none (owner's decision on the PR).
 - **That the map is never saved:** there's no table, no file and no cache for it, and `Pseudonymized` has no method to save it. A test can't prove code doesn't exist; a review sees any that's added.
 
 ## 6. Mutation check
@@ -295,12 +295,11 @@ A new `redaction` group in `make mutate`, because this is security-critical:
 - known names aren't applied
 - a detector error falls back to rules only
 - the error chains the original exception
-- the last check is skipped
 - re-hydration maps a placeholder that wasn't issued
 - numbering doesn't skip a placeholder already in the text
 - `repr` shows the map
 
-One-off faults under the project workflow: a reply cut off mid-JSON, a very long text, a finding that overlaps another ("Ana" inside "Ana Silva" in the other order), and the same name with and without an accent ("Inês", "Ines").
+One-off faults under the project workflow: replacement skipping a span, which the last check must stop; a reply cut off mid-JSON, a very long text, a finding that overlaps another ("Ana" inside "Ana Silva" in the other order), and the same name with and without an accent ("Inês", "Ines").
 
 ## 7. Delivery
 
