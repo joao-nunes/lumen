@@ -100,9 +100,9 @@ def test_ac3_a_finding_not_in_the_text_is_ignored_and_the_rest_used() -> None:
 @pytest.mark.parametrize(
     ("text", "found", "expected"),
     [
-        ("Call 912 345 678.", reply(("912 345", "ID")), "Call [CONTACT_1]."),
-        ("My NIF is 234567899.", NOTHING, "My NIF is [ID_1]."),
-        ("My NIF is 234567890.", NOTHING, "My NIF is [CONTACT_1]."),
+        ("Call 971 974 210.", reply(("971 974", "ID")), "Call [CONTACT_1]."),
+        ("My NIF is 974212326.", NOTHING, "My NIF is [ID_1]."),
+        ("My NIF is 974212327.", NOTHING, "My NIF is [CONTACT_1]."),
     ],
     ids=["model-finding-inside-phone", "valid-nif", "wrong-check-digit-is-phone"],
 )
@@ -116,16 +116,18 @@ RULE_SHAPED = [
     ("ana@example.com", "CONTACT"),
     ("https://example.com/ana", "CONTACT"),
     ("@ana.s", "CONTACT"),
-    ("+351 912 345 678", "CONTACT"),
-    ("+351913572468", "CONTACT"),  # starts with the valid NIF 351913572, not a whole token
-    ("912 345 678", "CONTACT"),
+    ("+351 971 974 210", "CONTACT"),
+    ("+351974942129", "CONTACT"),
+    # Holds the valid NIF 027098702, not as a whole token.
+    ("https://example.com/r/0270987024", "CONTACT"),
+    ("971 974 210", "CONTACT"),
     ("PT50 0002 0123 1234 5678 9015 4", "ID"),  # a valid Portuguese IBAN
-    ("234567899", "ID"),  # a valid NIF
-    ("4111119111111111", "ID"),  # a card number holding the phone-shaped 911111111
+    ("051930200", "ID"),  # a valid NIF
+    ("4111119711111111", "ID"),  # a card number holding the phone-shaped 971111111
     ("1100-053", "ADDRESS"),
     ("192.168.1.10", "CONTACT"),
     ("2001:db8::1", "CONTACT"),
-    ("12345678 9 ZZ1", "ID"),  # Cartão de Cidadão
+    ("12345678 0 ZZ1", "ID"),  # Cartão de Cidadão, with a wrong check digit
     ("12345678", "ID"),
     ("1 500 000", "ID"),
     ("1234-5678", "ID"),

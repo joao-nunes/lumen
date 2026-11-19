@@ -1,6 +1,11 @@
 # Evaluation set for redaction (spec 011)
 
-`entries.jsonl` holds 285 synthetic journal notes in English, European Portuguese and the two mixed, each with the identifiers that must be replaced and the decoys that must be kept. **Everything here is invented. This repository is public, so no real journal text ever goes in it.** Emails, URLs and IP addresses use the reserved documentation domains and ranges (`example.com`, `example.org`, `example.net`, `192.0.2.0/24`, `198.51.100.0/24`); phone, NIF, IBAN and card numbers are made up, and NIFs and IBANs have valid check digits so they look real to the rules.
+`entries.jsonl` holds 285 synthetic journal notes in English, European Portuguese and the two mixed, each with the identifiers that must be replaced and the decoys that must be kept. **Everything here is invented. This repository is public, so no real journal text ever goes in it.** Emails, URLs and IP addresses use the reserved documentation domains and ranges (`example.com`, `example.org`, `example.net`, `192.0.2.0/24`, `198.51.100.0/24`); phone, NIF, IBAN and card numbers are made up so that none can belong to anyone, while still having the shape the rules catch:
+
+- **NIFs** have a valid check digit but start with 0, which no category of NIF holder uses.
+- **Portuguese phone numbers** start with 97, which is neither a mobile range (91, 92, 93, 96) nor a landline (2). It's unassigned rather than reserved, so if ANACOM ever opens it, they could become real. **UK phone numbers** are in Ofcom's ranges for drama.
+- **Portuguese IBANs** pass the IBAN check but have bank code 0000 and a wrong NIB check digit, so no account can have them.
+- **Cartão de Cidadão numbers** have wrong check digits, and **card numbers** fail the Luhn check.
 
 - `dev` (60 entries, 20 per language) is for tuning the prompt.
 - `test` (225 entries, 75 per language) is held out. It was written and committed before any redaction prompt existed, and isn't looked at until the measurement (spec 011 §2.6).
@@ -18,7 +23,7 @@ How the labels were drawn:
 - **Organizations** include employers, schools, hospitals, clinics, shops, teams and helplines.
 - **Places:** cities, towns and neighbourhoods. Countries are decoys.
 - **Dates:** only dates personal to the writer (birthdays, anniversaries, deaths). Weekdays, months on their own and relative dates are decoys.
-- **Roles:** a title that points to one person ("the only paediatric cardiologist in Exeter"). A generic role ("nurse", "manager") is a decoy.
+- **Roles:** a title that points to one person ("the only paediatric cardiologist in Exeter"). The title alone is the `ROLE`; an institution or place in it is labelled on its own, as `ORG` or `PLACE`, so "the clinical director of the Hospital de Faro" gives `clinical director` and `Hospital de Faro`. A generic role ("nurse", "manager") is a decoy.
 - **Names of things:** pets, bands, podcasts.
 
 **Hard cases on purpose:**
@@ -43,4 +48,4 @@ Matching is case-sensitive when measuring, so "Joy" must go while "joy" stays.
 2. For each note, list in the `identifiers` column everything you would replace before a hosted model saw it, separated by `;`, exactly as written.
 3. Don't look at `entries.jsonl` while you do this. Your first reading is what's useful.
 
-The agreement with the labels is reported with the measurement. Disagreement isn't a mistake: it shows how fuzzy the line is, especially for distinctive titles and personal dates.
+The owner's marking is in `owner_identifiers.csv`, done on 2026-11-19, before any redaction prompt existed. The agreement with the labels is reported with the measurement. Disagreement isn't a mistake: it shows how fuzzy the line is, especially for distinctive titles and personal dates.
