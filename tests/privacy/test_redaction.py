@@ -254,6 +254,8 @@ class TimingOut(FakeDetector):
                 '{"findings": [{"text": "Ana"}]}',
                 '{"findings": [{"text": 5, "type": "PERSON"}]}',
                 '{"findings": [{"text": "Ana", "type": "PERSONS"}]}',
+                '{"findings": [{"text": "Ana", "type": ["PERSON"]}]}',
+                '{"findings": [{"text": "Ana", "type": {"PERSON": 1}}]}',
                 '{"findings": [], "note": "extra"}',
             ]
         ),
@@ -269,6 +271,8 @@ class TimingOut(FakeDetector):
         "no-type",
         "text-not-a-string",
         "unknown-type",
+        "type-a-list",
+        "type-an-object",
         "unexpected-key",
     ],
 )

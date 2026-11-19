@@ -1816,8 +1816,14 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             REDACTION,
             "unknown type dropped, not failing closed",
-            "        if not isinstance(text, str) or kind not in _TYPE_NAMES:\n            return None\n",
-            "        if not isinstance(text, str) or kind not in _TYPE_NAMES:\n            continue\n",
+            "        if not isinstance(text, str) or not isinstance(kind, str) or kind not in _TYPE_NAMES:\n            return None\n",
+            "        if not isinstance(text, str) or not isinstance(kind, str) or kind not in _TYPE_NAMES:\n            continue\n",
+        ),
+        Mutant(
+            REDACTION,
+            "a type that isn't a string isn't checked",
+            " or not isinstance(kind, str) or kind not in _TYPE_NAMES:",
+            " or kind not in _TYPE_NAMES:",
         ),
         Mutant(
             REDACTION,

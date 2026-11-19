@@ -1,9 +1,9 @@
 # Evaluation set for redaction (spec 011)
 
-`entries.jsonl` holds 210 synthetic journal notes in English, European Portuguese and the two mixed, each with the identifiers that must be replaced and the decoys that must be kept. **Everything here is invented. This repository is public, so no real journal text ever goes in it.** Emails, URLs and IP addresses use the reserved documentation domains and ranges (`example.com`, `192.0.2.0/24`, `198.51.100.0/24`); phone, NIF, IBAN and card numbers are made up, and NIFs and IBANs have valid check digits so they look real to the rules.
+`entries.jsonl` holds 285 synthetic journal notes in English, European Portuguese and the two mixed, each with the identifiers that must be replaced and the decoys that must be kept. **Everything here is invented. This repository is public, so no real journal text ever goes in it.** Emails, URLs and IP addresses use the reserved documentation domains and ranges (`example.com`, `example.org`, `example.net`, `192.0.2.0/24`, `198.51.100.0/24`); phone, NIF, IBAN and card numbers are made up, and NIFs and IBANs have valid check digits so they look real to the rules.
 
 - `dev` (60 entries, 20 per language) is for tuning the prompt.
-- `test` (150 entries, 50 per language) is held out. It was written and committed before any redaction prompt existed, and isn't looked at until the measurement (spec 011 §2.6).
+- `test` (225 entries, 75 per language) is held out. It was written and committed before any redaction prompt existed, and isn't looked at until the measurement (spec 011 §2.6).
 
 ## Labels
 

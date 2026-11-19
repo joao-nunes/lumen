@@ -76,7 +76,8 @@ def _parsed(reply: object) -> list[Finding] | None:
         if not isinstance(item, dict) or item.keys() != {"text", "type"}:
             return None
         text, kind = item["text"], item["type"]
-        if not isinstance(text, str) or kind not in _TYPE_NAMES:
+        # A list or an object as the type isn't hashable: checking membership would raise.
+        if not isinstance(text, str) or not isinstance(kind, str) or kind not in _TYPE_NAMES:
             return None
         # The model may write another Unicode form, or pad the text: either would leak the name.
         findings.append((_nfc(text).strip(), IdentifierType(kind)))
