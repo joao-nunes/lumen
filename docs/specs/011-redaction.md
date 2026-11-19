@@ -305,7 +305,7 @@ Q1–Q12 were decided by the owner in discussion before the draft, Q13–Q17 on 
 | Q1 | Cities, regions, countries? | **Cities and towns become `[PLACE_n]`; countries are kept.** |
 | Q2 | Dates? | **Weekdays and relative dates are kept; dates personal to the person become `[DATE_n]`.** |
 | Q3 | Ages? | **Kept.** |
-| Q4 | Professions and job titles? | **Generic roles are kept; distinctive titles are replaced.** The line is fuzzy, so the evaluation set includes both and measures it. The `[ROLE_n]` placeholder is this draft's proposal. |
+| Q4 | Professions and job titles? | **Generic roles are kept; distinctive titles are replaced.** The line is fuzzy, so the evaluation set includes both and measures it. Distinctive titles become `[ROLE_n]` (proposed in the draft, approved by the owner on its PR). |
 | Q5 | Relationship words? | **Always kept.** |
 | Q6 | Sensitive content (health, medication, religion, politics, orientation, ethnicity)? | **Kept in Tier 1.** Local-only mode is the opt-out. |
 | Q7 | Pets and named things? | **Replaced as `[NAME_n]`.** |
