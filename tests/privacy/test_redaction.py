@@ -117,7 +117,7 @@ RULE_SHAPED = [
     ("https://example.com/ana", "CONTACT"),
     ("@ana.s", "CONTACT"),
     ("+351 912 345 678", "CONTACT"),
-    ("+351912345678", "CONTACT"),  # holds the valid NIF 191234567, which isn't a whole token
+    ("+351913572468", "CONTACT"),  # starts with the valid NIF 351913572, not a whole token
     ("912 345 678", "CONTACT"),
     ("PT50 0002 0123 1234 5678 9015 4", "ID"),  # a valid Portuguese IBAN
     ("234567899", "ID"),  # a valid NIF
