@@ -1,6 +1,6 @@
 # Spec 011: Redaction and pseudonymization
 
-**Status:** Draft. The owner decided Q1–Q12 in discussion (§7); Q13–Q17 are open (§8)
+**Status:** Draft. The owner decided Q1–Q17 (§8) and approved the seven review fixes (§8.1).
 **Builds on:** spec 006 (local model, Ollama controls), spec 010 (personal context). Next Milestone 3 slice.
 
 ## 1. Goal
@@ -26,11 +26,11 @@ It also answers the question Milestone 4 depends on: **can a local model find id
 - **Persisting a pseudonym map,** including for a conversation that survives a restart (§3).
 - **Unique events and traits** (Q8), such as "I won the 2024 regional chess title". §2.1 explains.
 
-## 2. Proposed decisions
+## 2. Decisions
 
 ### 2.1 What gets replaced
 
-The owner's decisions Q1–Q8 (§7), from comparing HIPAA Safe Harbor, the i2b2 2014 de-identification categories, Microsoft Presidio's default entities and GDPR Article 9.
+The owner's decisions Q1–Q8 (§8), from comparing HIPAA Safe Harbor, the i2b2 2014 de-identification categories, Microsoft Presidio's default entities and GDPR Article 9.
 
 **Replaced**, each with its own placeholder:
 
@@ -65,7 +65,9 @@ The owner chose option D: two detectors, each covering the other's weakness. Bot
 
 - Emails, URLs, IPv4 and IPv6 addresses, social handles (`@name`).
 - Phone numbers: Portuguese (`+351`, and nine digits starting with 2 or 9), and international ones starting with `+`.
-- IBANs (checked with their checksum), card numbers (Luhn), Portuguese NIFs (their check digit), Cartão de Cidadão numbers.
+- IBANs and Cartão de Cidadão numbers, by their shape: a country code and digits, or eight digits, a check digit and two letters and a digit. Both mix letters into the number, so the seven-digit rule alone would leave pieces of them behind.
+- Portuguese NIFs, by their check digit. **The check digit is the only thing that decides the type of a nine-digit number starting with 2 or 9:** with a valid check digit it's a NIF, `[ID_n]`, and otherwise the phone rule makes it `[CONTACT_n]`. Either way it's replaced.
+- **No other checksum.** An IBAN with a wrong mod-97 or a card number that fails Luhn would still be replaced by its shape or by the seven-digit rule, as `[ID_n]`, so those checks would change nothing a test could observe (review finding 2). Card numbers are caught by the seven-digit rule.
 - Portuguese postcodes (`dddd-ddd`). UK and US postcodes are too easy to confuse with ordinary words and numbers, so they're left to the model.
 - **Any run of seven or more digits,** allowing spaces or dashes inside, as `[ID_n]`. This catches account and reference numbers no rule names. Ordinary numbers in a journal ("10000 steps", "slept 6 hours") are shorter.
 
@@ -73,12 +75,24 @@ The owner chose option D: two detectors, each covering the other's weakness. Bot
 
 **The model only points; code replaces.** The model returns a list of findings, `[{"text": "Ana", "type": "PERSON"}, …]`, and never rewrites the text. Deterministic code makes every replacement. So the model can't quietly change the meaning, drop a sentence or invent content, in line with "LLMs interpret, code computes". The code also checks every finding, as spec 006 checks quotes:
 
-- **A finding not in the text is ignored.** Models invent findings.
-- **A type outside the nine is ignored.**
-- **Every occurrence is replaced,** matching whole words, ignoring case and keeping accents distinct, so "Ana" never matches inside "Banana" and "ana" is still Ana.
-- **Longer findings are replaced first,** so "Ana Silva" isn't left as "[PERSON_1] Silva".
+- **A finding not in the text is ignored,** and the rest of the reply is used. Models invent findings, and an invented one has nothing to leak.
+- **The types are constrained by the request's JSON schema,** an enum of the nine, which Ollama enforces. A type outside the nine anyway makes the reply malformed (below), so the call fails closed. Dropping the finding instead would let a name the model pointed at, typed `"PERSONS"`, reach the hosted model (review finding 3).
+- **Every occurrence is found,** matching whole words, ignoring case and keeping accents distinct, so "Ana" never matches inside "Banana" and "ana" is still Ana.
+
+**A malformed reply fails closed** (review finding 7). A reply is malformed when it isn't valid JSON, or doesn't match the schema: an object with a list of findings, each with a string `text` and one of the nine types. It is *partly invalid* when it matches the schema but some findings aren't in the text: those findings are ignored and the rest are used. Nothing else is tolerated: when unsure, the reply counts as malformed.
+
+**Replacement works on spans of the original text** (review finding 1). Every detector reports spans, start and end positions in the raw text: each rule match, each occurrence of each model finding and each occurrence of each known name. Then:
+
+1. **Overlapping spans are merged into one,** covering both. So "Ana" inside "Ana Silva" becomes part of the one "Ana Silva" span, and a model finding that covers half a phone number can't leave the other half behind.
+2. **A merged span takes the type of its highest-precedence part,** in this order: NIF (`ID`), the contact rules (`CONTACT`), IBAN and Cartão de Cidadão (`ID`), postcode (`ADDRESS`), known names, the model's findings, and last the seven-digit catch-all (`ID`). So a valid NIF starting with 2 is `[ID_n]`, not a phone number. A wrong type is a quality problem, not a privacy one (§2.6), but the order makes it deterministic and testable.
+3. **Each span is replaced once,** working from the end of the text to the start, so positions never shift. Spans with the same text, ignoring case, get the same placeholder.
 
 **Names in the personal context are always replaced** (Q16). People and places the person mentions in their personal context (spec 010) are the ones most likely to recur, so they're replaced by exact match whether or not the model notices them in a given text. This uses the personal context only on this machine, so spec 010's Q5 still holds: the context never reaches a hosted model.
+
+- **They come from the same detector, run on the personal context** (Q16). The person maintains nothing: no new page, no new table.
+- **Its result is kept in memory, never saved,** one entry per person, keyed on a hash of the context's text, so the detector only runs again after the context changes. Every exchange but the first after an edit costs nothing extra. A restart empties it. If the detector fails on the context, the exchange fails closed, as in §2.3.
+- **Known names match case-sensitively,** exactly as the context writes them (review finding 5). So "Rosa" the friend is replaced, but "rosa" the colour and "joy" the feeling aren't. A lowercase "rosa" meaning the friend is left to the model, which sees the context.
+- **A list the person keeps themselves** is future work, if the measurement shows recurring names being missed.
 
 **A last check runs on the output.** After replacement, the rules and the known names run again over the pseudonymized text. Anything they still find is a bug, and the call fails rather than return the text.
 
@@ -96,11 +110,12 @@ The error carries no text, as `SuggestionsUnavailableError` does (`from None`), 
 
 ### 2.5 Code
 
-- **A new package `lumen.privacy`,** as `PROJECT.MD` §15 planned, with `redaction.py`. Its prompt lives in `src/lumen/privacy/prompts/`, one file per version (Q17).
+- **A new package `lumen.privacy`,** as `PROJECT.MD` §15 planned, with `redaction.py`. Its prompt lives in `src/lumen/privacy/prompts/`, one file per version (Q17, decision record in §4).
 - **`IdentifierDetector` is a `Protocol`,** a real seam: the Ollama detector in production, a fake in unit tests. The rules aren't behind it; they always run.
 - **`pseudonymize(text, known_names, detector) -> Pseudonymized`** returns the Tier 1 text and its map. **`rehydrate(reply, pseudonymized) -> str`** maps a reply back.
 - **`Pseudonymized` holds the map in memory only,** and has no way to be saved (§3). Its `repr` hides the map and the original text, so neither reaches a log or a traceback by accident.
 - **The Ollama detector keeps every control spec 006 set:** `check_local_only` at construction, a loopback address only, no cloud models, `trust_env=False`, no redirects, temperature 0. The HTTP call and these controls move to one shared place in `lumen.privacy` rather than being copied, so a future change can't weaken one copy.
+- **A timeout of 60 seconds,** as suggestions use: it leaves room for the model to load on the first call (spec 006 measured 25 seconds). A timeout is a failure, so it fails closed.
 - **The same `OLLAMA_URL` and `OLLAMA_MODEL`** as suggestions. A separate model setting only becomes worth adding if the measured model misses the bar here and another one passes.
 - **Nothing is logged.** There's no route yet, so nothing new reaches `EventLog`.
 
@@ -120,14 +135,18 @@ As for extraction (spec 006 §3), an evaluation set decides whether the local mo
 
 | Metric | What it catches | Bar |
 |---|---|---|
-| **Recall, direct identifiers** (`PERSON`, `ORG`, `ADDRESS`, `CONTACT`, `ID`) | A name or number reaching the hosted model | Q13 |
-| **Recall, contextual identifiers** (`PLACE`, `DATE`, `NAME`, `ROLE`) | A place, personal date, pet or distinctive title leaking | Q13 |
-| **Decoys kept** | Over-redaction that garbles the text | Q13 |
+| **Recall, direct identifiers** (`PERSON`, `ORG`, `ADDRESS`, `CONTACT`, `ID`) | A name or number reaching the hosted model | **At least 95%** |
+| **Recall, contextual identifiers** (`PLACE`, `DATE`, `NAME`, `ROLE`) | A place, personal date, pet or distinctive title leaking | **At least 85%** |
+| **Decoys kept** | Over-redaction that garbles the text | **At least 90%** |
 | **Leak-free entries:** entries with no missed identifier at all | The person's real experience: one miss is a leak | Reported, no bar |
 | **Right type,** of caught identifiers | `[PLACE_1]` where `[ORG_1]` belonged | Reported, no bar |
-| **Time per text,** 95th percentile, model loaded | Redaction will sit in front of every hosted call | Under 10 seconds |
+| **Time per text,** 95th percentile, model loaded | Redaction will sit in front of every hosted call | **Under 10 seconds** |
 
-**An identifier counts as caught** when none of its occurrences is left in the output, whatever type it was given. A wrong type is a quality problem, not a privacy one.
+Every bar applies to each language separately (Q13). Missing any of them, the latency bar included, stops implementation.
+
+**An identifier counts as caught** only when no word of it survives, whatever type it was given (review finding 4). Each word of the identifier must appear in the output no more often than it appears in the entry outside identifiers. So `[PERSON_1] Silva` is a miss, while the "de" of "Hospital de Santa Maria" doesn't count against it if "de" appears elsewhere in the entry. A wrong type is a quality problem, not a privacy one.
+
+**Labelling** (Q14): I write the entries and their labels, and the owner marks the identifiers in 30 held-out entries blind, as in spec 006. The agreement is reported, and shows how fuzzy the line is, especially for distinctive titles (Q4) and personal dates (Q2).
 
 **Rule-shaped identifiers must all be caught** on the evaluation set: a miss there is a bug in the rules, not a model limitation.
 
@@ -166,7 +185,7 @@ The owner asked for this decision (Q11) to be documented in full, because it sha
 - **What Lumen saves is always the re-hydrated reply,** which is Tier 0 and stays local. Nothing saved ever contains a placeholder that needs an old map.
 - **The same person gets different placeholders in different exchanges.** A feature that sends several texts in one call, such as a weekly review, must pseudonymize them together as one exchange, so Ana is the same placeholder across them.
 - **There is nothing to delete, migrate, protect with RLS or include in an export.** The map disappears when the exchange ends.
-- **In code,** `Pseudonymized` lives in memory and has no table, no file and no cache behind it. Saving it would mean writing new code, which a review would see.
+- **In code,** `Pseudonymized` lives in memory and has no table, no file and no cache behind it. Saving it would mean writing new code, which a review would see. The known-name cache (§2.2, Q16) is separate: it holds names found in the personal context, never a map, and is also memory only.
 
 **Limitations.**
 
@@ -175,19 +194,68 @@ The owner asked for this decision (Q11) to be documented in full, because it sha
 
 **When to revisit.** When a feature needs a hosted model to refer to a placeholder from an earlier exchange, or when conversations need to survive a restart. Either change comes back to the owner as a new decision, with this record as its starting point.
 
-## 4. Acceptance criteria
+## 4. Decision record: prompts live next to the code that uses them
+
+The owner asked for this decision (Q17) to be documented with the alternatives, because it changes a project-wide convention in `CLAUDE.md`.
+
+**Context.** `CLAUDE.md` says prompt wording lives in `src/lumen/suggestions/prompts/`, one file per version, never in code. When it was written, extraction was the only prompt. Redaction adds a second one, in a different package, and Milestone 4 will add more (reflection, conversations). The convention has to say where a prompt goes in general, not where the one prompt is.
+
+What the current convention protects, and any new one must keep:
+
+- **Wording is reviewable on its own,** as a file, not a string inside Python.
+- **A version is a new file,** so a measured prompt is never edited in place.
+- **A measured prompt is pinned by its hash** (`measured_prompt.json`), and a test fails if it changes without a new measurement.
+- **It ships with the package** and is loaded with `importlib.resources`, so it works from an installed wheel, not only from a checkout.
+
+**Options considered.**
+
+| Option | Where the redaction prompt goes | Problem |
+|---|---|---|
+| **(a) A `prompts/` folder in each package that uses one** | `src/lumen/privacy/prompts/redaction_v1.txt` | One line of `CLAUDE.md` changes |
+| (b) Keep the rule literally: every prompt in `suggestions/prompts/` | `src/lumen/suggestions/prompts/redaction_v1.txt` | `lumen.privacy` would load files from `lumen.suggestions` |
+| (c) One shared package, `src/lumen/prompts/`, with a folder per feature | `src/lumen/prompts/redaction/v1.txt` | Separates each prompt from the parser and schema that must change with it |
+| (d) A top-level `prompts/` folder, outside `src/` | `prompts/redaction_v1.txt` | Not part of the package, so not in the wheel |
+| (e) Prompts as constants in code | `redaction.py` | Already ruled out by `CLAUDE.md`: wording hidden among code, versions edited in place |
+
+**Decision: (a).** `CLAUDE.md` will say: *"Prompt wording lives in a `prompts/` folder in the package that uses it (for example `src/lumen/suggestions/prompts/`), one file per version, not in code. Changing a measured prompt fails a test until it's measured again (that package's `measured_prompt.json` under `evals/`)."*
+
+**Why the others were rejected.**
+
+- **(b) points the dependency the wrong way.** `lumen.privacy` is the lower layer: suggestions, and every hosted feature, will depend on it. Making it read its security-critical prompt out of `lumen.suggestions` couples the privacy layer to a feature, and a change to suggestions' folder could break redaction.
+- **(c) splits what changes together.** A prompt, the JSON schema it asks for and the parser that reads the reply change in the same commit (developer guide, "Change a prompt"). A shared prompts package puts them in two places, and invites one feature's prompt to be reused by another without either being measured for it. Its benefit, one place to look, comes almost as well from a single folder name used everywhere.
+- **(d) breaks loading.** Files outside `src/lumen/` aren't package data, so `importlib.resources` can't find them in an installed app, and the path would depend on the working directory.
+- **(e)** is the practice the rule exists to prevent.
+
+**Why (a).**
+
+- **Cohesion:** the prompt sits next to the code that sends it and parses its reply, so a reviewer sees them together, and the package that owns a prompt owns its measurement.
+- **Measurement maps one to one:** `lumen.suggestions` ↔ `evals/extraction/`, `lumen.privacy` ↔ `evals/redaction/`. Each has its own hash and its own test.
+- **It's how suggestions already works,** with `files("lumen.suggestions").joinpath("prompts", …)`. Nothing existing moves.
+- **Security review:** the redaction prompt decides what leaks. Keeping it inside `lumen.privacy` means a change to it shows up as a change to the privacy package.
+
+**Consequences.**
+
+- `CLAUDE.md` changes in this spec's PR (the owner approved it with Q17).
+- The developer guide's "Change a prompt" recipe stays extraction's. The second implementation PR adds the same recipe for redaction, pointing at `evals/redaction/`.
+- Each package that adds a prompt also adds its own hash test. That's some repetition, accepted because each prompt is measured against a different evaluation set and bar.
+
+**When to revisit.** If two packages need the same prompt, or prompts need to be edited by someone who doesn't edit code. Either comes back to the owner as a new decision.
+
+## 5. Acceptance criteria
 
 **First PR: the deterministic part** (with a fake detector)
 
 - **AC-1 (replacement):** with the detector finding Ana and Costa as `PERSON` and Deloitte as `ORG`, *"Ana criticised my report at Deloitte again, and I couldn't sleep before my session with Dr. Costa on Tuesday."* becomes exactly *"[PERSON_1] criticised my report at [ORG_1] again, and I couldn't sleep before my session with Dr. [PERSON_2] on Tuesday."*, and the map holds exactly those three pairs.
-- **AC-2 (every occurrence, whole words):** *"Ana Silva called. ana was upset. Bananas for lunch. Ana's day was hard."*, with findings "Ana Silva" and "Ana", becomes *"[PERSON_1] called. [PERSON_2] was upset. Bananas for lunch. [PERSON_2]'s day was hard."*: the longer finding is replaced first, case is ignored, and "Bananas" is untouched. (How "Ana" and "Ana Silva" should relate is Q15.)
-- **AC-3 (findings are checked):** a finding not in the text, and a finding with an unknown type, are both ignored, and the rest of the reply is still used.
-- **AC-4 (rules without the model):** with the detector finding nothing, each of `ana@example.com`, `https://example.com/ana`, `@ana.s`, `+351 912 345 678`, `912 345 678`, a valid Portuguese IBAN, a valid NIF, a card number that passes Luhn, `1100-053`, `192.168.1.10` and `12345678` is replaced with the right placeholder type, in an English and a Portuguese sentence. An IBAN or NIF with a wrong check digit is caught only by the seven-digit rule, as `[ID_n]`.
+- **AC-2 (every occurrence, whole words):** *"Ana Silva called. ana was upset. Bananas for lunch. Ana's day was hard."*, with findings "Ana Silva" and "Ana", becomes *"[PERSON_1] called. [PERSON_2] was upset. Bananas for lunch. [PERSON_2]'s day was hard."*: the "Ana" inside "Ana Silva" is merged into the longer span, case is ignored, and "Bananas" is untouched. "Ana Silva" and "Ana" get different placeholders (Q15).
+- **AC-3 (findings are checked):** a finding not in the text is ignored and the rest of the reply is still used. A reply with a finding typed `"PERSONS"` raises `RedactionUnavailableError`, as in AC-9.
+- **AC-3b (overlaps):** with the detector finding `"912 345"` as `ID` in *"Call 912 345 678."*, the output is *"Call [CONTACT_1]."*: no digit is left. A valid NIF starting with 2 becomes `[ID_1]`, and the same nine digits with a wrong check digit become `[CONTACT_1]`.
+- **AC-4 (rules without the model):** with the detector finding nothing, each of `ana@example.com`, `https://example.com/ana`, `@ana.s`, `+351 912 345 678`, `912 345 678`, a valid Portuguese IBAN, a valid NIF, a 16-digit card number, `1100-053`, `192.168.1.10` and `12345678` is replaced with the right placeholder type, in an English and a Portuguese sentence. No character of any of them is left in the output.
 - **AC-5 (decoys under the rules):** *"My sister, 34, works as a nurse in Portugal. Slept 6 hours, walked 10000 steps on Tuesday, took 50 mg of sertraline."* comes back unchanged with a detector that finds nothing.
-- **AC-6 (known names):** with the personal context naming Ana and a detector that misses her, *"Ana again."* still becomes *"[PERSON_1] again."*.
+- **AC-6 (known names):** with the personal context naming Ana and Rosa and a detector that misses both, *"Ana again. Rosa called; the rosa dress."* becomes *"[PERSON_1] again. [PERSON_2] called; the rosa dress."*.
+- **AC-6b (known names are cached):** two exchanges with the same personal context run the detector on the context once; after the context changes, it runs again.
 - **AC-7 (re-hydration):** after AC-1, the reply *"Feedback from [PERSON_1] at [ORG_1] weighs on you; [PERSON_9] isn't mentioned."* becomes *"Feedback from Ana at Deloitte weighs on you; [PERSON_9] isn't mentioned."*.
 - **AC-8 (placeholders already in the text):** *"I wrote [PERSON_1] in my notes. Ana called."* becomes *"I wrote [PERSON_1] in my notes. [PERSON_2] called."*, and re-hydrating *"[PERSON_1] and [PERSON_2]"* gives *"[PERSON_1] and Ana"*.
-- **AC-9 (fail closed):** when the detector raises, times out or returns malformed output, `pseudonymize` raises `RedactionUnavailableError`, returns no text, and the error's message, `repr` and chained exceptions contain none of the input.
+- **AC-9 (fail closed):** when the detector raises, times out, or returns malformed output (§2.2), including a failure on the personal context, `pseudonymize` raises `RedactionUnavailableError`, returns no text, and the error's message, `repr` and chained exceptions contain none of the input.
 - **AC-10 (last check):** with a detector fake that makes the replacement leave a rule-shaped identifier behind, the call fails rather than return text. (This guards the last check itself; in normal use it never fires.)
 - **AC-11 (nothing leaks through `repr`):** the `repr` and `str` of a `Pseudonymized` contain neither the original text nor any real value from the map.
 
@@ -201,15 +269,18 @@ The owner asked for this decision (Q11) to be documented in full, because it sha
 - **The model's judgement** (names versus words, distinctive titles, personal dates): the evaluation measures it, which is stronger than a few unit tests with a real model.
 - **That the map is never saved:** there's no table, no file and no cache for it, and `Pseudonymized` has no method to save it. A test can't prove code doesn't exist; a review sees any that's added.
 
-## 5. Mutation check
+## 6. Mutation check
 
 A new `redaction` group in `make mutate`, because this is security-critical:
 
 - a finding not in the text is used anyway
 - matching ignores word boundaries, or is case-sensitive
-- shorter findings are replaced first
 - one rule is removed (each of: email, phone, IBAN, NIF, seven digits)
-- a check digit isn't verified, or is verified wrongly
+- the NIF check digit isn't verified, or is verified wrongly
+- overlapping spans aren't merged, or merge with the wrong precedence
+- a finding with an unknown type is dropped instead of failing closed
+- known names match ignoring case
+- the known-name cache isn't refreshed when the context changes
 - known names aren't applied
 - a detector error falls back to rules only
 - the error chains the original exception
@@ -220,14 +291,14 @@ A new `redaction` group in `make mutate`, because this is security-critical:
 
 One-off faults under the project workflow: a reply cut off mid-JSON, a very long text, a finding that overlaps another ("Ana" inside "Ana Silva" in the other order), and the same name with and without an accent ("Inês", "Ines").
 
-## 6. Delivery
+## 7. Delivery
 
-1. This spec, and the `PROJECT.MD` §8 update that records §2–§3.
+1. This spec, the `PROJECT.MD` §8 update that records §2–§3, and the `CLAUDE.md` prompt rule (§4).
 2. The two PRs of §2.7, each with its tests failing first, fault injection, and an "Added during implementation" section here.
 
-## 7. Decisions
+## 8. Decisions
 
-Decided by the owner in discussion before this draft.
+Q1–Q12 were decided by the owner in discussion before the draft, Q13–Q17 on its PR.
 
 | # | Question | Decision |
 |---|---|---|
@@ -244,25 +315,28 @@ Decided by the owner in discussion before this draft.
 | Q10 | If the local model is unavailable? | **Fail closed:** no text is returned, and spec 012's gateway blocks the hosted call. |
 | Q11 | How long does a pseudonym map live? | **One exchange, in memory only.** Full record in §3. |
 | Q12 | What uses redaction first? | **Nothing yet:** this spec is the library and its measurement; spec 012 adds the hosted gateway and the audit log. |
+| Q13 | What are the bars? | **Per language: direct recall at least 95%, contextual recall at least 85%, decoys kept at least 90%, and 10 seconds at the 95th percentile.** The detector times out after 60 seconds. With about 150 direct identifiers per language, a measured 95% is good to about ±3.5 points. |
+| Q14 | Who labels the evaluation set? | **I write the entries and labels; the owner marks 30 held-out entries blind,** as in spec 006. |
+| Q15 | Do "Ana", "Ana Silva" and "Aninhas" share a placeholder? | **No: each different text gets its own.** Some reflection quality is lost, but two different people can never be merged. Grouping could come later. |
+| Q16 | Where do known names come from? | **The same detector, run on the personal context,** with its result kept in memory and refreshed when the context changes (§2.2). A list the person keeps is future work. |
+| Q17 | Where do prompts live? | **In a `prompts/` folder in the package that uses them.** `CLAUDE.md` changes. Full record in §4. |
 
-## 8. Open questions
+### 8.1 Review findings the owner approved
 
-**Q13. What are the bars?** Proposed, per language, for the owner to approve before the held-out run, as with spec 006:
+The `code-reviewer` agent's seven "should fix" findings on the first draft, all approved by the owner:
 
-- **Direct identifiers recall: at least 95%.** These are what identify someone on their own.
-- **Contextual identifiers recall: at least 85%.** Places, personal dates, pets and distinctive titles identify less on their own, and are harder to judge.
-- **Decoys kept: at least 90%.** Over-redaction costs reflection quality, not privacy.
+1. **Overlapping detections:** replacement works on spans of the original text, overlapping spans are merged, and a fixed precedence decides the type (§2.2, AC-3b).
+2. **Checks a test couldn't observe:** only the NIF check digit is kept, because it decides between `ID` and `CONTACT`. IBANs are matched by shape, and card numbers by the seven-digit rule (§2.2).
+3. **Unknown types:** constrained by the JSON schema; a reply that breaks it fails closed instead of dropping the finding (§2.2, AC-3).
+4. **"Caught" means no word survives,** so `[PERSON_1] Silva` is a miss (§2.6).
+5. **Known names match case-sensitively,** so "rosa" the colour isn't replaced (§2.2, AC-6).
+6. **The latency bar and the detector timeout** are part of Q13 (§2.5, §2.6).
+7. **"Malformed" is defined,** separately from "partly invalid", and anything unclear fails closed (§2.2).
 
-I haven't measured any model on this, and I found no published figure for local models on mixed Portuguese and English. With about 150 direct identifiers per language, a measured 95% is good to about ±3.5 points. Is 95% enough for something whose failure is a leak, or should direct identifiers aim higher, accepting that the run may stop?
+## 9. Open questions
 
-**Q14. Who labels the evaluation set?** Proposed: I write the entries and labels, and the owner marks the identifiers in 30 held-out entries blind, as in spec 006. Agreement shows how fuzzy the line is, especially for distinctive titles (Q4) and personal dates (Q2).
+None.
 
-**Q15. Should "Ana", "Ana Silva" and "Aninhas" share a placeholder?** Proposed: **no, each different text gets its own placeholder** in this spec. The hosted model then sees `[PERSON_1]` and `[PERSON_2]` without knowing they're the same person, which costs some reflection quality but can never merge two different people. Grouping could come later, from the model's findings or from the person.
-
-**Q16. Where do known names come from?** Proposed: **the same detector, run on the personal context** in each exchange. It needs no new storage or screen. The alternative is a list of people and places the person maintains themselves: more reliable, but a new page and a new Tier 0 table. That could follow if the measurement shows misses on recurring names.
-
-**Q17. Where do prompts live?** `CLAUDE.md` says prompt wording lives in `src/lumen/suggestions/prompts/`. Proposed: **each package keeps its own `prompts/` folder,** so the redaction prompt goes in `src/lumen/privacy/prompts/`, and `CLAUDE.md` says "in a `prompts/` folder next to the code that uses it, one file per version". Changing `CLAUDE.md` needs the owner's approval.
-
-## 9. Added during implementation (for review)
+## 10. Added during implementation (for review)
 
 Nothing yet.

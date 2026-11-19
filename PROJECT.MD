@@ -744,6 +744,8 @@ User
 * **What is replaced** and what is kept is decided in spec 011 §2.1. Redaction hides *who* and *where*, not *what*: feelings, health and relationship words stay, which is why Tier 1 is still sensitive.
 * **The pseudonym map lives for one exchange, in memory only,** and is never saved. Hosted models keep no memory between calls, so consistency is only needed within one exchange, and a saved map would be a roster of everyone in the person's life. Full decision record: spec 011 §3.
 * **Redaction fails closed.** If the local model is unavailable, no text is produced and the hosted call doesn't happen. It never falls back to rules alone.
+* **Names from the personal context are always replaced,** by exact, case-sensitive match. The local model finds them in the context; the result is kept in memory only and refreshed when the context changes.
+* **Each distinct text gets its own placeholder:** "Ana" and "Ana Silva" aren't grouped, so two different people can never be merged.
 
 ### Additional rules
 
