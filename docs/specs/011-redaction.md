@@ -1,6 +1,6 @@
 # Spec 011: Redaction and pseudonymization
 
-**Status:** Draft. The owner decided Q1–Q17 (§8) and approved both reviews' fixes (§8.1, §8.2).
+**Status:** Draft. The owner decided Q1–Q17 (§8) and approved the reviews' fixes (§8.1–§8.3).
 **Builds on:** spec 006 (local model, Ollama controls), spec 010 (personal context). Next Milestone 3 slice.
 
 ## 1. Goal
@@ -70,7 +70,7 @@ The owner chose option D: two detectors, each covering the other's weakness. Bot
 - **No other checksum.** An IBAN with a wrong mod-97 or a card number that fails Luhn would still be replaced by its shape or by the seven-digit rule, as `[ID_n]`, so those checks would change nothing a test could observe (review finding 2). Card numbers are caught by the seven-digit rule.
 - Portuguese postcodes (`dddd-ddd`). UK and US postcodes are too easy to confuse with ordinary words and numbers, so they're left to the model.
 - **Any run of seven or more digits,** allowing spaces or dashes inside, as `[ID_n]`. This catches account and reference numbers no rule names. Ordinary numbers in a journal ("10000 steps", "slept 6 hours") are shorter.
-  - **Except dates and year ranges,** which journals often contain and Q2 keeps: a valid calendar date written `yyyy-mm-dd` or `dd-mm-yyyy`, and two years from 1900 to 2099 joined by a dash, optionally with spaces, the second not earlier than the first ("2019-2021", "1990 - 2000"). Anything else that only looks similar, such as "2024-13-45" or "1234-5678", is still `[ID_n]`. **Dates and ranges are matched first, as whole tokens with no digit directly before or after, and a run of digits never extends across one:** in "on 2024-05-03 8 hours" the date is kept and "8" is too short, rather than "2024-05-03 8" being read as one nine-digit run. A date personal to the person is still the model's job, as `[DATE_n]` (review finding 8).
+  - **Except dates and year ranges,** which journals often contain and Q2 keeps: a valid calendar date written `yyyy-mm-dd` or `dd-mm-yyyy`, and two years from 1900 to 2099 joined by a dash, optionally with spaces, the second not earlier than the first ("2019-2021", "1990 - 2000"). Anything else that only looks similar, such as "2024-13-45" or "1234-5678", is still `[ID_n]`. **Dates and ranges are matched first, as whole tokens with no digit directly before or after, and a run of digits never extends across one:** in "on 2024-05-03 8 hours" the date is kept and "8" is too short, rather than "2024-05-03 8" being read as one nine-digit run. **This applies to every digit rule,** phone and NIF as well as the seven-digit catch-all: none of them matches across a date or range. **Phone and NIF matches are whole tokens,** with no digit or letter directly before or after, so nine digits inside a 16-digit card number or an IBAN never become `[CONTACT_n]`. A date personal to the person is still the model's job, as `[DATE_n]` (review finding 8).
   - **Numbers grouped in threes stay caught** ("1 500 000 euros" becomes `[ID_n]`). Excluding them would let an account number written "123 456 789" through, so this over-redaction is accepted.
 
 **The local model** finds everything that needs context: names, organizations, places, personal dates, pets, distinctive titles. It tells "Joy" the person from joy the feeling, and "Rosa" the friend from the colour.
@@ -97,7 +97,7 @@ The owner chose option D: two detectors, each covering the other's weakness. Bot
 - **Known names match case-sensitively,** exactly as the context writes them (review finding 5). So "Rosa" the friend is replaced, but "rosa" the colour and "joy" the feeling aren't. A lowercase "rosa" meaning the friend is left to the model, which sees the context.
 - **A list the person keeps themselves** is future work, if the measurement shows recurring names being missed.
 
-**A last check runs on the output.** After replacement, the rules and the known names run again over the pseudonymized text. Anything they still find is a bug, and the call fails rather than return the text.
+**A last check runs on the output.** After replacement, the rules and the known names run again over the pseudonymized text. Anything they still find is a bug, and the call fails rather than return the text. It can't see a span that only the model found, because nothing deterministic knows that span; those rely on replacement itself being correct.
 
 ### 2.3 If the local model is unavailable: fail closed
 
@@ -257,9 +257,9 @@ What the current convention protects, and any new one must keep:
 - **AC-2 (every occurrence, whole words):** *"Ana Silva called. Ana was upset. Bananas for lunch. ana's day was hard."*, with findings "Ana Silva" and "Ana", becomes *"[PERSON_1] called. [PERSON_2] was upset. Bananas for lunch. [PERSON_2]'s day was hard."*: the "Ana" inside "Ana Silva" is merged into the longer span, case is ignored, and "Bananas" is untouched. "Ana Silva" and "Ana" get different placeholders (Q15). The map is exactly `{PERSON_1: "Ana Silva", PERSON_2: "Ana"}`: the form of the first separate occurrence, not the later "ana". (The "Ana" inside "Ana Silva" isn't a separate span once merged, so it never counts as an occurrence.)
 - **AC-3 (findings are checked):** a finding not in the text is ignored and the rest of the reply is still used. A reply with a finding typed `"PERSONS"` raises `RedactionUnavailableError`, as in AC-9.
 - **AC-3b (overlaps):** with the detector finding `"912 345"` as `ID` in *"Call 912 345 678."*, the output is *"Call [CONTACT_1]."*: no digit is left. A valid NIF starting with 2 becomes `[ID_1]`, and the same nine digits with a wrong check digit become `[CONTACT_1]`.
-- **AC-4 (rules without the model):** with the detector finding nothing, each of `ana@example.com`, `https://example.com/ana`, `@ana.s`, `+351 912 345 678`, `912 345 678`, a valid Portuguese IBAN, a valid NIF, a 16-digit card number, `1100-053`, `192.168.1.10`, `2001:db8::1`, a Cartão de Cidadão number (`12345678 9 ZZ1`), `12345678`, `1 500 000`, and the date and range look-alikes `1234-5678`, `2024-13-45`, `2021-2019` and `1850-1890` is replaced with the right placeholder type, in an English and a Portuguese sentence. No character of any of them is left in the output.
-- **AC-5 (decoys under the rules):** *"My sister, 34, works as a nurse in Portugal. Slept 6 hours, walked 10000 steps on Tuesday, took 50 mg of sertraline. From 2019-2021 I lived abroad; on 2024-05-03 8 hours of sleep weren't enough."* comes back unchanged with a detector that finds nothing.
-- **AC-6 (known names):** with the personal context naming Ana and Rosa and the dog Rex, and a detector that misses all three in the text, *"Ana again. Rosa called; the rosa dress. Walked Rex."* becomes *"[PERSON_1] again. [PERSON_2] called; the rosa dress. Walked [NAME_1]."*.
+- **AC-4 (rules without the model):** with the detector finding nothing, each of `ana@example.com`, `https://example.com/ana`, `@ana.s`, `+351 912 345 678`, `912 345 678`, a valid Portuguese IBAN, a valid NIF, a 16-digit card number, `1100-053`, `192.168.1.10`, `2001:db8::1`, a Cartão de Cidadão number (`12345678 9 ZZ1`), `12345678`, `1 500 000`, and the date and range look-alikes `1234-5678`, `2024-13-45`, `2024-02-30`, `45-13-2024`, `2021-2019` and `1850-1890` is replaced with the right placeholder type, in an English and a Portuguese sentence. No character of any of them is left in the output.
+- **AC-5 (decoys under the rules):** *"My sister, 34, works as a nurse in Portugal. Slept 6 hours, walked 10000 steps on Tuesday, took 50 mg of sertraline. From 2019-2021 I lived abroad; on 2024-05-03 8 hours of sleep weren't enough, and again on 03-05-2025."* comes back unchanged with a detector that finds nothing.
+- **AC-6 (known names):** with the personal context naming Ana and Rosa, the dog Rex, the employer Deloitte and the city Porto, and a detector that misses all five in the text, *"Ana again. Rosa called; the rosa dress. Walked Rex. Back in Porto, Deloitte phoned."* becomes *"[PERSON_1] again. [PERSON_2] called; the rosa dress. Walked [NAME_1]. Back in [PLACE_1], [ORG_1] phoned."*. Each of the four known-name types is covered.
 - **AC-6b (known names are cached):** two calls with the same owner and context run the detector on the context once; after the context changes it runs again, and another owner with the same context gets its own entry. A `DATE` or `ROLE` finding in the context doesn't become a known name.
 - **AC-7 (re-hydration):** after AC-1, the reply *"Feedback from [PERSON_1] at [ORG_1] weighs on you; [PERSON_9] isn't mentioned."* becomes *"Feedback from Ana at Deloitte weighs on you; [PERSON_9] isn't mentioned."*.
 - **AC-8 (placeholders already in the text):** *"I wrote [PERSON_1] in my notes. Ana called."* becomes *"I wrote [PERSON_1] in my notes. [PERSON_2] called."*, and re-hydrating *"[PERSON_1] and [PERSON_2]"* gives *"[PERSON_1] and Ana"*.
@@ -274,7 +274,7 @@ What the current convention protects, and any new one must keep:
 **Untested by justification**
 
 - **The model's judgement** (names versus words, distinctive titles, personal dates): the evaluation measures it, which is stronger than a few unit tests with a real model.
-- **The last check** (§2.2): replacement is deterministic and every detected span is replaced, so no public input makes the check fire; the review found none, and neither did the author. It stays as defence in depth against a future bug in replacement. It's covered by one fault injected by hand: break replacement so it skips a span, and see the call fail closed. Without an input that can trigger it, a mutant for it could never be killed, so there's none (owner's decision on the PR).
+- **The last check** (§2.2): replacement is deterministic and every detected span is replaced, so no public input makes the check fire; the review found none, and neither did the author. It stays as defence in depth against a future bug in replacement. It's covered by one fault injected by hand: break replacement so it skips a span found by a rule or a known name (such as `ana@example.com`, or the known name Rosa), and see the call fail closed. Skipping a span only the model found isn't a valid version of this fault, because the last check can't see such spans (§2.2). Without an input that can trigger it, a mutant for it could never be killed, so there's none (owner's decision on the PR).
 - **That the map is never saved:** there's no table, no file and no cache for it, and `Pseudonymized` has no method to save it. A test can't prove code doesn't exist; a review sees any that's added.
 
 ## 6. Mutation check
@@ -289,7 +289,7 @@ A new `redaction` group in `make mutate`, because this is security-critical:
 - overlapping spans aren't merged, or merge with the wrong precedence
 - a finding with an unknown type is dropped instead of failing closed
 - known names match ignoring case
-- a known-name type other than `PERSON` is filtered out
+- a known-name type is filtered out (each of `ORG`, `PLACE`, `NAME`)
 - dates and ranges aren't matched first, so a digit run extends across them
 - the known-name cache isn't refreshed when the context changes
 - known names aren't applied
@@ -299,7 +299,7 @@ A new `redaction` group in `make mutate`, because this is security-critical:
 - numbering doesn't skip a placeholder already in the text
 - `repr` shows the map
 
-One-off faults under the project workflow: replacement skipping a span, which the last check must stop; a reply cut off mid-JSON, a very long text, a finding that overlaps another ("Ana" inside "Ana Silva" in the other order), and the same name with and without an accent ("Inês", "Ines").
+One-off faults under the project workflow: replacement skipping a span found by a rule or a known name, which the last check must stop; a reply cut off mid-JSON, a very long text, a finding that overlaps another ("Ana" inside "Ana Silva" in the other order), and the same name with and without an accent ("Inês", "Ines").
 
 ## 7. Delivery
 
@@ -355,6 +355,16 @@ The review of the updated draft raised eight more "should fix" findings. The own
 6. **The `CLAUDE.md` rule and the §4 quote are identical.**
 7. **Only `PERSON`, `ORG`, `PLACE` and `NAME` become known names** (§2.2).
 8. **Dates and year ranges are excluded from the seven-digit rule;** numbers grouped in threes stay caught (§2.2, AC-5).
+
+### 8.3 Decisions on the later reviews
+
+- **The last check has no acceptance criterion and no mutant.** Replacement is deterministic and every detected span is replaced, so no public input makes the check fire, and a mutant for it could never be killed. The owner chose to keep the check as defence in depth, listed under "untested by justification" (§5) and covered by one fault injected by hand that skips a span found by a rule or a known name. The alternative was making replacement injectable so a test could break it. It was rejected because that seam would exist only for the test.
+- **Five more review findings, approved by the owner:**
+  - AC-6 covers all four known-name types, with a mutant for each.
+  - AC-4 and AC-5 cover `dd-mm-yyyy` dates and invalid calendar dates.
+  - Every digit rule stops at a date or range, and phone and NIF matches are whole tokens (§2.2).
+  - The hand-injected fault skips a rule or known-name span.
+  - This entry records the last-check decision.
 
 ## 9. Open questions
 
