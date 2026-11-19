@@ -1,0 +1,6 @@
+{
+  "prompt": "redaction_v1",
+  "sha256": "8011b519bdf95e2225e43e3fcea660b1a111cc78f8936b32ba817f1427da0694",
+  "model": "gemma4:26b",
+  "split": "test"
+}

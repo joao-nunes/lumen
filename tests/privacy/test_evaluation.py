@@ -86,6 +86,14 @@ def test_an_identifier_is_caught_only_when_no_word_of_it_survives() -> None:
     assert result.leak_free == 0.0
 
 
+def test_replacing_the_feeling_instead_of_the_name_is_a_miss_and_a_lost_decoy() -> None:
+    e = entry("Joy felt joy.", ("Joy", T.PERSON), decoys=("joy",))
+
+    result = measure([outcome(e, "Joy felt [PERSON_1].")])
+
+    assert (result.direct_recall, result.decoys_kept) == (0.0, 0.0)
+
+
 def test_a_word_shared_with_the_rest_of_the_entry_still_counts_when_it_survives_twice() -> None:
     e = entry("Rua de Cima 3, de novo.", ("Rua de Cima 3", T.ADDRESS))
 

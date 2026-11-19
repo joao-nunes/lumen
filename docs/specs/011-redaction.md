@@ -427,3 +427,14 @@ Second PR (the model and its measurement):
   - **Agreement counts each distinct form once,** on the 30 entries the owner marked, and reports the share of labels the owner marked and the share of the owner's marks that are labels.
 - **The model is `gemma4:26b`,** the one extraction was measured with. On the dev split, `gemma4:e4b` found 50% to 94% of direct identifiers.
 - **The mutation baseline needs every test green,** and AC-12 is red until a held-out run records the prompt, so the new mutants run after the measurement.
+- **The held-out run met every bar in every language,** with `gemma4:26b` and `redaction_v1` (hash `8011b519…`), once, on 2026-11-19. `measured_prompt.json` records it, and AC-12 passes.
+
+  | | Direct recall (≥ 95%) | Contextual recall (≥ 85%) | Decoys kept (≥ 90%) | 95th pct seconds (< 10) | Failed entries | Leak-free entries | Right type |
+  |---|---|---|---|---|---|---|---|
+  | English | 98.2% of 163 | 90.3% of 62 | 95.3% of 107 | 2.9 | 0 | 89.3% | 98.6% |
+  | Portuguese | 96.9% of 160 | 87.5% of 64 | 96.1% of 103 | 6.6 | 0 | 86.7% | 99.1% |
+  | Mixed | 98.7% of 158 | 92.1% of 63 | 96.2% of 105 | 5.0 | 0 | 92.0% | 97.7% |
+
+  About one entry in ten still missed at least one identifier: the leak-free figure is the one a person would feel, and it has no bar. Contextual recall in Portuguese is the closest to its bar.
+- **Agreement with the owner's blind marks,** on the 30 entries, each distinct form once: the owner marked 51 of the 59 labelled forms (86.4%), and 51 of the owner's 57 marks are labelled (89.5%).
+- **Fault injection:** the redaction-model and suggestions mutants, 84 in all, run after the measurement. "Matching ignores case" in the measurement survived at first: the test's "Joy … joy" couldn't tell the two apart. A test where the feeling is replaced instead of the name ("Joy felt [PERSON_1].") now catches it.
