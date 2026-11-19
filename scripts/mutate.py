@@ -59,6 +59,8 @@ PROMPT = "src/lumen/suggestions/prompt.py"
 PROMPT_TEXT = "src/lumen/suggestions/prompts/checkin_extraction_v3.txt"
 DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
 REVIEW_GATE = ".claude/hooks/review_gate.py"
+REDACTION = "src/lumen/privacy/redaction.py"
+RULES = "src/lumen/privacy/rules.py"
 CLAUDE_SETTINGS = ".claude/settings.json"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
@@ -1622,6 +1624,284 @@ GROUPS: dict[str, list[Mutant]] = {
             "gh api pulls not gated",
             "    if not (PR_CREATE.search(unquoted) or API_CREATE.search(unquoted)):",
             "    if not PR_CREATE.search(unquoted):",
+        ),
+    ],
+    "redaction": [
+        Mutant(
+            REDACTION,
+            "findings not normalized to NFC",
+            "findings.append((_nfc(text).strip(), IdentifierType(kind)))",
+            "findings.append((text.strip(), IdentifierType(kind)))",
+        ),
+        Mutant(
+            REDACTION,
+            "text not normalized to NFC",
+            "        text, context = _nfc(text), _nfc(context)\n",
+            "",
+        ),
+        Mutant(
+            REDACTION,
+            "padded findings not stripped",
+            "findings.append((_nfc(text).strip(), IdentifierType(kind)))",
+            "findings.append((_nfc(text), IdentifierType(kind)))",
+        ),
+        Mutant(
+            REDACTION,
+            "blank finding matches everywhere",
+            "    if not needle.strip():\n        return\n",
+            "",
+        ),
+        Mutant(
+            REDACTION,
+            "matching ignores word boundaries",
+            'rf"(?<!\\w){re.escape(needle)}(?!\\w)"',
+            "re.escape(needle)",
+        ),
+        Mutant(
+            REDACTION,
+            "model findings match case-sensitively",
+            "flags = re.IGNORECASE if ignore_case else 0",
+            "flags = 0",
+        ),
+        Mutant(
+            RULES,
+            "email rule removed",
+            "    add(_EMAIL, text, IdentifierType.CONTACT, Rank.CONTACT)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "URL rule removed",
+            "    for m in _URL.finditer(text):\n        end = m.start() + len(m[0].rstrip(_URL_TRAILING))\n        spans.append(Span(m.start(), end, IdentifierType.CONTACT, Rank.CONTACT))\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "handle rule removed",
+            "    add(_HANDLE, text, IdentifierType.CONTACT, Rank.CONTACT)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "IPv4 rule removed",
+            "    add(_IPV4, text, IdentifierType.CONTACT, Rank.CONTACT)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "international phone rule removed",
+            "    add(_PHONE_INTERNATIONAL, masked, IdentifierType.CONTACT, Rank.CONTACT)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "Portuguese phone rule removed",
+            "    add(_PHONE_PT, masked, IdentifierType.CONTACT, Rank.CONTACT)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "IBAN rule removed",
+            "    add(_IBAN, text, IdentifierType.ID, Rank.LETTERED_ID)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "Cartão de Cidadão rule removed",
+            "    add(_CARTAO_CIDADAO, text, IdentifierType.ID, Rank.LETTERED_ID)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "postcode rule removed",
+            "    add(_POSTCODE, masked, IdentifierType.ADDRESS, Rank.POSTCODE)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "seven digits rule removed",
+            "    add(_DIGIT_RUN, masked, IdentifierType.ID, Rank.DIGIT_RUN)\n",
+            "",
+        ),
+        Mutant(
+            RULES,
+            "NIF rule removed",
+            '    spans.extend(\n        Span(*m.span(), IdentifierType.ID, Rank.NIF)\n        for m in _NIF.finditer(masked)\n        if _nif_check_digit_valid(m[0].replace(" ", ""))\n    )\n',
+            "",
+        ),
+        Mutant(
+            RULES,
+            "IPv6 rule removed",
+            "        for m in _IPV6_CANDIDATE.finditer(text)\n        if _is_ipv6(m[0])\n",
+            "        for m in _IPV6_CANDIDATE.finditer(text)\n        if False\n",
+        ),
+        Mutant(
+            RULES,
+            "dates and ranges not kept",
+            '        chars[start:end] = "\\0" * (end - start)\n',
+            "        pass\n",
+        ),
+        Mutant(
+            RULES,
+            "any yyyy-mm-dd kept",
+            "        if _valid_date(m[1], m[2], m[3]):\n",
+            "        if True:\n",
+        ),
+        Mutant(
+            RULES,
+            "any dd-mm-yyyy kept",
+            "        if _valid_date(m[3], m[2], m[1]):\n",
+            "        if True:\n",
+        ),
+        Mutant(
+            RULES,
+            "year range order not checked",
+            "        if int(m[1]) <= int(m[2]):\n",
+            "        if True:\n",
+        ),
+        Mutant(
+            RULES,
+            "year range not bounded to 1900-2099",
+            'r"(?<!\\d)((?:19|20)\\d{2}) ?- ?((?:19|20)\\d{2})(?!\\d)"',
+            'r"(?<!\\d)(\\d{4}) ?- ?(\\d{4})(?!\\d)"',
+        ),
+        Mutant(
+            RULES,
+            "digit run extends across dates",
+            "    add(_DIGIT_RUN, masked,",
+            "    add(_DIGIT_RUN, text,",
+        ),
+        Mutant(
+            RULES,
+            "NIF check digit not verified",
+            '        if _nif_check_digit_valid(m[0].replace(" ", ""))\n',
+            "        if True\n",
+        ),
+        Mutant(
+            RULES,
+            "NIF check digit computed wrongly",
+            "else 11 - remainder",
+            "else 10 - remainder",
+        ),
+        Mutant(
+            RULES,
+            "Portuguese phone not a whole token",
+            '_PHONE_PT = re.compile(_START + r"[29]\\d{2}(?: ?\\d{3}){2}" + _END)',
+            '_PHONE_PT = re.compile(r"[29]\\d{2}(?: ?\\d{3}){2}")',
+        ),
+        Mutant(
+            RULES,
+            "NIF not a whole token",
+            "_NIF = re.compile(_START + _NINE_DIGITS + _END)",
+            "_NIF = re.compile(_NINE_DIGITS)",
+        ),
+        Mutant(
+            RULES,
+            "postcode not a whole token",
+            '_POSTCODE = re.compile(_START + r"\\d{4}-\\d{3}" + _END)',
+            '_POSTCODE = re.compile(r"\\d{4}-\\d{3}")',
+        ),
+        Mutant(
+            REDACTION,
+            "overlapping spans not merged",
+            "        if merged and span.start < merged[-1].end:\n",
+            "        if False:\n",
+        ),
+        Mutant(
+            REDACTION,
+            "merge takes the lowest precedence",
+            "key=lambda s: (s.rank, _TYPE_ORDER[s.type])",
+            "key=lambda s: (-s.rank, _TYPE_ORDER[s.type])",
+        ),
+        Mutant(
+            REDACTION,
+            "unknown type dropped, not failing closed",
+            "        if not isinstance(text, str) or not isinstance(kind, str) or kind not in _TYPE_NAMES:\n            return None\n",
+            "        if not isinstance(text, str) or not isinstance(kind, str) or kind not in _TYPE_NAMES:\n            continue\n",
+        ),
+        Mutant(
+            REDACTION,
+            "a type that isn't a string isn't checked",
+            " or not isinstance(kind, str) or kind not in _TYPE_NAMES:",
+            " or kind not in _TYPE_NAMES:",
+        ),
+        Mutant(
+            REDACTION,
+            "known names match ignoring case",
+            "Span(*o, kind, Rank.KNOWN_NAME) for o in _occurrences(name, text, ignore_case=False)",
+            "Span(*o, kind, Rank.KNOWN_NAME) for o in _occurrences(name, text, ignore_case=True)",
+        ),
+        Mutant(
+            REDACTION,
+            "PERSON not a known-name type",
+            "{IdentifierType.PERSON, IdentifierType.ORG, IdentifierType.PLACE, IdentifierType.NAME}",
+            "{IdentifierType.ORG, IdentifierType.PLACE, IdentifierType.NAME}",
+        ),
+        Mutant(
+            REDACTION,
+            "ORG not a known-name type",
+            "{IdentifierType.PERSON, IdentifierType.ORG, IdentifierType.PLACE, IdentifierType.NAME}",
+            "{IdentifierType.PERSON, IdentifierType.PLACE, IdentifierType.NAME}",
+        ),
+        Mutant(
+            REDACTION,
+            "PLACE not a known-name type",
+            "{IdentifierType.PERSON, IdentifierType.ORG, IdentifierType.PLACE, IdentifierType.NAME}",
+            "{IdentifierType.PERSON, IdentifierType.ORG, IdentifierType.NAME}",
+        ),
+        Mutant(
+            REDACTION,
+            "NAME not a known-name type",
+            "{IdentifierType.PERSON, IdentifierType.ORG, IdentifierType.PLACE, IdentifierType.NAME}",
+            "{IdentifierType.PERSON, IdentifierType.ORG, IdentifierType.PLACE}",
+        ),
+        Mutant(
+            REDACTION,
+            "known-name cache not refreshed",
+            "        if cached is not None and cached[0] == digest:\n",
+            "        if cached is not None:\n",
+        ),
+        Mutant(
+            REDACTION,
+            "known names not applied",
+            "        for name, kind in known:\n            spans += [",
+            "        for name, kind in ():\n            spans += [",
+        ),
+        Mutant(
+            REDACTION,
+            "detector error falls back to rules only",
+            "        except Exception:  # any failure of the model fails closed (§2.3)\n            return None\n",
+            "        except Exception:  # any failure of the model fails closed (§2.3)\n            return []\n",
+        ),
+        Mutant(
+            REDACTION,
+            "error chains the detector's exception",
+            "        except Exception:  # any failure of the model fails closed (§2.3)\n            return None\n",
+            "        except Exception as exc:  # any failure of the model fails closed (§2.3)\n            raise RedactionUnavailableError from exc\n",
+        ),
+        Mutant(
+            REDACTION,
+            "map keeps the last occurrence",
+            "            mapping[placeholder] = original\n        pieces",
+            "        mapping[placeholder] = original\n        pieces",
+        ),
+        Mutant(
+            REDACTION,
+            "numbering doesn't skip placeholders in the text",
+            "            while (span.type.value, number) in taken:\n",
+            "            while False:\n",
+        ),
+        Mutant(
+            REDACTION,
+            "re-hydration drops unissued placeholders",
+            "pseudonymized.mapping.get(m[0], m[0])",
+            'pseudonymized.mapping.get(m[0], "")',
+        ),
+        Mutant(
+            REDACTION,
+            "repr shows the map",
+            '        return f"Pseudonymized(<{len(self.text)} characters, {len(self.mapping)} placeholders>)"',
+            '        return f"Pseudonymized({self.text!r}, {dict(self.mapping)!r})"',
         ),
     ],
 }
