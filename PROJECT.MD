@@ -732,13 +732,18 @@ Privacy uses a tiered approach: raw text stays local, and hosted models see only
 
 ```text
 Raw text (Tier 0)
-  ↓  local model: detect names, places, employers, other identifiers
+  ↓  rules (emails, phones, IBANs, ID numbers…) + local model (names, places, employers…)
+  ↓  code replaces what they found; the model never rewrites the text
 Pseudonymized text ("[PERSON_1] criticised my work at [ORG_1]")   (Tier 1)
   ↓  hosted LLM
 Response with pseudonyms
   ↓  local re-hydration (pseudonym map never leaves the machine)
 User
 ```
+
+* **What is replaced** and what is kept is decided in spec 011 §2.1. Redaction hides *who* and *where*, not *what*: feelings, health and relationship words stay, which is why Tier 1 is still sensitive.
+* **The pseudonym map lives for one exchange, in memory only,** and is never saved. Hosted models keep no memory between calls, so consistency is only needed within one exchange, and a saved map would be a roster of everyone in the person's life. Full decision record: spec 011 §3.
+* **Redaction fails closed.** If the local model is unavailable, no text is produced and the hosted call doesn't happen. It never falls back to rules alone.
 
 ### Additional rules
 
