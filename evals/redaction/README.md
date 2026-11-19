@@ -4,7 +4,8 @@
 
 - **NIFs** have a valid check digit but start with 0, which no category of NIF holder uses.
 - **Portuguese phone numbers** start with 97, which is neither a mobile range (91, 92, 93, 96) nor a landline (2). It's unassigned rather than reserved, so if ANACOM ever opens it, they could become real. **UK phone numbers** are in Ofcom's ranges for drama.
-- **Portuguese IBANs** pass the IBAN check but have bank code 0000 and a wrong NIB check digit, so no account can have them.
+- **Portuguese IBANs** pass the IBAN check but have bank code 0000 and a wrong NIB check digit, so no account can have them. **UK IBANs** are the official examples.
+- **Other IDs:** the SNS number starts with 0, with a wrong NIF check digit, and the car plate (`12-KW-34`) uses letters Portugal didn't use in that format.
 - **Cartão de Cidadão numbers** have wrong check digits, and **card numbers** fail the Luhn check.
 
 - `dev` (60 entries, 20 per language) is for tuning the prompt.
