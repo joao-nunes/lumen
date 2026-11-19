@@ -93,6 +93,7 @@ def test_ac11_a_redirect_is_never_followed_even_to_a_valid_answer(stub: Stub) ->
         pytest.param(lambda s: s.send(200, "not json " + TEXT), id="reply isn't JSON"),
         pytest.param(lambda s: s.send(200, "[1, 2]"), id="reply has the wrong shape"),
         pytest.param(lambda s: s.answer(None), id="content isn't text"),
+        pytest.param(lambda s: s.answer(7), id="content is a number"),
     ],
 )
 def test_a_failed_call_raises_without_the_text(stub: Stub, arrange: Callable[[Stub], None]) -> None:
@@ -102,8 +103,9 @@ def test_a_failed_call_raises_without_the_text(stub: Stub, arrange: Callable[[St
         detect(stub)
 
     assert "marker_private_text" not in str(caught.value)
+    # Neither chained nor kept as context: the original error can quote the reply or the text.
     assert caught.value.__cause__ is None
-    assert caught.value.__suppress_context__ is True
+    assert caught.value.__context__ is None
 
 
 def test_a_slow_model_times_out(stub: Stub) -> None:

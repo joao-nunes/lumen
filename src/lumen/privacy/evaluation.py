@@ -11,6 +11,7 @@ import json
 import math
 import re
 import time
+import unicodedata
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -91,7 +92,11 @@ def load_entries(path: Path) -> list[Entry]:
     for line in path.read_text(encoding="utf-8").splitlines():
         raw = json.loads(line)
         problem = None
-        if raw["split"] not in SPLITS or raw["language"] not in LANGUAGES:
+        written = [raw["text"], *(i["text"] for i in raw["identifiers"]), *raw["decoys"]]
+        if any(unicodedata.normalize("NFC", s) != s for s in written):
+            # The redactor's output is NFC, so another form would never be found in it.
+            problem = "text that isn't NFC"
+        elif raw["split"] not in SPLITS or raw["language"] not in LANGUAGES:
             problem = "an unknown split or language"
         elif any(i["type"] not in set(IdentifierType) for i in raw["identifiers"]):
             problem = "an unknown type"

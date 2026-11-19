@@ -282,15 +282,23 @@ def test_loading_refuses_a_label_the_measurement_couldn_t_use(tmp_path: Path) ->
         "decoys": [],
     }
     path = tmp_path / "entries.jsonl"
-    for bad in (
-        {"split": "train"},
-        {"language": "fr"},
-        {"identifiers": [{"text": "Ana", "type": "PERSONS"}]},
-        {"identifiers": [{"text": "Rui", "type": "PERSON"}]},
-        {"decoys": ["sister"]},
+    decomposed = "Ine\u0301s"  # the output is NFC, so this form would never be found in it
+    for bad, problem in (
+        ({"split": "train"}, "an unknown split or language"),
+        ({"language": "fr"}, "an unknown split or language"),
+        ({"identifiers": [{"text": "Ana", "type": "PERSONS"}]}, "an unknown type"),
+        ({"identifiers": [{"text": "Rui", "type": "PERSON"}]}, "an identifier that isn't in"),
+        ({"decoys": ["sister"]}, "a decoy that isn't in"),
+        (
+            {
+                "text": f"{decomposed} called.",
+                "identifiers": [{"text": decomposed, "type": "PERSON"}],
+            },
+            "text that isn't NFC",
+        ),
     ):
         path.write_text(json.dumps(good | bad) + "\n", encoding="utf-8")
-        with pytest.raises(ValueError, match="x"):
+        with pytest.raises(ValueError, match=f"Entry x has {problem}"):
             load_entries(path)
 
 

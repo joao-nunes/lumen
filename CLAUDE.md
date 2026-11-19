@@ -69,7 +69,7 @@ Practices (vendor guidance, checked 2026-11-19; see the developer guide's "Chang
 
 - **Measure, don't guess.** Every shipped prompt has an evaluation set and bars in its spec. Tune on `dev` only, change one thing at a time, save every run's output, and measure the held-out split once. Report results whether or not they meet the bar.
 - **Be clear and direct, and say why.** Explain what the output is for, say what to do rather than only what to avoid, and state how to handle uncertainty.
-- **3 to 5 varied examples, all in the same format.** They're invented and never Tier 0: check that their names and wording appear nowhere in the evaluation set, and never take wording from held-out entries.
+- **3 to 5 varied examples, all in the same format.** They're invented and never Tier 0: check that their names, wording and sentence frames appear nowhere in the evaluation set (grep each name, and compare each example with the entries), and never take anything from held-out entries.
 - **Specify the output exactly, and validate it in code.** The parser is the gate and fails closed; never trust the model's format.
 - **Test the layout on the target model.** Small local models react to formatting: the redaction prompt's headings made `gemma4:26b` wrap its JSON in a code block until the prompt forbade it.
 - **Treat the input as data.** Separate it from the instructions, and tell the model never to follow instructions in it. That only lowers the risk, so the code that reads the reply must stay safe whatever the model writes.

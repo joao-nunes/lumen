@@ -922,8 +922,8 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             LOCAL_MODEL,
             "the transport keeps the original error attached",
-            "raise LocalModelError from None",
-            "raise LocalModelError",
+            "        content = None\n",
+            "        raise LocalModelError from None\n",
         ),
         Mutant(
             OLLAMA,
@@ -1929,7 +1929,13 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             LOCAL_MODEL,
             "content that isn't text accepted",
-            "        if not isinstance(content, str):\n",
+            "    if not isinstance(content, str):\n        raise LocalModelError\n",
+            "    if content is None:\n        raise LocalModelError\n",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "a label in another Unicode form accepted",
+            '        if any(unicodedata.normalize("NFC", s) != s for s in written):\n',
             "        if False:\n",
         ),
         Mutant(

@@ -70,9 +70,10 @@ def chat(
         )
         response.raise_for_status()
         content = response.json()["message"]["content"]
-        if not isinstance(content, str):
-            raise TypeError("Unexpected shape")
     except (httpx2.HTTPError, ValueError, LookupError, TypeError, AttributeError, RecursionError):
-        # from None: these can quote the reply, or the request's text.
-        raise LocalModelError from None
+        # Raised below, outside this block: inside it, the original error, which can quote the
+        # reply or the request's text, would stay attached as the context even with `from None`.
+        content = None
+    if not isinstance(content, str):
+        raise LocalModelError
     return content
