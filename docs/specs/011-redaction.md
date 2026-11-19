@@ -375,4 +375,20 @@ None.
 
 ## 10. Added during implementation (for review)
 
-Nothing yet.
+First PR (the deterministic part and the evaluation set):
+
+- **Text, personal context and findings are normalized to NFC, and findings are stripped of surrounding spaces.** Fault injection found two leaks. A name typed in one Unicode form ("Inês" as `e` plus a combining accent) didn't match a finding in the other. A finding the model padded (`" Rui "`) never matched as a whole word. In both cases a name the model pointed at reached the output, and the last check can't see spans only the model found. Both now have a test and mutants. Consequence: `Pseudonymized.text` is the NFC form of the input, which reads the same.
+- **The mutant "a finding not in the text is used anyway" doesn't exist as such.** A finding with no occurrence in the text produces no span, so there's nothing to use. The real risk is a blank finding (`""`), which would match an empty position everywhere and scatter placeholders. AC-3's test includes blank findings, and the mutant removes that guard instead.
+- **AC-4 uses `+351913572468`, not `+351912345678`.** Without the whole-token rule, the NIF pattern matches the leftmost nine digits (`351912345`), which aren't a valid NIF, and never tries the overlapping window `191234567`. So the mutant survived the full `make mutate` run. The new number's first nine digits are a valid NIF.
+- **The error is raised outside any `except` block,** so it has neither a `__cause__` nor a `__context__`. `from None` only hides the context in tracebacks; the original exception, which can quote the text, stays reachable. AC-9 checks both.
+- **Any exception from the detector fails closed,** not a fixed list. The detector is an I/O boundary, and §2.3 puts failing closed first.
+- **Known names take the context's own spelling** at each place the model's finding occurs in it, ignoring case. So a finding "ana" from a context that writes "Ana" becomes the known name "Ana", and is matched case-sensitively from then on.
+- **An empty personal context doesn't call the detector.**
+- **The map's keys are the placeholders as written,** such as `[PERSON_1]`.
+- **Ties in precedence:** two overlapping spans of the same rank take the type that comes first in `IdentifierType`'s order. That's only possible between model findings, or between known names.
+- **Rule details that §2.2 left open:**
+  - International phone numbers are `+` followed by 8 to 17 digits, with single spaces or dashes allowed between them.
+  - IPv6 candidates are checked with `ipaddress`, so times like `10:30:45` aren't caught.
+  - Trailing punctuation is dropped from URLs.
+  - IBAN country codes must be uppercase. A lowercase IBAN's digits are still caught by the seven-digit rule, leaving only the country code and check digits.
+- **The evaluation set has fewer direct identifiers than §2.6 assumed.** It has 210 entries, as planned, but they hold about 80 direct identifiers per language in the held-out split, not about 150. So a measured 95% is good to about ±4.8 points rather than ±3.5. **For the owner:** add about 25 held-out entries per language rich in identifiers, before any prompt is written, or accept the wider margin.
