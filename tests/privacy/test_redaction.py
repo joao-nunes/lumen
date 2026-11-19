@@ -5,6 +5,7 @@ returns raw replies, as the protocol does, so parsing and the schema checks are 
 """
 
 import json
+import unicodedata
 from collections import Counter
 
 import pytest
@@ -39,7 +40,9 @@ class FakeDetector:
 
 
 def pseudonymize(text: str, found: str = NOTHING, context: str = "") -> Pseudonymized:
-    return Redactor(FakeDetector({text: found})).pseudonymize(text, owner="u1", context=context)
+    # The detector is asked about the text in NFC, whatever form it arrived in.
+    detector = FakeDetector({unicodedata.normalize("NFC", text): found})
+    return Redactor(detector).pseudonymize(text, owner="u1", context=context)
 
 
 AC1_TEXT = (
@@ -74,8 +77,21 @@ def test_ac2_every_whole_word_occurrence_ignoring_case_longest_span_wins() -> No
     assert dict(result.mapping) == {"[PERSON_1]": "Ana Silva", "[PERSON_2]": "Ana"}
 
 
+def test_findings_match_across_unicode_forms_and_surrounding_spaces() -> None:
+    """Added during implementation: both made a name the model pointed at leak."""
+    in_text, in_finding = unicodedata.normalize("NFD", "Inês"), unicodedata.normalize("NFD", "João")
+    found = reply(("Inês", "PERSON"), (" Rui ", "PERSON"), (in_finding, "PERSON"))
+
+    result = pseudonymize(f"{in_text} and Rui talked with João. Ines didn't.", found)
+
+    assert result.text == "[PERSON_1] and [PERSON_2] talked with [PERSON_3]. Ines didn't."
+    assert dict(result.mapping) == {"[PERSON_1]": "Inês", "[PERSON_2]": "Rui", "[PERSON_3]": "João"}
+
+
 def test_ac3_a_finding_not_in_the_text_is_ignored_and_the_rest_used() -> None:
-    result = pseudonymize("Ana called.", reply(("Ana", "PERSON"), ("Zé", "PERSON")))
+    found = reply(("Ana", "PERSON"), ("Zé", "PERSON"), ("", "PERSON"), ("  ", "ORG"))
+
+    result = pseudonymize("Ana called.", found)
 
     assert result.text == "[PERSON_1] called."
     assert dict(result.mapping) == {"[PERSON_1]": "Ana"}

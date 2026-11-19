@@ -12,6 +12,7 @@ import hashlib
 import json
 import re
 import threading
+import unicodedata
 from collections.abc import Hashable, Iterator, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -77,8 +78,13 @@ def _parsed(reply: object) -> list[Finding] | None:
         text, kind = item["text"], item["type"]
         if not isinstance(text, str) or kind not in _TYPE_NAMES:
             return None
-        findings.append((text, IdentifierType(kind)))
+        # The model may write another Unicode form, or pad the text: either would leak the name.
+        findings.append((_nfc(text).strip(), IdentifierType(kind)))
     return findings
+
+
+def _nfc(text: str) -> str:
+    return unicodedata.normalize("NFC", text)
 
 
 def _occurrences(needle: str, text: str, *, ignore_case: bool) -> Iterator[tuple[int, int]]:
@@ -136,7 +142,11 @@ class Redactor:
         self._lock = threading.Lock()
 
     def pseudonymize(self, text: str, *, owner: Hashable, context: str) -> Pseudonymized:
-        """Tier 1 text and its map. `owner` is an opaque key for the known-name cache."""
+        """Tier 1 text and its map. `owner` is an opaque key for the known-name cache.
+
+        The text is normalized to NFC first, so a name matches whichever form it was typed in.
+        """
+        text, context = _nfc(text), _nfc(context)
         known = self._known_names(owner, context)
         findings = self._findings(text)
         # Raised here, outside any except block, so the error chains nothing that could quote
