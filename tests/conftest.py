@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from lumen.auth.passwords import Passwords
 from lumen.config import get_settings
+from tests.ollama_stub import Stub
 
 
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
@@ -70,3 +71,11 @@ def passwords() -> Passwords:
     Production parameters are covered by a dedicated test.
     """
     return Passwords(PasswordHasher(time_cost=1, memory_cost=8, parallelism=1))
+
+
+@pytest.fixture
+def stub() -> Iterator[Stub]:
+    """A stand-in for Ollama, for the clients that talk to a local model."""
+    server = Stub()
+    yield server
+    server.close()

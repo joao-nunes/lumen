@@ -402,3 +402,28 @@ First PR (the deterministic part and the evaluation set):
 - **A reply whose `type` isn't a string fails closed.** A list or an object can't be looked up among the known types, so it raised `TypeError`, which the gateway in spec 012 wouldn't recognize as a redaction failure. No text leaked, but it now raises `RedactionUnavailableError` like any other malformed reply (review finding on PR #64). AC-9 covers both cases, and a mutant removes the check.
 - **The re-hydration mutant differs from §6's list.** §6 lists "re-hydration maps a placeholder that wasn't issued", but there's nothing to map such a placeholder to: the map holds only issued placeholders. The mutant instead makes re-hydration drop unissued placeholders, writing them as an empty string. AC-7 and AC-8 catch that, because they expect `[PERSON_9]` and a literal `[PERSON_1]` to stay as they are.
 - **Reserved domains only.** The evaluation set's emails and URLs use `example.com`, `example.org` and `example.net`, which are reserved for documentation (RFC 2606). `example.pt` isn't reserved, so the entries that used it were changed.
+
+Second PR (the model and its measurement):
+
+- **No JSON schema in the request** (owner's decision). §2.2 expected Ollama to limit replies to a schema listing the nine types. The installed Ollama (0.40.14) refuses structured output for both local models: every request with a `format`, a schema or plain `"json"`, gets HTTP 501 "structured output is unavailable", so every call would fail. The prompt alone asks for the JSON, and the parser from the first PR stays the gate: a reply that isn't exactly the expected object, including one in a code block, or that has a type outside the nine, fails closed. Privacy is unchanged, because the parser never relied on the schema. A malformed reply counts as a failed entry in the measurement. A test checks that no `format` is sent.
+- **Model findings are still matched ignoring case** (owner's decision, option (a)). On the dev split, the model pointed correctly at "Joy" or "Rosa" the person, and replacement then also took "joy" the feeling and the "rosa" in "cor-de-rosa": all 6 decoys lost on the dev split were of this kind. Matching findings exactly as written would keep those words, but leak a lowercase "ana" the model didn't list separately. Missing a name leaks it, while over-replacement only garbles a word, so the owner kept §2.2's behaviour, and the measurement shows its cost.
+- **One shared transport, `lumen.privacy.local_model`** (§2.5). `check_local_only` and the HTTP call moved there from `lumen.suggestions.ollama`, as `chat(url, model, *, system, user, timeout) -> str`, which raises `LocalModelError` with a fixed message and no chained exception. Suggestions and the detector both send through it, and the transport's mutants now target it. A reply whose content isn't text fails there.
+- **How the prompt was written** (owner's decisions on five questions):
+  - when unsure, list a possible name or organization, and leave out a possible role or date;
+  - list each written form of a name ("Ana" and "ana");
+  - keep listing what the rules already catch, for formats they miss, such as `972.418.305`;
+  - at most five short examples, all invented and checked against the evaluation set;
+  - one prompt for notes and for the personal context, described as "a description someone wrote about themselves".
+
+  The sectioned layout made the model wrap its JSON in a code block, which the parser rejects, until the prompt forbade it.
+- **Decided while writing the measurement** (§2.6 left these open):
+  - **A failed entry also loses its decoys,** since it returns no text.
+  - **No failed entry on distressing text,** as a bar. §2.6 says those entries "must return valid output rather than fail", and spec 006 has the same bar.
+  - **A decoy is kept** when every occurrence of it is still in the output, matched case-sensitively as whole words.
+  - **The right type** means some placeholder stands for text containing the identifier and has its type.
+  - **A leak-free entry** returned text and missed no identifier.
+  - **The slowest time leaves out the first call,** which loads the model, as for extraction.
+  - **A run stops after three failed calls in a row,** so an outage can't be reported as results.
+  - **Agreement counts each distinct form once,** on the 30 entries the owner marked, and reports the share of labels the owner marked and the share of the owner's marks that are labels.
+- **The model is `gemma4:26b`,** the one extraction was measured with. On the dev split, `gemma4:e4b` found 50% to 94% of direct identifiers.
+- **The mutation baseline needs every test green,** and AC-12 is red until a held-out run records the prompt, so the new mutants run after the measurement.
