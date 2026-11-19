@@ -1,6 +1,6 @@
 # Evaluation set for redaction (spec 011)
 
-`entries.jsonl` holds 285 synthetic journal notes in English, European Portuguese and the two mixed, each with the identifiers that must be replaced and the decoys that must be kept. **Everything here is invented. This repository is public, so no real journal text ever goes in it.** Emails, URLs and IP addresses use the reserved documentation domains and ranges (`example.com`, `example.org`, `example.net`, `192.0.2.0/24`, `198.51.100.0/24`); phone, NIF, IBAN and card numbers are made up so that none can belong to anyone, while still having the shape the rules catch:
+`entries.jsonl` holds 435 synthetic journal notes in English, European Portuguese and the two mixed, each with the identifiers that must be replaced and the decoys that must be kept. **Everything here is invented. This repository is public, so no real journal text ever goes in it.** Emails, URLs and IP addresses use the reserved documentation domains and ranges (`example.com`, `example.org`, `example.net`, `192.0.2.0/24`, `198.51.100.0/24`); phone, NIF, IBAN and card numbers are made up so that none can belong to anyone, while still having the shape the rules catch:
 
 - **NIFs** have a valid check digit but start with 0, which no category of NIF holder uses.
 - **Portuguese phone numbers** start with 97, which is neither a mobile range (91, 92, 93, 96) nor a landline (2). It's unassigned rather than reserved, so if ANACOM ever opens it, they could become real. **UK phone numbers** are in Ofcom's ranges for drama.
@@ -9,7 +9,8 @@
 - **Cartão de Cidadão numbers** have wrong check digits, and **card numbers** fail the Luhn check.
 
 - `dev` (60 entries, 20 per language) is for tuning the prompt.
-- `test` (225 entries, 75 per language) is held out. It was written and committed before any redaction prompt existed, and isn't looked at until the measurement (spec 011 §2.6).
+- `test` (150 entries, 50 per language) is held out for `redaction_v2`. It was written and committed before that prompt existed, and isn't looked at until its measurement (spec 011 §10). Its titles name invented towns and institutions, so no story is about a real office holder.
+- `test_v1` (225 entries, 75 per language) held `redaction_v1`'s measurement. Its results have been read, so it's never tuned on or measured against again. It keeps the 30 entries on the blind sheet, and the owner's marks for them.
 
 ## Labels
 

@@ -34,7 +34,7 @@ def present(needle: str, text: str) -> bool:
 def test_the_labels_are_well_formed() -> None:
     assert len({e["id"] for e in ENTRIES}) == len(ENTRIES)
     for entry in ENTRIES:
-        assert entry["split"] in {"dev", "test"}
+        assert entry["split"] in {"dev", "test", "test_v1"}
         assert entry["language"] in {"en", "pt", "mixed"}
         for identifier in entry["identifiers"]:
             assert identifier["type"] in set(IdentifierType), entry["id"]

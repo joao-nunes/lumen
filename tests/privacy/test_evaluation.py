@@ -306,9 +306,9 @@ def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(EVALS / "entries.jsonl")
 
     held_out = [e for e in entries if e.split == "test"]
-    assert (len(entries), len(held_out)) == (285, 225)
+    assert (len(entries), len(held_out)) == (435, 150)
     for language in ("en", "pt", "mixed"):
         own = [e for e in held_out if e.language == language]
         direct = [i for e in own for i in e.identifiers if i.type in DIRECT]
-        assert len(own) == 75
+        assert len(own) == 50
         assert len(direct) >= 150  # spec 011 §10: about ±3.5 points at 95%
