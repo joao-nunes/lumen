@@ -70,6 +70,9 @@ class OllamaSuggestionModel:
             AttributeError,
             RecursionError,
         ):
-            # from None: these can quote the reply, or the request's text.
-            raise SuggestionsUnavailableError from None
+            chosen = None
+        # Raised outside the except: the original error can quote the reply or the request's
+        # text, so it must be neither the cause nor the context.
+        if not isinstance(chosen, list):
+            raise SuggestionsUnavailableError
         return keep_valid(scores, chosen, dimensions, tags)

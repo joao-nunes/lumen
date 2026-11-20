@@ -928,8 +928,8 @@ GROUPS: dict[str, list[Mutant]] = {
         Mutant(
             OLLAMA,
             "the original error stays attached",
-            "raise SuggestionsUnavailableError from None",
-            "raise SuggestionsUnavailableError",
+            "            chosen = None\n",
+            "            raise SuggestionsUnavailableError from None\n",
         ),
         Mutant(
             OLLAMA,
@@ -1964,9 +1964,21 @@ GROUPS: dict[str, list[Mutant]] = {
         ),
         Mutant(
             REDACTION_EVALUATION,
-            "the first call counts towards the slowest time",
-            "times = sorted(o.seconds for o in outcomes[1:])",
+            "the call that loaded the model counts towards the slowest time",
+            "times = sorted(o.seconds for o in outcomes if not o.loads_model)",
             "times = sorted(o.seconds for o in outcomes)",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "every language's first call is left out of the slowest time",
+            "times = sorted(o.seconds for o in outcomes if not o.loads_model)",
+            "times = sorted(o.seconds for o in outcomes[1:])",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "no call is marked as loading the model",
+            "loads_model=not outcomes",
+            "loads_model=False",
         ),
         Mutant(
             REDACTION_EVALUATION,

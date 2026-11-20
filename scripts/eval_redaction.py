@@ -5,9 +5,13 @@ The entries are synthetic.
 make eval-redaction MODEL=gemma4:26b                # the tuning split, with its misses
 make eval-redaction MODEL=gemma4:26b SPLIT=test     # the held-out split, metrics only
 uv run python scripts/eval_redaction.py --agreement  # the owner's blind marks vs the labels
+
+Every run's output, entry by entry, is saved in evals/redaction/runs/ (not committed).
 """
 
 import argparse
+import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 from lumen.config import get_settings
@@ -38,6 +42,7 @@ ENTRIES, MARKED, MEASURED = (
     FOLDER / "owner_identifiers.csv",
     FOLDER / "measured_prompt.json",
 )
+RUNS = FOLDER / "runs"
 
 
 def report(language: str, m: Metrics) -> None:
@@ -71,12 +76,40 @@ def show_misses(outcomes: list[Outcome]) -> None:
             print(f"{entry.id} missed {missed} lost {lost}\n    {result.text}")
 
 
+def save(outcomes: list[Outcome], *, model_name: str, split: str, fingerprint: str) -> Path:
+    """Keeps each entry's output, so later questions about a run need no bounds or reruns."""
+    RUNS.mkdir(exist_ok=True)
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    path = RUNS / f"{stamp}-{split}-{model_name.replace(':', '_')}.jsonl"
+    with path.open("w", encoding="utf-8") as f:
+        for o in outcomes:
+            entry, result = o.entry, o.result
+            row = {
+                "id": entry.id,
+                "prompt": PROMPT_NAME,
+                "sha256": fingerprint,
+                "seconds": round(o.seconds, 3),
+                "loads_model": o.loads_model,
+                "output": None if result is None else result.text,
+                "missed": None
+                if result is None
+                else [i.text for i in entry.identifiers if not caught(i, entry, result.text)],
+                "lost": None
+                if result is None
+                else [d for d in entry.decoys if not decoy_kept(d, entry, result.text)],
+            }
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    return path
+
+
 def evaluate(model_name: str, split: str, misses: bool) -> None:
-    detector = OllamaDetector(get_settings().ollama_url, model_name, timeout_seconds=120)
+    # The app's own timeout: a slower reply fails closed there, so it fails here too.
+    detector = OllamaDetector(get_settings().ollama_url, model_name)
     entries = [e for e in load_entries(ENTRIES) if e.split == split]
     outcomes = collect(Redactor(detector), entries)
 
     fingerprint = prompt_fingerprint()
+    saved = save(outcomes, model_name=model_name, split=split, fingerprint=fingerprint)
     print(f"{model_name}, {split} split, {PROMPT_NAME} ({fingerprint[:12]})")
     by_language = {
         language: measure([o for o in outcomes if o.entry.language == language])
@@ -93,6 +126,7 @@ def evaluate(model_name: str, split: str, misses: bool) -> None:
         by_language=by_language,
     ):
         print(f"\nRecorded in {MEASURED.name}")
+    print(f"\nEach entry's output is in {saved.relative_to(FOLDER.parents[1])}")
     if misses:
         print("\nMisses:")
         show_misses(outcomes)

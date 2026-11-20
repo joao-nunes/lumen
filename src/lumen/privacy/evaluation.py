@@ -66,6 +66,7 @@ class Outcome:
     entry: Entry
     result: Pseudonymized | None  # None: redaction failed closed
     seconds: float = 0.0
+    loads_model: bool = False  # the run's first call, which loads the model into memory
 
 
 @dataclass(frozen=True, slots=True)
@@ -146,7 +147,7 @@ def collect(
             )
         except RedactionUnavailableError:
             result = None
-        outcomes.append(Outcome(entry, result, clock() - started))
+        outcomes.append(Outcome(entry, result, clock() - started, loads_model=not outcomes))
         failures_in_a_row = failures_in_a_row + 1 if result is None else 0
         if failures_in_a_row >= MAX_FAILURES_IN_A_ROW:
             raise RunAbortedError(f"{MAX_FAILURES_IN_A_ROW} failed calls in a row")
@@ -209,8 +210,8 @@ def measure(outcomes: list[Outcome]) -> Metrics:
         leak_free += result is not None and not missed
 
     failed = [o for o in outcomes if o.result is None]
-    # The first call loads the model into memory, which a person only meets once.
-    times = sorted(o.seconds for o in outcomes[1:])
+    # Loading the model into memory is a wait a person only meets once.
+    times = sorted(o.seconds for o in outcomes if not o.loads_model)
     return Metrics(
         direct=direct,
         direct_recall=_ratio(direct_caught, direct),

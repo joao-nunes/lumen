@@ -46,9 +46,11 @@ def entry(
     )
 
 
-def outcome(e: Entry, text: str | None, seconds: float = 1.0, **mapping: str) -> Outcome:
+def outcome(
+    e: Entry, text: str | None, seconds: float = 1.0, *, loads_model: bool = False, **mapping: str
+) -> Outcome:
     result = None if text is None else Pseudonymized(text, MappingProxyType(mapping))
-    return Outcome(e, result, seconds)
+    return Outcome(e, result, seconds, loads_model=loads_model)
 
 
 def metrics(**changes: float) -> Metrics:
@@ -136,16 +138,20 @@ def test_a_failed_entry_misses_all_its_identifiers_and_loses_its_decoys() -> Non
     assert (result.failures, result.distress_failures) == (1, 1)
 
 
-def test_the_slowest_time_leaves_out_the_first_call_which_loads_the_model() -> None:
+def test_the_slowest_time_leaves_out_only_the_call_that_loaded_the_model() -> None:
     e = entry("Ana.", ("Ana", T.PERSON))
-    times = [30.0, *([1.0] * 19), 4.0]
+    loading = outcome(e, "[PERSON_1].", 30.0, loads_model=True)
+    others = [outcome(e, "[PERSON_1].", s) for s in [*([1.0] * 19), 4.0]]
 
-    result = measure([outcome(e, "[PERSON_1].", seconds) for seconds in times])
+    result = measure([loading, *others])
 
     assert result.p95_seconds == 1.0
-    assert measure([outcome(e, "[PERSON_1].", s) for s in [30.0, *([1.0] * 18), 4.0, 4.0]]) == (
-        replace(result, entries=21, p95_seconds=4.0)
+    assert measure([loading, *others[:-2], *[outcome(e, "[PERSON_1].", 4.0)] * 2]) == (
+        replace(result, p95_seconds=4.0)
     )
+    # Another language's first call didn't load the model, so it counts.
+    unmarked = [outcome(e, "[PERSON_1].", s) for s in (30.0, 1.0, 1.0)]
+    assert measure(unmarked).p95_seconds == 30.0
 
 
 def test_the_bar_is_met_exactly_at_each_limit() -> None:
@@ -239,7 +245,10 @@ def test_collect_redacts_each_entry_as_the_app_would_and_times_it() -> None:
         clock=lambda: next(ticks),
     )
 
-    assert [(o.entry.id, o.seconds) for o in outcomes] == [("a", 2.0), ("b", 3.5)]
+    assert [(o.entry.id, o.seconds, o.loads_model) for o in outcomes] == [
+        ("a", 2.0, True),
+        ("b", 3.5, False),
+    ]
     assert outcomes[0].result is not None and outcomes[0].result.text == "[PERSON_1] called."
     assert outcomes[1].result is None
 
@@ -306,9 +315,9 @@ def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(EVALS / "entries.jsonl")
 
     held_out = [e for e in entries if e.split == "test"]
-    assert (len(entries), len(held_out)) == (435, 150)
+    assert (len(entries), len(held_out)) == (510, 225)
     for language in ("en", "pt", "mixed"):
         own = [e for e in held_out if e.language == language]
         direct = [i for e in own for i in e.identifiers if i.type in DIRECT]
-        assert len(own) == 50
-        assert len(direct) >= 150  # spec 011 §10: about ±3.5 points at 95%
+        assert len(own) == 75
+        assert len(direct) >= 210  # spec 011 §10: about ±3 points at 95%

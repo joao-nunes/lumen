@@ -207,3 +207,6 @@ settings.local.*
 # Generated documentation
 
 docs/_build/
+
+# Evaluation runs' output, entry by entry (synthetic entries, kept locally)
+evals/redaction/runs/

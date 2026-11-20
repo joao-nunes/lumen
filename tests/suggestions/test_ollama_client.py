@@ -214,8 +214,9 @@ def test_ac2_a_bad_reply_raises_one_error_without_the_text(
         suggest(stub)
 
     assert "marker_private_text" not in str(caught.value)
+    # Neither chained nor kept as context: the original error can quote the reply or the text.
     assert caught.value.__cause__ is None
-    assert caught.value.__suppress_context__ is True
+    assert caught.value.__context__ is None
 
 
 def test_ac2_an_unreachable_server_raises_the_same_error() -> None:
