@@ -2,12 +2,9 @@
 
 import hashlib
 import json
-import threading
 import time
 import unicodedata
-from collections.abc import Callable, Iterator
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any
+from collections.abc import Callable
 
 import pytest
 from pydantic import SecretStr
@@ -15,57 +12,15 @@ from pydantic import SecretStr
 from lumen.api.app import create_app
 from lumen.config import Settings
 from lumen.domain.dimensions import Dimension
+from lumen.privacy.local_model import check_local_only
 from lumen.suggestions.model import Suggestion, SuggestionsUnavailableError
-from lumen.suggestions.ollama import OllamaSuggestionModel, check_local_only
+from lumen.suggestions.ollama import OllamaSuggestionModel
 from lumen.suggestions.prompt import measured_requests, prompt_fingerprint
+from tests.ollama_stub import Stub
 
 TEXT = "marker_private_text slept badly"
 ASKED = (Dimension.MOOD, Dimension.STRESS)
 TAGS = ("poor_sleep", "exercise")
-
-
-class Stub:
-    """A stand-in for Ollama: records requests and answers with whatever `reply` says."""
-
-    def __init__(self) -> None:
-        self.requests: list[dict[str, Any]] = []
-        self.reply: Callable[[BaseHTTPRequestHandler], None] = lambda h: None
-        stub = self
-
-        class Handler(BaseHTTPRequestHandler):
-            def do_POST(self) -> None:
-                body = self.rfile.read(int(self.headers["Content-Length"]))
-                stub.requests.append({"path": self.path, "body": json.loads(body)})
-                stub.reply(self)
-
-            def log_message(self, format: str, *args: object) -> None:
-                pass
-
-        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-        self.url = f"http://127.0.0.1:{self.server.server_port}"
-        threading.Thread(target=self.server.serve_forever, daemon=True).start()
-
-    def answer(self, content: object) -> None:
-        self.send(200, json.dumps({"message": {"role": "assistant", "content": content}}))
-
-    def send(self, status: int, body: str, headers: dict[str, str] | None = None) -> None:
-        def reply(handler: BaseHTTPRequestHandler) -> None:
-            handler.send_response(status)
-            for name, value in (headers or {}).items():
-                handler.send_header(name, value)
-            handler.send_header("Content-Length", str(len(body.encode())))
-            handler.end_headers()
-            handler.wfile.write(body.encode())
-
-        self.reply = reply
-
-
-@pytest.fixture
-def stub() -> Iterator[Stub]:
-    server = Stub()
-    yield server
-    server.server.shutdown()
-    server.server.server_close()
 
 
 def suggest(stub: Stub, *, timeout: float = 5) -> Suggestion:
@@ -259,8 +214,9 @@ def test_ac2_a_bad_reply_raises_one_error_without_the_text(
         suggest(stub)
 
     assert "marker_private_text" not in str(caught.value)
+    # Neither chained nor kept as context: the original error can quote the reply or the text.
     assert caught.value.__cause__ is None
-    assert caught.value.__suppress_context__ is True
+    assert caught.value.__context__ is None
 
 
 def test_ac2_an_unreachable_server_raises_the_same_error() -> None:
@@ -279,19 +235,7 @@ def test_ac2_a_slow_model_times_out(stub: Stub) -> None:
 
 def test_a_redirect_is_never_followed_even_to_a_valid_answer(stub: Stub) -> None:
     """A 307 repeats the POST, so following it would send the text wherever it pointed."""
-    answer = json.dumps({"message": {"content": reply(mood=("slept badly", 3))}}).encode()
-
-    def redirect_once(handler: BaseHTTPRequestHandler) -> None:
-        moved = handler.path == "/api/chat"
-        handler.send_response(307 if moved else 200)
-        if moved:
-            handler.send_header("Location", f"{stub.url}/elsewhere")
-        handler.send_header("Content-Length", "0" if moved else str(len(answer)))
-        handler.end_headers()
-        if not moved:
-            handler.wfile.write(answer)
-
-    stub.reply = redirect_once
+    stub.redirect_once(json.dumps({"message": {"content": reply(mood=("slept badly", 3))}}))
 
     with pytest.raises(SuggestionsUnavailableError):
         suggest(stub)

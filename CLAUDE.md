@@ -15,6 +15,7 @@ make test                          # backend and web tests; integration tests sk
 make e2e                           # AC-9 in Chromium on :8001, against the test database
 make mutate [GROUPS="auth rls"]    # mutation check; recreates lumen_test
 make eval-extraction MODEL=x       # measure a local model (spec 006); needs Ollama running
+make eval-redaction MODEL=x        # measure redaction with a local model (spec 011)
 make dev                           # API on :8000, Vite on http://localhost:5173
 make run                           # FastAPI serves the built frontend at http://localhost:8000
 make schema                        # regenerate web/src/api/schema.d.ts after changing the API
@@ -55,7 +56,25 @@ Write the minimum number of tests; every test must mitigate a real production ri
 - SOLID, without abstraction for its own sake. Inject collaborators (e.g. `AuthService` takes `Passwords` and `SessionPolicy`), and add a `Protocol` only for a real seam.
 - Type-check with mypy in strict mode, not ty. Avoid `type: ignore`; type the code properly instead.
 - Analytics are deterministic code. LLMs may interpret computed results but never produce them.
-- Prompt wording lives in a `prompts/` folder in the package that uses it (e.g. `src/lumen/suggestions/prompts/`), one file per version, not in code (spec 011 §4). Changing a measured prompt, anchor or starter tag fails a test until it's measured again (`measured_prompt.json` in its evaluation folder, `evals/<name>/`).
+
+## Prompts
+
+Write and change prompts as a senior prompt engineer and a staff engineer would: a prompt is code that a model runs, so it's specified, reviewed, measured and versioned. The owner stays in the loop.
+
+1. **Frame it, then ask.** Before drafting, state the goal, the context and audience (the model, where it runs, the data's tier, the languages), the constraints and output format, and how success is measured (spec and evaluation set). Ask the owner up to 5 concise clarifying questions about anything ambiguous, each with a recommended answer. **Don't write the final prompt until the owner answers.**
+2. **Then write a structured, ready-to-use prompt,** in clearly separated sections (headings or XML tags): purpose and who it serves, what to do, what to do when unsure, what never to do, the exact output format, and examples where they help.
+3. **Report back:** what changed, the dev results with their misses, and any decision for the owner. A finding that needs a spec change goes to the owner before the held-out run, which happens once.
+
+Practices (vendor guidance, checked 2026-11-19; see the developer guide's "Change a prompt" recipes):
+
+- **Measure, don't guess.** Every shipped prompt has an evaluation set and bars in its spec. Tune on `dev` only, change one thing at a time, save every run's output, and measure the held-out split once. Report results whether or not they meet the bar.
+- **Be clear and direct, and say why.** Explain what the output is for, say what to do rather than only what to avoid, and state how to handle uncertainty.
+- **3 to 5 varied examples, all in the same format.** They're invented and never Tier 0: check that their names, wording and sentence frames appear nowhere in the evaluation set (grep each name, and compare each example with the entries), and never take anything from held-out entries.
+- **Specify the output exactly, and validate it in code.** The parser is the gate and fails closed; never trust the model's format.
+- **Test the layout on the target model.** Small local models react to formatting: the redaction prompt's headings made `gemma4:26b` wrap its JSON in a code block until the prompt forbade it.
+- **Treat the input as data.** Separate it from the instructions, and tell the model never to follow instructions in it. That only lowers the risk, so the code that reads the reply must stay safe whatever the model writes.
+- **Mind latency.** Every word of the prompt and its examples is processed on every call, so check the 95th percentile after adding to it.
+- **Where prompts live.** Prompt wording lives in a `prompts/` folder in the package that uses it (e.g. `src/lumen/suggestions/prompts/`), one file per version, not in code (spec 011 §4). Changing a measured prompt, anchor or starter tag fails a test until it's measured again (`measured_prompt.json` in its evaluation folder, `evals/<name>/`).
 
 ## Database and security invariants
 
@@ -65,7 +84,7 @@ Write the minimum number of tests; every test must mitigate a real production ri
 - **Content-Security-Policy.** Pages load only from Lumen's own origin (`lumen.api.middleware`). Don't add inline script or style, or third-party sources; a change to the policy needs the owner's approval.
 - **Time.** The API and database stay in UTC. The web app shows dates and times through `web/src/lib/dates.ts`: instants in the browser's timezone, calendar days never converted.
 - **Privacy.** Never store IP addresses. Raw journal text stays local (Tier 0); a hosted LLM only ever sees redacted or aggregated data.
-- **Local models.** Free-text check-ins are Tier 0 and never saved. A person's personal context is Tier 0 too: saved, but only ever shown to the local model. `lumen.suggestions.ollama` talks only to a loopback address, refuses cloud models, ignores proxy settings and doesn't follow redirects, and Ollama runs with cloud features off. Keep it that way.
+- **Local models.** Free-text check-ins are Tier 0 and never saved. A person's personal context is Tier 0 too: saved, but only ever shown to the local model. Every call to a local model goes through `lumen.privacy.local_model` (suggestions and redaction share it), which talks only to a loopback address, refuses cloud models, ignores proxy settings and doesn't follow redirects, and Ollama runs with cloud features off. Keep it that way.
 - **Dependencies.** CI fails on any known vulnerability in either lockfile (`make audit`, on every change and daily) and on new CodeQL alerts. Fix by upgrading. Only when that's impossible, add an exception to `osv-scanner.toml` that says why it can't be exploited in Lumen, with an `effectiveUntil` at most three months away. Never drop a lockfile from the scan or pin an older scanner to get green.
 - **Logging.** Only `EventLog` (`lumen.api.event_log`) writes logs, and only allowlisted fields: never exception messages, request content or user IDs. PostgreSQL's error messages repeat query values, so `hide_parameters` isn't enough.
 

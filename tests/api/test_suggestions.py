@@ -16,7 +16,7 @@ from lumen.domain.dimensions import Dimension, dimensions_for
 from lumen.suggestions.model import STARTER_TAGS, Suggestion, SuggestionsUnavailableError
 from tests.api.client import NewClient, csrf, error_code, register
 from tests.api.conftest import T0, FakeClock, FakeSuggestionModel
-from tests.suggestions.test_ollama_client import Stub
+from tests.ollama_stub import Stub
 
 DAY = "2026-10-23"
 OLD_DAY = "2026-10-01"

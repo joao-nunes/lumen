@@ -61,6 +61,9 @@ DIMENSION_ANCHORS = "src/lumen/domain/dimensions.py"
 REVIEW_GATE = ".claude/hooks/review_gate.py"
 REDACTION = "src/lumen/privacy/redaction.py"
 RULES = "src/lumen/privacy/rules.py"
+LOCAL_MODEL = "src/lumen/privacy/local_model.py"
+DETECTOR = "src/lumen/privacy/ollama.py"
+REDACTION_EVALUATION = "src/lumen/privacy/evaluation.py"
 CLAUDE_SETTINGS = ".claude/settings.json"
 LOG_MIDDLEWARE = (
     "    app.add_middleware(RequestLogMiddleware, log=EventLog(clock) if log is None else log)\n"
@@ -880,19 +883,19 @@ GROUPS: dict[str, list[Mutant]] = {
             "    return None\n",
         ),
         Mutant(
-            OLLAMA,
+            LOCAL_MODEL,
             "any host allowed",
             'if parts.scheme not in ("http", "https") or not _is_loopback(parts.hostname):',
             'if parts.scheme not in ("http", "https"):',
         ),
         Mutant(
-            OLLAMA,
+            LOCAL_MODEL,
             "host checked by its prefix",
             '    if host == "localhost":\n',
             '    if host is not None and host.startswith(("localhost", "127.")):\n',
         ),
         Mutant(
-            OLLAMA,
+            LOCAL_MODEL,
             "cloud models allowed",
             "    if model is not None and _CLOUD_MODEL.search(model):\n",
             "    if False:\n",
@@ -903,24 +906,30 @@ GROUPS: dict[str, list[Mutant]] = {
             "    check_local_only(settings.ollama_url, settings.ollama_model)\n",
             "",
         ),
-        Mutant(OLLAMA, "proxy settings followed", "trust_env=False,", "trust_env=True,"),
+        Mutant(LOCAL_MODEL, "proxy settings followed", "trust_env=False,", "trust_env=True,"),
         Mutant(
-            OLLAMA,
+            LOCAL_MODEL,
             "redirects followed",
             "follow_redirects=False,",
             "follow_redirects=True,",
         ),
         Mutant(
-            OLLAMA,
+            LOCAL_MODEL,
             "status not checked",
-            "            response.raise_for_status()\n",
+            "        response.raise_for_status()\n",
             "",
+        ),
+        Mutant(
+            LOCAL_MODEL,
+            "the transport keeps the original error attached",
+            "        content = None\n",
+            "        raise LocalModelError from None\n",
         ),
         Mutant(
             OLLAMA,
             "the original error stays attached",
-            "raise SuggestionsUnavailableError from None",
-            "raise SuggestionsUnavailableError",
+            "            chosen = None\n",
+            "            raise SuggestionsUnavailableError from None\n",
         ),
         Mutant(
             OLLAMA,
@@ -952,11 +961,11 @@ GROUPS: dict[str, list[Mutant]] = {
             'reply, _ = json.JSONDecoder().raw_decode(content, content.index("{"))',
             "reply = json.loads(content)",
         ),
-        Mutant(OLLAMA, "temperature left to the default", '"temperature": 0, ', ""),
+        Mutant(LOCAL_MODEL, "temperature left to the default", '"temperature": 0, ', ""),
         Mutant(
-            OLLAMA,
+            LOCAL_MODEL,
             "the note sent inside the system prompt",
-            '{"role": "user", "content": text},',
+            '{"role": "user", "content": user},',
             '{"role": "user", "content": "note"},',
         ),
         Mutant(
@@ -1902,6 +1911,134 @@ GROUPS: dict[str, list[Mutant]] = {
             "repr shows the map",
             '        return f"Pseudonymized(<{len(self.text)} characters, {len(self.mapping)} placeholders>)"',
             '        return f"Pseudonymized({self.text!r}, {dict(self.mapping)!r})"',
+        ),
+    ],
+    "redaction-model": [
+        Mutant(
+            DETECTOR,
+            "detector doesn't check the settings",
+            "        check_local_only(url, model)\n",
+            "",
+        ),
+        Mutant(
+            DETECTOR,
+            "detector sends no prompt",
+            "system=_PROMPT, user=text",
+            'system="", user=text',
+        ),
+        Mutant(
+            LOCAL_MODEL,
+            "content that isn't text accepted",
+            "    if not isinstance(content, str):\n        raise LocalModelError\n",
+            "    if content is None:\n        raise LocalModelError\n",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "a label in another Unicode form accepted",
+            '        if any(unicodedata.normalize("NFC", s) != s for s in written):\n',
+            "        if False:\n",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "a word that survives counts as caught",
+            "_count(word, output) <= _count(word, rest)",
+            "_count(word, output) <= _count(word, rest) + 1",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "words outside identifiers not allowed for",
+            "_count(word, output) <= _count(word, rest)",
+            "_count(word, output) == 0",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "matching ignores case",
+            'return len(re.findall(rf"(?<!\\w){re.escape(phrase)}(?!\\w)", text))',
+            'return len(re.findall(rf"(?<!\\w){re.escape(phrase)}(?!\\w)", text, re.IGNORECASE))',
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "a failed entry keeps its decoys",
+            "decoys_kept += result is not None and decoy_kept(decoy, entry, result.text)",
+            "decoys_kept += result is None or decoy_kept(decoy, entry, result.text)",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "the call that loaded the model counts towards the slowest time",
+            "times = sorted(o.seconds for o in outcomes if not o.loads_model)",
+            "times = sorted(o.seconds for o in outcomes)",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "every language's first call is left out of the slowest time",
+            "times = sorted(o.seconds for o in outcomes if not o.loads_model)",
+            "times = sorted(o.seconds for o in outcomes[1:])",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "no call is marked as loading the model",
+            "loads_model=not outcomes",
+            "loads_model=False",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "direct recall bar exclusive",
+            "metrics.direct_recall >= DIRECT_BAR",
+            "metrics.direct_recall > DIRECT_BAR",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "contextual recall not checked",
+            "        and metrics.contextual_recall >= CONTEXTUAL_BAR\n",
+            "",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "decoys not checked",
+            "        and metrics.decoys_kept >= DECOYS_BAR\n",
+            "",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "latency bar inclusive",
+            "metrics.p95_seconds < P95_SECONDS_BAR",
+            "metrics.p95_seconds <= P95_SECONDS_BAR",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "a failure on distressing text allowed",
+            "        and metrics.distress_failures == 0\n",
+            "",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "the tuning split recorded",
+            '    if split != "test" or set(by_language) != set(LANGUAGES):\n',
+            "    if set(by_language) != set(LANGUAGES):\n",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "a missing language recorded",
+            '    if split != "test" or set(by_language) != set(LANGUAGES):\n',
+            '    if split != "test":\n',
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "a run continues through an outage",
+            "        if failures_in_a_row >= MAX_FAILURES_IN_A_ROW:\n",
+            "        if False:\n",
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "agreement counts every mark, repeats included",
+            'frozenset(f.strip() for f in row["identifiers"].split(";") if f.strip())',
+            'frozenset(f for f in row["identifiers"].split(";") if f.strip())',
+        ),
+        Mutant(
+            REDACTION_EVALUATION,
+            "the wrong placeholder type counts as right",
+            "        and kind[1] == identifier.type.value\n",
+            "",
         ),
     ],
 }

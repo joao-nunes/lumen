@@ -1,4 +1,4 @@
-.PHONY: check audit test e2e mutate eval-extraction dev run schema check-schema
+.PHONY: check audit test e2e mutate eval-extraction eval-redaction dev run schema check-schema
 
 WEB := pnpm --dir web
 # --no-access-log: uvicorn's access log records client IP addresses, which Lumen never stores.
@@ -38,6 +38,10 @@ mutate:
 SPLIT ?= dev
 eval-extraction:
 	uv run python scripts/eval_extraction.py --model $(MODEL) --split $(SPLIT) $(ARGS)
+
+# The same for redaction (spec 011 §2.6): every bar applies to each language separately.
+eval-redaction:
+	uv run python scripts/eval_redaction.py --model $(MODEL) --split $(SPLIT) $(ARGS)
 
 # Development: the API on :8000 and Vite on http://localhost:5173, both reloading on changes.
 dev:

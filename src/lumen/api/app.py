@@ -25,8 +25,9 @@ from lumen.auth.rate_limit import LoginRateLimiter, PasswordChangeRateLimiter
 from lumen.auth.service import AuthService
 from lumen.config import Settings
 from lumen.db.session import make_engine, make_session_factory
+from lumen.privacy.local_model import check_local_only
 from lumen.suggestions.model import SuggestionModel
-from lumen.suggestions.ollama import OllamaSuggestionModel, check_local_only
+from lumen.suggestions.ollama import OllamaSuggestionModel
 
 MIN_SECRET_KEY_BYTES = 32
 

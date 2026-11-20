@@ -312,6 +312,16 @@ The accuracy bar was met by one exact prompt, so a test fails if what the model 
 3. Tune on the `dev` split only, saving the whole output. Don't put wording from a held-out note in the prompt.
 4. Commit the prompt, then run `make eval-extraction MODEL=x SPLIT=test` once. It updates `measured_prompt.json` only if the bar is met in both languages, including tag precision of at least 85% (spec 010). Make sure the held-out notes have enough tags for that to mean something: about 50 labelled tags per language. Commit that file with the results, and report them whether or not the bar is met.
 
+### Change the redaction prompt
+
+Redaction (spec 011) has its own prompt and measurement, in `lumen.privacy`, and the same rule: a test fails if the prompt changes without being measured (AC-12). The hash covers the prompt file, `src/lumen/privacy/prompts/redaction_vN.txt`. The bars apply to each language separately: English, Portuguese and mixed. To change it:
+
+1. **Write new held-out entries first,** before the new prompt, and commit them. In `evals/redaction/entries.jsonl`, rename the current `test` split to the next `test_vN` and add it to `SPLITS` in `lumen.privacy.evaluation`: its results have been read. Everything in the set is synthetic, and no phone number, NIF or ID number may belong to a real person (see the set's README).
+2. Add `src/lumen/privacy/prompts/redaction_vN.txt`, and point `PROMPT_NAME` in `lumen.privacy.ollama` at it. Keep the old files.
+3. Tune on the `dev` split only, with `make eval-redaction MODEL=x`. Each run's output, entry by entry, is saved in `evals/redaction/runs/` (not committed). Examples in the prompt are invented: check that their names, wording and sentence frames appear nowhere in `entries.jsonl`.
+4. The installed Ollama refuses structured output, so the prompt alone asks for the JSON, and the redactor's parser fails closed on anything else, including a reply in a code block. A change in layout can bring code blocks back, so check the dev run for failed entries.
+5. Commit the prompt, then run `make eval-redaction MODEL=x SPLIT=test` once. It updates `measured_prompt.json` only if every language meets every bar. Commit that file with the results, and report them whether or not the bars are met.
+
 ### Change the frontend
 
 - **Types** come from the backend: `make schema` after any API change.
@@ -329,6 +339,7 @@ printf '{\n  "disable_ollama_cloud": true\n}\n' > ~/.ollama/server.json   # afte
 ollama serve                                                              # its log should say "Ollama cloud disabled: true"
 ollama pull gemma4:26b
 make eval-extraction MODEL=gemma4:26b                                     # optional: measure it
+make eval-redaction MODEL=gemma4:26b                                      # optional: measure redaction (spec 011)
 ```
 
 To use it in the app, add `OLLAMA_MODEL=gemma4:26b` to `.env`, and start `ollama serve` before or after the app. The first suggestion after starting Ollama takes about 25 seconds, while the model loads, and it uses about 23 GB of memory.
