@@ -318,7 +318,7 @@ Redaction (spec 011) has its own prompt and measurement, in `lumen.privacy`, and
 
 1. **Write new held-out entries first,** before the new prompt, and commit them. In `evals/redaction/entries.jsonl`, rename the current `test` split to the next `test_vN` and add it to `SPLITS` in `lumen.privacy.evaluation`: its results have been read. Everything in the set is synthetic, and no phone number, NIF or ID number may belong to a real person (see the set's README).
 2. Add `src/lumen/privacy/prompts/redaction_vN.txt`, and point `PROMPT_NAME` in `lumen.privacy.ollama` at it. Keep the old files.
-3. Tune on the `dev` split only, with `make eval-redaction MODEL=x`, saving the whole output. Examples in the prompt are invented: check that their names and wording appear nowhere in `entries.jsonl`.
+3. Tune on the `dev` split only, with `make eval-redaction MODEL=x`. Each run's output, entry by entry, is saved in `evals/redaction/runs/` (not committed). Examples in the prompt are invented: check that their names, wording and sentence frames appear nowhere in `entries.jsonl`.
 4. The installed Ollama refuses structured output, so the prompt alone asks for the JSON, and the redactor's parser fails closed on anything else, including a reply in a code block. A change in layout can bring code blocks back, so check the dev run for failed entries.
 5. Commit the prompt, then run `make eval-redaction MODEL=x SPLIT=test` once. It updates `measured_prompt.json` only if every language meets every bar. Commit that file with the results, and report them whether or not the bars are met.
 
