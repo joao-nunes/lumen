@@ -1,6 +1,6 @@
 # Spec 011: Redaction and pseudonymization
 
-**Status:** Draft. The owner decided Q1–Q17 (§8) and approved the reviews' fixes (§8.1–§8.3), and the plan for `redaction_v3` (§8.4).
+**Status:** Draft. The owner decided Q1–Q17 (§8) and approved the reviews' fixes (§8.1–§8.3), the plan for `redaction_v3` (§8.4), and the plan for `redaction_v4` (§8.5).
 **Builds on:** spec 006 (local model, Ollama controls), spec 010 (personal context). Next Milestone 3 slice.
 
 ## 1. Goal
@@ -402,7 +402,7 @@ Approved by the owner, with every recommendation of the open questions (2026-11-
 5. **A new held-out split, `test`,** of 50 entries per language, written to §8.4's rules like `*-test-v3-*` (`*-test-v4-01` to `-50`): about 20 titles and 20 dates per language, each language written on its own, towns and institutions checked with a web search to be invented, and values new to the whole set. Its titles cover the shapes `dev` covers in about the same share as `*-test-v3-*` had them, so the split doesn't favour what v4 is tuned on.
 6. **`measured_prompt.json` names the split as it's called now** (owner's decision on open question 1). Its record of `redaction_v2` says `split: "test"`, the name of that split when v2 was measured; it has been stale since PR #74 renamed that split `test_v2` and gave `test` the `*-test-v3-*` entries, which v2 was never measured on. The data PR sets it to `test_v2`, and AC-12 then checks that the recorded split is a held-out one (`test` or a `test_vN`) rather than `test` itself. A record is renamed with its split each time one is retired.
 7. **A joining word between two placeholders still counts as a miss** (owner's decision on open question 2). In `pt-test-v3-15` the model gave "Correios de Mesão Frio" as `[ORG_1] de [PLACE_1]`, and the extra "de" counted against both that organization and the date "28 de junho", one direct and one contextual identifier. The rule stays: the bars were set with it, and a looser count would lower them in effect.
-8. **Delivery:** this spec change, then a data PR (items 3 to 6), then the prompt PR, each approved by the owner, as for v3. Besides the entries, the data PR adds `test_v3` to `SPLITS` in `lumen.privacy.evaluation` and updates its comment, §2.6's counts (entries, splits and distressing entries), the README's list of splits with a `test_v3` paragraph like those for `test_v1` and `test_v2`, `measured_prompt.json` (item 6) and AC-12.
+8. **Delivery:** this spec change, then a data PR (items 3 to 6), then the prompt PR, each approved by the owner, as for v3. Besides the entries, the data PR adds `test_v3` to `SPLITS` in `lumen.privacy.evaluation` and updates its comment, §2.6's counts (entries, splits and distressing entries), the README's list of splits with a `test_v3` paragraph like those for `test_v1` and `test_v2` and its count of distressing entries, `measured_prompt.json` (item 6) and AC-12, and two tests: the split names allowed in `tests/privacy/test_eval_set.py`, and the entry and held-out counts in `test_the_evaluation_set_is_what_the_spec_says` (870 entries, 150 held out).
 
 ## 9. Open questions
 
