@@ -10,7 +10,7 @@ from importlib.resources import files
 
 from lumen.privacy.local_model import chat, check_local_only
 
-PROMPT_NAME = "redaction_v3"
+PROMPT_NAME = "redaction_v2"
 
 # Read at import, so that a missing file stops the app from starting rather than failing later.
 _PROMPT = files("lumen.privacy").joinpath("prompts", f"{PROMPT_NAME}.txt").read_text("utf-8")
