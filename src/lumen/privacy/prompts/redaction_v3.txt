@@ -50,8 +50,8 @@ Text: Pell's Almshouses in Wexcombe has a new almoner, Tobiah Moorcroft, and Adm
 Text: Got a voicemail from Bliss on 973.402.815. A Dra. Clemência Tojal, a única tradutora de islandês do país, says the letters are ready, and I felt pure bliss.
 {"findings": [{"text": "Bliss", "type": "PERSON"}, {"text": "973.402.815", "type": "CONTACT"}, {"text": "Clemência Tojal", "type": "PERSON"}, {"text": "única tradutora de islandês", "type": "ROLE"}]}
 
-Text: I'm an accountant. My psychiatrist is Dr Okoro at Quayside Wellbeing Trust, and my tortoise is called Sherbet.
-{"findings": [{"text": "Okoro", "type": "PERSON"}, {"text": "Quayside Wellbeing Trust", "type": "ORG"}, {"text": "Sherbet", "type": "NAME"}]}
+Text: I'm an accountant. We buried Grandad on 28 November, and my knee operation is booked for 1 December. My psychiatrist is Dr Okoro at Quayside Wellbeing Trust, and my tortoise is called Sherbet.
+{"findings": [{"text": "28 November", "type": "DATE"}, {"text": "Okoro", "type": "PERSON"}, {"text": "Quayside Wellbeing Trust", "type": "ORG"}, {"text": "Sherbet", "type": "NAME"}]}
 
 Text: Couldn't settle tonight; the radiator clanks and my chest feels tight. Breathing exercises helped a little.
 {"findings": []}
