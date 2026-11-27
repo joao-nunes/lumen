@@ -54,6 +54,8 @@ def report(language: str, m: Metrics) -> None:
         f"  contextual recall, of {m.contextual:<4} {m.contextual_recall:6.1%}"
         f"  (bar: >= {CONTEXTUAL_BAR:.0%})"
     )
+    print(f"  titles, of {m.titles:<4}            {m.titles_recall:6.1%}  (no bar)")
+    print(f"  dates, of {m.dates:<4}             {m.dates_recall:6.1%}  (no bar)")
     print(f"  decoys kept, of {m.decoys:<4}       {m.decoys_kept:6.1%}  (bar: >= {DECOYS_BAR:.0%})")
     print(f"  95th pct seconds          {m.p95_seconds:6.1f}  (bar: < {P95_SECONDS_BAR:.0f})")
     print(f"  failed entries            {m.failures:6d}")

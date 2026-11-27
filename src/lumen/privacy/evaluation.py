@@ -76,6 +76,10 @@ class Metrics:
     direct_recall: float
     contextual: int
     contextual_recall: float
+    titles: int  # ROLE and DATE, also within contextual: reported with no bar (§8.4)
+    titles_recall: float
+    dates: int
+    dates_recall: float
     decoys: int
     decoys_kept: float
     entries: int
@@ -191,6 +195,7 @@ def _ratio(part: int, whole: int) -> float:
 
 def measure(outcomes: list[Outcome]) -> Metrics:
     direct = direct_caught = contextual = contextual_caught = 0
+    titles = titles_caught = dates = dates_caught = 0
     decoys = decoys_kept = leak_free = caught_total = right = 0
     for outcome in outcomes:
         entry, result = outcome.entry, outcome.result
@@ -202,6 +207,10 @@ def measure(outcomes: list[Outcome]) -> Metrics:
                 direct, direct_caught = direct + 1, direct_caught + hit
             else:
                 contextual, contextual_caught = contextual + 1, contextual_caught + hit
+            if identifier.type is IdentifierType.ROLE:
+                titles, titles_caught = titles + 1, titles_caught + hit
+            elif identifier.type is IdentifierType.DATE:
+                dates, dates_caught = dates + 1, dates_caught + hit
             if hit and result is not None:
                 caught_total += 1
                 right += _typed_right(identifier, result)
@@ -218,6 +227,10 @@ def measure(outcomes: list[Outcome]) -> Metrics:
         direct_recall=_ratio(direct_caught, direct),
         contextual=contextual,
         contextual_recall=_ratio(contextual_caught, contextual),
+        titles=titles,
+        titles_recall=_ratio(titles_caught, titles),
+        dates=dates,
+        dates_recall=_ratio(dates_caught, dates),
         decoys=decoys,
         decoys_kept=_ratio(decoys_kept, decoys),
         entries=len(outcomes),
