@@ -1,6 +1,6 @@
 # Spec 011: Redaction and pseudonymization
 
-**Status:** Draft. The owner decided Q1–Q17 (§8) and approved the reviews' fixes (§8.1–§8.3), and the plan for `redaction_v3` (§8.4).
+**Status:** Draft. The owner decided Q1–Q17 (§8) and approved the reviews' fixes (§8.1–§8.3), the plan for `redaction_v3` (§8.4), and the plan for `redaction_v4` (§8.5).
 **Builds on:** spec 006 (local model, Ollama controls), spec 010 (personal context). Next Milestone 3 slice.
 
 ## 1. Goal
@@ -384,6 +384,25 @@ The measurement on 2026-11-20 (§10) found that `redaction_v2` caught 2 of the 1
 - **`dev`:** 10 more entries per language, with such posts and dates, to tune on. They also carry decoys of both kinds: posts many people share at a named institution, and dates of private events. `dev`'s existing labels follow rules 1 and 3 once `mixed-dev-10`'s title is aligned and `mixed-dev-07`'s "our anniversary on the 3rd of May", which doesn't say it's a wedding, becomes a decoy. The README's labelling rules are updated with the data.
 - **A new held-out split, `test`,** of 50 entries per language, each language written on its own rather than translated, with about 20 titles and 20 dates per language that follow rules 1 to 3, and decoys of both kinds above. The towns and institutions in its titles are checked with a web search to make sure they're invented, and every split's entries are checked against v3's wording, names and sentence frames before the held-out run (rule 2).
 - **The current `test` split becomes `test_v2`.** Only its title labels change (rule 1). Its date labels stay as written under `redaction_v2`'s broader rule, which also counted private events such as a first date, a last chemotherapy session or a stroke, because it isn't measured again.
+
+### 8.5 Plan for `redaction_v4`
+
+`redaction_v3` met every bar in English and mixed on its held-out run, but Portuguese contextual recall was 81.5%, under the 85% bar (§10). Five of Portuguese's six missed titles have one shape: "o/a [post] do/da [org], o senhor/a dona [name]", such as "o gerente da agência do [ORG_1], o senhor [PERSON_1]". The model replaced the organization and the name and kept the post. `dev` had one Portuguese title of that shape, and v3 missed it on every run. The owner chose a `redaction_v4` tuned for these titles, with new data and a new held-out split, over changing the bar (2026-11-27). `redaction_v2` stays in use until a prompt meets every bar.
+
+Approved by the owner, with every recommendation of the open questions (2026-11-27):
+
+1. **The bars and the labelling rules stay as they are** (§2.6, §8.4 rules 1 to 3).
+2. **`redaction_v4` starts from `redaction_v3`** and is tuned on `dev` the same way: framed for the owner with up to five questions before it's drafted (CLAUDE.md, Prompts), one change at a time, every run saved, the frame check against every split before the held-out run, and one held-out run. **The stop rule:** tuning stops when title and date recall are at least 85% in every language on `dev`, with decoys kept at 90% or more and every bar met, or after 4 `dev` runs in total, whichever comes first; a run more needs the owner's leave. Either way the `dev` results and misses go to the owner before the held-out run. (For v3 the 4-run limit applied to each of its two steps, and the owner allowed two runs more: §10.)
+3. **The spent split is renamed.** `test` becomes `test_v3`, like `test_v1` and `test_v2`, and isn't measured again.
+4. **`dev` grows by 10 entries per language** (owner's decision on open question 3) (`*-dev-31` to `-40`), so that tuning sees the shapes the held-out split tests:
+   - Portuguese: at least five titles of the shape above, with different posts, bodies and forms of address, and a rank before a name ("o mestre [name]") next to a title, as in `pt-test-v3-41`;
+   - English and mixed: posts of the kinds v3 missed (landlord, rector, treasurer, chair, coach, captain, mother superior), with words other than those;
+   - in every language, visible dates written in the ways v3 kept them: a wedding anniversary named by its gift ("bodas de prata", "ruby wedding"), a birthday as "o dia dos meus anos", and an accident said to have been in the news;
+   - decoys of the same kinds: posts many people share at a named place, and dates of private events.
+5. **A new held-out split, `test`,** of 50 entries per language, written to §8.4's rules like `*-test-v3-*` (`*-test-v4-01` to `-50`): about 20 titles and 20 dates per language, each language written on its own, towns and institutions checked with a web search to be invented, and values new to the whole set. Its titles cover the shapes `dev` covers in about the same share as `*-test-v3-*` had them, so the split doesn't favour what v4 is tuned on.
+6. **`measured_prompt.json` names the split as it's called now** (owner's decision on open question 1). Its record of `redaction_v2` says `split: "test"`, the name of that split when v2 was measured; it has been stale since PR #74 renamed that split `test_v2` and gave `test` the `*-test-v3-*` entries, which v2 was never measured on. The data PR sets it to `test_v2`, and AC-12 then checks that the recorded split is a held-out one (`test` or a `test_vN`) rather than `test` itself. A record is renamed with its split each time one is retired.
+7. **A joining word between two placeholders still counts as a miss** (owner's decision on open question 2). In `pt-test-v3-15` the model gave "Correios de Mesão Frio" as `[ORG_1] de [PLACE_1]`, and the extra "de" counted against both that organization and the date "28 de junho", one direct and one contextual identifier. The rule stays: the bars were set with it, and a looser count would lower them in effect.
+8. **Delivery:** this spec change, then a data PR (items 3 to 6), then the prompt PR, each approved by the owner, as for v3. Besides the entries, the data PR adds `test_v3` to `SPLITS` in `lumen.privacy.evaluation` and updates its comment, §2.6's counts (entries, splits and distressing entries), the README's list of splits with a `test_v3` paragraph like those for `test_v1` and `test_v2` and its count of distressing entries, `measured_prompt.json` (item 6) and AC-12, and two tests: the split names allowed in `tests/privacy/test_eval_set.py`, and the entry and held-out counts in `test_the_evaluation_set_is_what_the_spec_says` (870 entries, 150 held out).
 
 ## 9. Open questions
 
