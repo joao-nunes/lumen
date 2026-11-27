@@ -60,6 +60,10 @@ def metrics(**changes: float) -> Metrics:
         direct_recall=0.95,
         contextual=20,
         contextual_recall=0.85,
+        titles=5,
+        titles_recall=0.0,
+        dates=5,
+        dates_recall=0.0,
         decoys=10,
         decoys_kept=0.90,
         entries=10,
@@ -118,6 +122,31 @@ def test_direct_and_contextual_identifiers_and_decoys_are_measured_apart() -> No
     assert result.contextual_recall == pytest.approx(2 / 3)
     assert (result.decoys, result.decoys_kept) == (2, 0.5)
     assert result.right_type == 1.0
+
+
+def test_titles_and_dates_are_also_measured_on_their_own() -> None:
+    # Spec 011 §8.4: redaction_v3 reports title and date recall per language, with no bar.
+    e = entry(
+        "The vicar of Elm Hill wed us on 2 May; the warden came, the bursar too,"
+        " and Ben on 9 June.",
+        ("vicar", T.ROLE),
+        ("Elm Hill", T.PLACE),
+        ("2 May", T.DATE),
+        ("warden", T.ROLE),
+        ("bursar", T.ROLE),
+        ("Ben", T.PERSON),
+        ("9 June", T.DATE),
+    )
+    output = (
+        "The [ROLE_1] of [PLACE_1] wed us on [DATE_1]; the warden came, the [ROLE_2] too,"
+        " and [PERSON_1] on 9 June."
+    )
+
+    result = measure([outcome(e, output)])
+
+    assert (result.titles, result.titles_recall) == (3, pytest.approx(2 / 3))
+    assert (result.dates, result.dates_recall) == (2, 0.5)
+    assert (result.contextual, result.contextual_recall) == (6, pytest.approx(4 / 6))
 
 
 def test_a_caught_identifier_with_the_wrong_placeholder_type_is_counted_as_a_wrong_type() -> None:
