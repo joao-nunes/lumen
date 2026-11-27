@@ -385,9 +385,28 @@ The measurement on 2026-11-20 (§10) found that `redaction_v2` caught 2 of the 1
 - **A new held-out split, `test`,** of 50 entries per language, each language written on its own rather than translated, with about 20 titles and 20 dates per language that follow rules 1 to 3, and decoys of both kinds above. The towns and institutions in its titles are checked with a web search to make sure they're invented, and every split's entries are checked against v3's wording, names and sentence frames before the held-out run (rule 2).
 - **The current `test` split becomes `test_v2`.** Only its title labels change (rule 1). Its date labels stay as written under `redaction_v2`'s broader rule, which also counted private events such as a first date, a last chemotherapy session or a stroke, because it isn't measured again.
 
+### 8.5 Plan for `redaction_v4`
+
+`redaction_v3` met every bar in English and mixed on its held-out run, but Portuguese contextual recall was 81.5%, under the 85% bar (§10). Five of Portuguese's six missed titles have one shape: "o/a [post] do/da [org], o senhor/a dona [name]", such as "o gerente da agência do [ORG_1], o senhor [PERSON_1]". The model replaced the organization and the name and kept the post. `dev` had one Portuguese title of that shape, and v3 missed it on every run. The owner chose a `redaction_v4` tuned for these titles, with new data and a new held-out split, over changing the bar (2026-11-27). `redaction_v2` stays in use until a prompt meets every bar.
+
+Proposed, for the owner to approve:
+
+1. **The bars and the labelling rules stay as they are** (§2.6, §8.4 rules 1 to 3).
+2. **`redaction_v4` starts from `redaction_v3`** and is tuned on `dev` the same way: one change at a time, every run saved, the frame check against every split before the held-out run, and one held-out run. The stop rule is v3's: title and date recall of at least 85% in every language on `dev`, with decoys kept at 90% or more, or 4 `dev` runs, then a report to the owner before the held-out run.
+3. **The spent split is renamed.** `test` becomes `test_v3`, like `test_v1` and `test_v2`, and isn't measured again.
+4. **`dev` grows by 10 entries per language** (`*-dev-31` to `-40`), so that tuning sees the shapes the held-out split tests:
+   - Portuguese: at least five titles of the shape above, with different posts, bodies and forms of address, and a rank before a name ("o mestre [name]") next to a title, as in `pt-test-v3-41`;
+   - English and mixed: posts of the kinds v3 missed (landlord, rector, treasurer, chair, coach, captain, mother superior), with words other than those;
+   - in every language, visible dates written in the ways v3 kept them: a wedding anniversary named by its gift ("bodas de prata", "ruby wedding"), a birthday as "o dia dos meus anos", and an accident said to have been in the news;
+   - decoys of the same kinds: posts many people share at a named place, and dates of private events.
+5. **A new held-out split, `test`,** of 50 entries per language, written to §8.4's rules like `*-test-v3-*` (`*-test-v4-01` to `-50`): about 20 titles and 20 dates per language, each language written on its own, towns and institutions checked with a web search to be invented, and values new to the whole set. Its titles cover the shapes `dev` covers in about the same share as `*-test-v3-*` had them, so the split doesn't favour what v4 is tuned on.
+6. **Delivery:** this spec change, then a data PR (items 3 to 5), then the prompt PR, each approved by the owner, as for v3.
+
 ## 9. Open questions
 
-None.
+1. **Which split does `measured_prompt.json` name?** It records `redaction_v2` with `split: "test"`, the name of its split when it was measured, which is now `test_v2`; AC-12 checks for `test`. Once item 3 renames the spent split and a new `test` exists, that record would point at entries v2 was never measured on. Recommended: the record names the split as it's called now (`test_v2`), the data PR updates it, and AC-12 checks that the split is one of the held-out ones (`test` or a `test_vN`) rather than `test` itself.
+2. **Should a joining word between two placeholders still count as a miss?** In `pt-test-v3-15` the model gave "Correios de Mesão Frio" as `[ORG_1] de [PLACE_1]`, and the extra "de" counted against both that organization and the date "28 de junho". Recommended: keep the rule. The bars were set with it, a looser count lowers them in effect, and the case cost one identifier. The alternative is to ignore "de", "da", "do", "of" and similar words that stand between two placeholders, decided now, before any v4 measurement.
+3. **How many new `dev` entries?** Recommended: 10 per language, as item 4 proposes, so that `dev` stays balanced at 40 per language. The alternative is 10 for Portuguese only, which is less work, but English and mixed missed titles on the held-out split too.
 
 ## 10. Added during implementation (for review)
 
