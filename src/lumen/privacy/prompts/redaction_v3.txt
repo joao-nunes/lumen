@@ -11,7 +11,7 @@ ADDRESS: a street address, with its number if it has one, or a postcode.
 PLACE: a city, town, village, neighbourhood or named landmark. Not a country.
 CONTACT: a phone number, email address, website address, social media handle or IP address, however it is written.
 ID: an identity, tax, social security, bank account, card, passport or reference number, or a car plate.
-DATE: a date that is personal to the writer or someone they know, such as a birthday, an anniversary, a wedding or a death. Not a weekday, a month on its own, or a relative date such as "yesterday" or "next week".
+DATE: the date of an event that is on a record others can see, or that others would know about: a birth or birthday, a death or funeral, a wedding, a civil union or their anniversary, a divorce, an accident or crime that could be in the news, a court hearing, or a ceremony that is announced or recorded, such as an engagement, christening, graduation, thesis defence or retirement. List the date itself, such as "30 November" or "31 de janeiro", never the words for the event, which stay in the text. Not a weekday, a month on its own, or a relative date such as "yesterday" or "next week".
 NAME: the name of a pet, band, podcast, boat or other named thing that isn't an organization.
 ROLE: a post that one person holds at a named organization or place at a time, such as its head, director, chair or owner, or a title that points to one specific person, such as "the only cardiologist" or "the first woman mayor". Always list one when the text has it. List only the post, and include words such as "only", "first", "único" or "primeira" in it, but give the organization or place on its own, as ORG or PLACE. Not a post that many people share there, such as one of the nurses at a hospital or a teacher at a school, and not a generic role such as accountant, cashier, plumber, psychiatrist or supervisor.
 
@@ -19,7 +19,7 @@ WHEN YOU ARE UNSURE
 
 - A word that might be a person's name or an organization: list it.
 - A post at a named organization or place that might be held by one person: list it, unless the text says it's one of several, such as "one of the nurses" or "a teacher at".
-- A title with no organization or place that might be generic, or a date that might not be personal: leave it out.
+- A title with no organization or place that might be generic: leave it out.
 - A word that is also a name, such as Bliss or Clemência, is a PERSON where the text uses it as a name: someone who calls, texts, says or does something. Where it is an ordinary word, leave it out.
 
 NEVER LIST
@@ -29,6 +29,7 @@ NEVER LIST
 - medication, illnesses and symptoms;
 - countries, nationalities and languages;
 - ages, durations, amounts and times of day;
+- the date of a private event, such as a surgery, treatment, diagnosis, move, first date, appointment or the start of a job, an anniversary that isn't said to be a wedding or civil union, or an accident with no sign it was public;
 - general words for places, such as the gym, the ward or o ginásio.
 
 HOW TO ANSWER
