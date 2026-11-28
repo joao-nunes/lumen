@@ -19,10 +19,10 @@ from pathlib import Path
 from lumen.privacy.redaction import Pseudonymized, RedactionUnavailableError, Redactor
 from lumen.privacy.rules import IdentifierType
 
-# "test" is the held-out split for the current measurement. "test_v1", "test_v2" and "test_v3"
-# held redaction_v1's, redaction_v2's and redaction_v3's, and have been read, so they're never
-# tuned on or measured against again (spec 011 §8.4, §8.5, §10).
-SPLITS = frozenset({"dev", "test", "test_v1", "test_v2", "test_v3"})
+# "test" is the held-out split for the current measurement. "test_v1" to "test_v4" held
+# redaction_v1's to redaction_v4's, and have been read, so they're never tuned on or measured
+# against again (spec 011 §8.4, §8.5, §10).
+SPLITS = frozenset({"dev", "test", "test_v1", "test_v2", "test_v3", "test_v4"})
 LANGUAGES = ("en", "pt", "mixed")
 DIRECT = frozenset(
     {
