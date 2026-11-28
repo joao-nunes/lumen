@@ -2,5 +2,5 @@
   "prompt": "redaction_v2",
   "sha256": "07efb170e883adc543745276c7773242dc25f2657aade94b04f6cb47d8030909",
   "model": "gemma4:26b",
-  "split": "test"
+  "split": "test_v2"
 }

@@ -344,7 +344,7 @@ def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(EVALS / "entries.jsonl")
 
     held_out = [e for e in entries if e.split == "test"]
-    assert (len(entries), len(held_out)) == (690, 150)
+    assert (len(entries), len(held_out)) == (870, 150)
     for language in ("en", "pt", "mixed"):
         own = [e for e in held_out if e.language == language]
         found = [i.type for e in own for i in e.identifiers]
