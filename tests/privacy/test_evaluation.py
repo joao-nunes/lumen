@@ -343,8 +343,10 @@ def test_loading_refuses_a_label_the_measurement_couldn_t_use(tmp_path: Path) ->
 def test_the_evaluation_set_is_what_the_spec_says() -> None:
     entries = load_entries(EVALS / "entries.jsonl")
 
-    held_out = [e for e in entries if e.split == "test"]
+    # Spec 011 §10: redaction_v4's split is spent and renamed, and no new one is written yet.
+    held_out = [e for e in entries if e.split == "test_v4"]
     assert (len(entries), len(held_out)) == (870, 150)
+    assert not [e for e in entries if e.split == "test"]
     for language in ("en", "pt", "mixed"):
         own = [e for e in held_out if e.language == language]
         found = [i.type for e in own for i in e.identifiers]
